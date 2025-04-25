@@ -1,0 +1,582 @@
+/* Stocks styling with stock- prefix - Creative Redesign */
+
+/* ========== Global / Base ========== */
+:root {
+  /* Define theme colors */
+  --stock-primary-color: #e66a6a;
+  --stock-primary-darker: #d35454; /* Slightly darker shade */
+  --stock-primary-gradient: linear-gradient(135deg, #e66a6a 0%, #d35454 100%);
+  --stock-accent-orange: #e67e22;
+  --stock-accent-orange-darker: #d35400;
+  --stock-text-primary: #343a40; /* Darker gray for text */
+  --stock-text-secondary: #6c757d; /* Medium gray */
+  --stock-background-light: #f8f9fa;
+  --stock-background-white: #ffffff;
+  --stock-border-color: #e0e0e0; /* Lighter border */
+  --stock-success-color: #2ecc71; /* Brighter green */
+  --stock-info-color: #3498db; /* Brighter blue */
+  --stock-warning-color: #f1c40f; /* Yellow */
+  --stock-danger-color: #e74c3c; /* Brighter red */
+
+  /* Define spacing and radius */
+  --stock-spacing-xs: 4px;
+  --stock-spacing-sm: 8px;
+  --stock-spacing-md: 16px;
+  --stock-spacing-lg: 24px;
+  --stock-spacing-xl: 32px;
+  --stock-border-radius-sm: 4px;
+  --stock-border-radius-md: 8px; /* Slightly larger default radius */
+}
+
+/* ========== Container / Layout ========== */
+.stock-container {
+  padding: var(--stock-spacing-lg);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  background-color: var(--stock-background-white);
+  color: var(--stock-text-primary);
+}
+
+.stock-container h1 {
+  margin-bottom: var(--stock-spacing-lg); /* More space below title */
+  font-size: 2rem;
+  font-weight: 700; /* Bolder title */
+  color: var(--stock-primary-color); /* Use primary color for title */
+}
+
+/* ========== Summary Cards ========== */
+.stock-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(220px, 1fr)
+  ); /* Slightly larger min width */
+  gap: var(--stock-spacing-lg); /* More gap */
+  margin-bottom: var(--stock-spacing-xl);
+}
+
+.stock-summary-card {
+  background: var(--stock-background-white);
+  padding: var(--stock-spacing-lg); /* More padding */
+  border-radius: var(--stock-border-radius-md);
+  border: 1px solid var(--stock-border-color);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); /* Softer, larger shadow */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: default;
+}
+
+.stock-summary-card:hover {
+  transform: translateY(-5px); /* Lift effect */
+  box-shadow: 0 8px 25px rgba(230, 106, 106, 0.1); /* Colored shadow hint on hover */
+}
+
+.stock-card-title {
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 600; /* Bolder title */
+  margin-bottom: var(--stock-spacing-sm);
+  color: var(--stock-text-secondary);
+  text-transform: none; /* Normal case */
+  letter-spacing: 0;
+}
+
+.stock-card-value {
+  text-align: left;
+  font-size: 1.75rem; /* Larger value */
+  font-weight: 700; /* Bolder value */
+  color: var(--stock-primary-color); /* Use primary color for value */
+}
+
+/* ========== Controls (Search, Buttons) ========== */
+.stock-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--stock-spacing-md);
+  margin-bottom: var(--stock-spacing-lg);
+}
+
+.stock-search {
+  flex: 1 1 300px;
+  padding: 0.75rem 1rem; /* Larger padding */
+  border: 1px solid var(--stock-border-color);
+  border-radius: var(--stock-border-radius-md);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.stock-search:focus {
+  outline: none;
+  border-color: var(--stock-primary-color);
+  box-shadow: 0 0 0 3px rgba(230, 106, 106, 0.2);
+}
+
+.stock-controls-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--stock-spacing-sm);
+  margin-left: auto;
+}
+
+/* --- Creative Button Styling --- */
+/* Base button reset */
+.stock-add-btn,
+.stock-tag-btn,
+.stock-export-btn,
+.stock-snapshot-btn {
+  border: none;
+  border-radius: var(--stock-border-radius-md);
+  padding: 0.75rem 1.25rem; /* Larger padding */
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600; /* Bolder text */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--stock-spacing-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.3s ease;
+  text-transform: uppercase; /* Uppercase text */
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Base shadow */
+}
+.stock-add-btn:hover,
+.stock-tag-btn:hover,
+.stock-export-btn:hover,
+.stock-snapshot-btn:hover {
+  transform: translateY(-2px); /* Lift on hover */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); /* Larger shadow on hover */
+}
+.stock-add-btn:active,
+.stock-tag-btn:active,
+.stock-export-btn:active,
+.stock-snapshot-btn:active {
+  transform: translateY(0px); /* Press down effect */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Add Button ("Tambah Barang Baru") */
+.stock-add-btn {
+  background: var(--stock-primary-gradient); /* Use gradient */
+  color: var(--stock-background-white);
+}
+.stock-add-btn:hover {
+  /* Gradient slightly shifts on hover - subtle effect */
+  background: linear-gradient(135deg, #e66a6a 20%, #d35454 100%);
+}
+
+/* Tag Button ("Generate Price Tag") */
+.stock-tag-btn {
+  background: var(--stock-accent-orange);
+  color: var(--stock-background-white);
+}
+.stock-tag-btn:hover {
+  background: var(--stock-accent-orange-darker);
+}
+
+/* Export Button */
+.stock-export-btn {
+  background: var(--stock-background-white);
+  color: var(--stock-info-color);
+  border: 1px solid var(--stock-info-color);
+  box-shadow: none; /* Remove base shadow for outlined button */
+}
+.stock-export-btn:hover {
+  background: rgba(52, 152, 219, 0.1); /* Light blue background */
+  color: #2980b9; /* Darker blue */
+  border-color: #2980b9;
+  box-shadow: 0 2px 5px rgba(52, 152, 219, 0.1); /* Subtle colored shadow */
+}
+
+/* Snapshot Button */
+.stock-snapshot-btn {
+  background: var(--stock-background-white);
+  color: var(--stock-text-secondary); /* Secondary text color */
+  border: 1px solid var(--stock-border-color);
+  box-shadow: none;
+}
+.stock-snapshot-btn:hover {
+  background: var(--stock-background-light);
+  color: var(--stock-text-primary);
+  border-color: #adb5bd;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* ========== Table Styles ========== */
+.stock-table-wrapper {
+  overflow-x: auto;
+  border: none; /* Remove wrapper border */
+  border-radius: var(--stock-border-radius-md);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07); /* Add shadow to table wrapper */
+  margin-bottom: var(--stock-spacing-xl);
+  background: var(--stock-background-white); /* Ensure background */
+}
+
+.stock-table {
+  width: 100%;
+  border-collapse: separate; /* Use separate for spacing */
+  border-spacing: 0; /* Reset spacing */
+  color: var(--stock-text-primary);
+}
+
+.stock-table th,
+.stock-table td {
+  text-align: left;
+  padding: var(--stock-spacing-md); /* More padding */
+  border-bottom: 1px solid var(--stock-border-color);
+  vertical-align: middle;
+  font-size: 0.95rem; /* Slightly larger font */
+}
+/* Remove bottom border from last row */
+.stock-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.stock-table th {
+  font-weight: 600;
+  background-color: var(--stock-background-light);
+  color: var(--stock-text-secondary);
+  text-transform: none; /* Normal case headers */
+  font-size: 0.9rem;
+  letter-spacing: 0;
+  border-bottom-width: 2px; /* Thicker bottom border for header */
+  border-color: #ced4da; /* Slightly darker border */
+}
+/* Round corners for header */
+.stock-table thead th:first-child {
+  border-top-left-radius: var(--stock-border-radius-md);
+}
+.stock-table thead th:last-child {
+  border-top-right-radius: var(--stock-border-radius-md);
+}
+
+/* Sticky Header */
+.stock-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--stock-background-light);
+}
+
+.stock-table tbody tr:hover {
+  background-color: #fff8f8; /* Even subtler red tint */
+}
+
+/* Sortable Header Cells */
+.stock-sortable {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--stock-spacing-sm); /* More gap */
+  transition: color 0.2s ease;
+  color: var(--stock-text-secondary); /* Match header text */
+}
+.stock-sortable:hover {
+  color: var(--stock-primary-color); /* Highlight on hover */
+}
+
+.stock-sort-icon {
+  font-size: 1rem; /* Larger icon */
+  color: inherit; /* Inherit color */
+  transition: transform 0.2s ease;
+}
+/* Active sort icon */
+.stock-sort-active {
+  color: var(--stock-primary-color); /* Active color */
+  font-weight: 700; /* Bolder active header */
+}
+.stock-sort-asc .stock-sort-icon {
+  transform: rotate(180deg);
+}
+.stock-sort-desc .stock-sort-icon {
+  transform: rotate(0deg);
+}
+
+/* Table Checkbox */
+.stock-table input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px; /* Larger checkbox */
+  height: 18px;
+  accent-color: var(--stock-primary-color);
+  vertical-align: middle;
+}
+
+/* ========== Dropdown Menu ========== */
+.stock-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  background: var(--stock-background-white);
+  border: 1px solid #ccc; /* Keep standard border */
+  z-index: 999;
+  border-radius: var(--stock-border-radius-md);
+  min-width: 160px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15); /* Enhanced shadow */
+  padding: var(--stock-spacing-sm) 0;
+  opacity: 1;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform-origin: top right; /* Animate from top right */
+}
+
+.stock-dropdown-item {
+  padding: var(--stock-spacing-sm) var(--stock-spacing-md);
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--stock-text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--stock-spacing-sm);
+  white-space: nowrap;
+}
+.stock-dropdown-item:hover {
+  background-color: #f5f5f5; /* Use lighter primary */
+  color: var(--stock-primary-darker);
+}
+
+/* ========== Modal ========== */
+.stock-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(33, 37, 41, 0.7); /* Darker overlay using text color */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--stock-spacing-md);
+}
+
+.stock-modal-content {
+  background-color: var(--stock-background-white);
+  border-radius: var(--stock-border-radius-md);
+  padding: 0;
+  width: 650px; /* Even wider modal */
+  max-width: 100%;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Modal Header */
+.stock-modal-content h2 {
+  margin: 0;
+  padding: var(--stock-spacing-md) var(--stock-spacing-lg);
+  background: var(--stock-primary-gradient); /* Use gradient */
+  color: white;
+  font-size: 1.4rem; /* Larger title */
+  font-weight: 600;
+  border-radius: var(--stock-border-radius-md) var(--stock-border-radius-md) 0 0; /* Round top corners */
+}
+
+/* Modal Body */
+.stock-modal-body {
+  padding: var(--stock-spacing-lg);
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+/* Modal Footer / Dialog Buttons */
+.stock-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--stock-spacing-md); /* More gap */
+  padding: var(--stock-spacing-md) var(--stock-spacing-lg);
+  border-top: 1px solid var(--stock-border-color);
+  background-color: var(--stock-background-light);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/* Modal Buttons Styling */
+.stock-dialog-buttons button {
+  padding: 0.6rem 1.25rem; /* Adjust padding */
+  font-weight: 600;
+  border-radius: var(--stock-border-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Cancel/Secondary Button */
+.stock-dialog-buttons button:first-child {
+  background-color: var(--stock-background-white);
+  color: var(--stock-text-secondary);
+  border: 1px solid var(--stock-border-color);
+}
+.stock-dialog-buttons button:first-child:hover {
+  background-color: var(--stock-background-light);
+  border-color: #adb5bd;
+  color: var(--stock-text-primary);
+}
+
+/* Confirm/Primary Button */
+.stock-dialog-buttons button:last-child {
+  background: var(--stock-primary-gradient); /* Use gradient */
+  color: white;
+  border: none;
+}
+.stock-dialog-buttons button:last-child:hover {
+  background: linear-gradient(135deg, #e66a6a 20%, #d35454 100%);
+}
+
+/* Form Elements inside Modal */
+.form-group {
+  margin-bottom: var(--stock-spacing-lg); /* More space */
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-weight: 500;
+  margin-bottom: var(--stock-spacing-sm); /* More space */
+  font-size: 0.95rem; /* Larger label */
+  color: var(--stock-text-secondary);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.75rem 1rem; /* Match search */
+  border: 1px solid var(--stock-border-color);
+  border-radius: var(--stock-border-radius-md);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  background-color: var(--stock-background-white);
+  color: var(--stock-text-primary);
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--stock-primary-color);
+  box-shadow: 0 0 0 3px rgba(230, 106, 106, 0.2);
+}
+
+/* Currency Input Styling */
+.currency-input {
+  position: relative;
+}
+.currency-prefix {
+  position: absolute;
+  left: 16px; /* Match input padding */
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--stock-text-secondary);
+  font-size: 1rem;
+  pointer-events: none;
+}
+.currency-input input {
+  padding-left: 45px; /* More space for prefix */
+}
+
+/* Pseudo-checkbox style */
+.checkbox-group {
+  display: flex;
+  gap: var(--stock-spacing-sm);
+  flex-wrap: wrap;
+}
+
+.pseudo-checkbox {
+  border: 1px solid var(--stock-border-color);
+  border-radius: var(--stock-border-radius-md);
+  padding: var(--stock-spacing-xs) var(--stock-spacing-md);
+  cursor: pointer;
+  background: var(--stock-background-white);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+.pseudo-checkbox:hover {
+  border-color: var(--stock-primary-color);
+}
+.pseudo-checkbox.selected {
+  border-color: var(--stock-primary-color);
+  background: #ffe6e6;
+  font-weight: 500;
+}
+
+/* Price fields list */
+.price-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stock-spacing-md);
+}
+
+.price-field {
+  display: flex;
+  gap: var(--stock-spacing-md);
+  align-items: center;
+}
+
+.price-field span {
+  width: 60px;
+  text-align: right;
+  font-size: 0.9rem;
+  color: var(--stock-text-secondary);
+  font-weight: 500;
+}
+
+/* ========== Snackbar ========== */
+.stock-snackbar {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--stock-success-color);
+  color: white;
+  padding: var(--stock-spacing-md);
+  border-radius: var(--stock-border-radius-md);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  z-index: 1100;
+  font-size: 1rem;
+}
+
+/* ========== Date Picker / Snapshot ========== */
+.stock-date-picker-container {
+  position: relative;
+}
+
+.stock-date-picker-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 280px;
+  background: var(--stock-background-white);
+  border: 1px solid var(--stock-border-color);
+  border-radius: var(--stock-border-radius-md);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+  padding: var(--stock-spacing-md);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--stock-spacing-md);
+}
+
+.stock-date-picker-popup input[type="date"] {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--stock-border-color);
+  border-radius: var(--stock-border-radius-md);
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+.stock-date-picker-popup button {
+  padding: 0.6rem 1rem;
+  background-color: var(--stock-info-color);
+  color: white;
+  border: none;
+  border-radius: var(--stock-border-radius-md);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  align-self: flex-end;
+}
+.stock-date-picker-popup button:hover {
+  background-color: #0a58ca;
+}
+
+/* Snapshot dialog */
+.stock-snapshot-dialog p {
+  margin: 20px;
+  font-size: 1.1rem;
+  text-align: center;
+}
