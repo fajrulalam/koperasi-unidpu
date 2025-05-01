@@ -141,14 +141,16 @@
 .stock-add-btn:hover,
 .stock-tag-btn:hover,
 .stock-export-btn:hover,
-.stock-snapshot-btn:hover {
+.stock-snapshot-btn:hover,
+.stock-discrepancy-btn:hover {
   transform: translateY(-2px); /* Lift on hover */
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); /* Larger shadow on hover */
 }
 .stock-add-btn:active,
 .stock-tag-btn:active,
 .stock-export-btn:active,
-.stock-snapshot-btn:active {
+.stock-snapshot-btn:active,
+.stock-discrepancy-btn:active {
   transform: translateY(0px); /* Press down effect */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -170,6 +172,40 @@
 }
 .stock-tag-btn:hover {
   background: var(--stock-accent-orange-darker);
+}
+
+/* Discrepancy Button */
+.stock-discrepancy-btn {
+  background: linear-gradient(135deg, var(--stock-warning-color) 0%, #e6b800 100%);
+  color: #333; /* Dark text for better contrast with yellow */
+  font-weight: 600;
+  border: none;
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+.stock-discrepancy-btn:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #e6b800 0%, var(--stock-warning-color) 100%);
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.3s ease;
+}
+.stock-discrepancy-btn:hover {
+  color: #222;
+  box-shadow: 0 4px 10px rgba(241, 196, 15, 0.25);
+}
+.stock-discrepancy-btn:hover:before {
+  opacity: 1;
+}
+.stock-discrepancy-btn:active {
+  transform: translateY(0px);
+  box-shadow: 0 2px 5px rgba(241, 196, 15, 0.2);
 }
 
 /* Export Button */
@@ -303,7 +339,7 @@
 /* ========== Dropdown Menu ========== */
 .stock-dropdown {
   position: absolute;
-  top: calc(100% + 5px);
+  top: 100%;
   right: 0;
   background: var(--stock-background-white);
   border: 1px solid #ccc; /* Keep standard border */
@@ -312,9 +348,16 @@
   min-width: 160px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15); /* Enhanced shadow */
   padding: var(--stock-spacing-sm) 0;
-  opacity: 1;
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95); /* Add scale effect */
+  pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
   transform-origin: top right; /* Animate from top right */
+}
+.stock-dropdown-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
 }
 
 .stock-dropdown-item {
@@ -328,7 +371,7 @@
   white-space: nowrap;
 }
 .stock-dropdown-item:hover {
-  background-color: #f5f5f5; /* Use lighter primary */
+  background-color: var(--stock-primary-lighter); /* Use lighter primary */
   color: var(--stock-primary-darker);
 }
 
@@ -342,6 +385,13 @@
   justify-content: center;
   z-index: 1000;
   padding: var(--stock-spacing-md);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.stock-modal-open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .stock-modal-content {
@@ -355,17 +405,26 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transform: translateY(20px); /* Start lower */
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); /* Smoother ease */
+}
+.stock-modal-open .stock-modal-content {
+  transform: translateY(0);
 }
 
 /* Modal Header */
-.stock-modal-content h2 {
-  margin: 0;
+.stock-modal-header {
   padding: var(--stock-spacing-md) var(--stock-spacing-lg);
   background: var(--stock-primary-gradient); /* Use gradient */
   color: white;
+  border-bottom: none;
+  flex-shrink: 0;
+  border-radius: var(--stock-border-radius-md) var(--stock-border-radius-md) 0 0; /* Round top corners */
+}
+.stock-modal-header h2 {
+  margin: 0;
   font-size: 1.4rem; /* Larger title */
   font-weight: 600;
-  border-radius: var(--stock-border-radius-md) var(--stock-border-radius-md) 0 0; /* Round top corners */
 }
 
 /* Modal Body */
@@ -384,16 +443,24 @@
   border-top: 1px solid var(--stock-border-color);
   background-color: var(--stock-background-light);
   flex-shrink: 0;
-  margin: 0;
+  border-radius: 0 0 var(--stock-border-radius-md) var(--stock-border-radius-md); /* Round bottom corners */
 }
 
 /* Modal Buttons Styling */
 .stock-dialog-buttons button {
+  /* Inherit base .stock-btn styles defined earlier */
   padding: 0.6rem 1.25rem; /* Adjust padding */
   font-weight: 600;
-  border-radius: var(--stock-border-radius-md);
-  cursor: pointer;
-  transition: all 0.2s ease;
+  text-transform: none; /* Normal case for dialog buttons */
+  letter-spacing: 0;
+  box-shadow: none; /* Remove base shadow */
+}
+.stock-dialog-buttons button:hover {
+  transform: none; /* No lift */
+  box-shadow: none;
+}
+.stock-dialog-buttons button:active {
+  transform: scale(0.98); /* Press effect */
 }
 
 /* Cancel/Secondary Button */
@@ -407,7 +474,6 @@
   border-color: #adb5bd;
   color: var(--stock-text-primary);
 }
-
 /* Confirm/Primary Button */
 .stock-dialog-buttons button:last-child {
   background: var(--stock-primary-gradient); /* Use gradient */
@@ -451,6 +517,10 @@
   border-color: var(--stock-primary-color);
   box-shadow: 0 0 0 3px rgba(230, 106, 106, 0.2);
 }
+.form-group textarea {
+  min-height: 80px; /* Give textarea some height */
+  resize: vertical; /* Allow vertical resize */
+}
 
 /* Currency Input Styling */
 .currency-input {
@@ -478,19 +548,22 @@
 
 .pseudo-checkbox {
   border: 1px solid var(--stock-border-color);
-  border-radius: var(--stock-border-radius-md);
-  padding: var(--stock-spacing-xs) var(--stock-spacing-md);
+  border-radius: 20px; /* Pill shape */
+  padding: var(--stock-spacing-xs) var(--stock-spacing-md); /* Adjust padding */
   cursor: pointer;
-  background: var(--stock-background-white);
+  background: var(--stock-background-light); /* Light background */
   font-size: 0.9rem;
-  transition: all 0.2s ease;
+  color: var(--stock-text-secondary);
+  transition: all 0.2s ease; /* Smooth transition */
 }
 .pseudo-checkbox:hover {
   border-color: var(--stock-primary-color);
+  color: var(--stock-primary-color);
 }
 .pseudo-checkbox.selected {
   border-color: var(--stock-primary-color);
-  background: #ffe6e6;
+  background: var(--stock-primary-color); /* Solid background when selected */
+  color: var(--stock-background-white);
   font-weight: 500;
 }
 
@@ -498,36 +571,60 @@
 .price-field-list {
   display: flex;
   flex-direction: column;
-  gap: var(--stock-spacing-md);
+  gap: var(--stock-spacing-md); /* More space */
 }
 
 .price-field {
   display: flex;
-  gap: var(--stock-spacing-md);
+  gap: var(--stock-spacing-md); /* More space */
   align-items: center;
 }
 
 .price-field span {
-  width: 60px;
+  /* Label (e.g., HNA) */
+  width: 60px; /* Wider label */
   text-align: right;
   font-size: 0.9rem;
   color: var(--stock-text-secondary);
   font-weight: 500;
 }
+.price-field .currency-input {
+  flex-grow: 1;
+}
 
 /* ========== Snackbar ========== */
 .stock-snackbar {
   position: fixed;
-  bottom: 30px;
+  bottom: 30px; /* Higher position */
   left: 50%;
   transform: translateX(-50%);
-  background: var(--stock-success-color);
+  background: var(--stock-text-primary); /* Dark background */
   color: white;
-  padding: var(--stock-spacing-md);
+  padding: var(--stock-spacing-md); /* More padding */
   border-radius: var(--stock-border-radius-md);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   z-index: 1100;
   font-size: 1rem;
+  opacity: 0;
+  transform: translate(-50%, 20px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  display: flex; /* Allow icon */
+  align-items: center;
+  gap: var(--stock-spacing-sm);
+}
+.stock-snackbar-show {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+/* Different colors */
+.stock-snackbar-success {
+  background-color: var(--stock-success-color);
+}
+.stock-snackbar-error {
+  background-color: var(--stock-danger-color);
+}
+.stock-snackbar-info {
+  background-color: var(--stock-info-color);
 }
 
 /* ========== Date Picker / Snapshot ========== */
@@ -537,7 +634,7 @@
 
 .stock-date-picker-popup {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 8px); /* More space */
   left: 0;
   width: 280px;
   background: var(--stock-background-white);
@@ -548,7 +645,24 @@
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: var(--stock-spacing-md);
+  gap: var(--stock-spacing-md); /* More gap */
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform-origin: top left;
+}
+.stock-datepicker-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.stock-date-picker-popup label {
+  /* Add label styling */
+  font-size: 0.85rem;
+  color: var(--stock-text-secondary);
+  font-weight: 500;
 }
 
 .stock-date-picker-popup input[type="date"] {
@@ -558,25 +672,35 @@
   width: 100%;
   font-size: 0.95rem;
 }
+.stock-date-picker-popup input[type="date"]:focus {
+  outline: none;
+  border-color: var(--stock-info-color);
+  box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.2);
+}
 
 .stock-date-picker-popup button {
+  /* Use base .stock-btn styles */
   padding: 0.6rem 1rem;
   background-color: var(--stock-info-color);
   color: white;
   border: none;
-  border-radius: var(--stock-border-radius-md);
   font-size: 0.9rem;
   font-weight: 500;
-  cursor: pointer;
-  align-self: flex-end;
+  align-self: flex-end; /* Align button right */
 }
 .stock-date-picker-popup button:hover {
   background-color: #0a58ca;
 }
 
-/* Snapshot dialog */
-.stock-snapshot-dialog p {
-  margin: 20px;
-  font-size: 1.1rem;
+/* Snapshot confirmation dialog */
+.stock-snapshot-dialog .stock-modal-body {
   text-align: center;
+  padding-top: var(--stock-spacing-xl); /* More top padding */
+  padding-bottom: var(--stock-spacing-xl);
+}
+.stock-snapshot-dialog p {
+  margin: 0 0 var(--stock-spacing-md) 0;
+  font-size: 1.1rem;
+  color: var(--stock-text-primary);
+  line-height: 1.6; /* Better readability */
 }

@@ -1,0 +1,714 @@
+/* --- Combined and Restyled CSS for Transaksi --- */
+
+/* Base Font (Apply to a parent container or body if possible) */
+/* Assuming 'Inter' is available */
+/* .parent-container-or-body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+} */
+
+/* General Container */
+.transaksi-container {
+  padding: 24px; /* Increased padding */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Apply font here if not globally */
+  background-color: #ffffff; /* Ensure background color */
+  /* Consider adding border-radius and subtle shadow if it's a distinct card */
+  /* border-radius: 8px; */
+  /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); */
+}
+
+/* Product Input Area */
+.product-input {
+  margin-bottom: 24px; /* Increased spacing */
+  display: flex; /* Use flexbox for alignment */
+  align-items: center; /* Align items vertically */
+  gap: 12px; /* Add gap between input and button */
+  position: relative; /* Needed for absolute positioning of dropdown */
+}
+
+.product-input input[type="text"] {
+  padding: 10px 14px; /* Adjusted padding */
+  font-size: 1rem; /* Standardize font size */
+  margin-right: 0; /* Remove margin, use gap instead */
+  /* width: 300px; */ /* Consider using flex-grow or % width */
+  flex-grow: 1; /* Allow input to take available space */
+  border: 1px solid #cccccc; /* Standard border */
+  border-radius: 6px; /* Consistent rounding */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease; /* Add transition */
+}
+
+.product-input input[type="text"]:focus {
+  border-color: #1976d2; /* Use theme blue for focus */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1); /* Subtle focus ring */
+}
+
+.product-input button {
+  padding: 10px 20px;
+  font-size: 1rem; /* Standardize font size */
+  background-color: #4caf50; /* Keep original green */
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px; /* Consistent rounding */
+  font-weight: 500; /* Medium weight */
+  transition: background-color 0.15s ease, box-shadow 0.15s ease; /* Faster transition */
+  white-space: nowrap; /* Prevent button text wrapping */
+}
+
+.product-input button:hover {
+  background-color: #45a049; /* Slightly darker green */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle hover shadow */
+}
+
+/* Scanner Toggle (Positioned within product input area) */
+.scanner-toggle {
+  margin-bottom: 0; /* Reset margin as it's part of product-input now */
+  /* Position it if needed, e.g., absolute within .product-input */
+}
+
+.scanner-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+  color: #555; /* Slightly darker for better contrast */
+  cursor: pointer; /* Make label clickable */
+}
+
+/* Unit Display (Next to Input) */
+.unit-display {
+  color: #666;
+  font-size: 0.9em;
+  background-color: #f0f0f0; /* Slightly adjusted background */
+  padding: 4px 10px; /* Adjusted padding */
+  border-radius: 4px;
+  margin-left: 0; /* Remove margin, rely on gap in parent */
+  white-space: nowrap; /* Prevent wrapping */
+}
+
+
+/* Autocomplete Dropdown */
+.autocomplete-dropdown {
+  position: absolute;
+  /* Position it directly below the input */
+  top: 100%;
+  left: 0;
+  width: 100%; /* Make dropdown match input width */
+  border: 1px solid #e0e0e0;
+  background: white;
+  max-height: 300px; /* Limit height to prevent overflow */
+  overflow-y: auto;
+  z-index: 1000; /* Ensure it's above other elements */
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1); /* Slightly stronger shadow */
+  border-radius: 8px; /* Consistent rounding */
+  margin-top: 6px; /* Space below input */
+}
+
+.suggestion-item {
+  padding: 10px 14px; /* Consistent padding */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  transition: background-color 0.15s ease; /* Faster transition */
+  border-bottom: 1px solid #eeeeee; /* Add subtle separator */
+}
+.suggestion-item:last-child {
+  border-bottom: none; /* Remove border from last item */
+}
+
+.suggestion-item:hover {
+  background-color: #f5f5f5; /* Subtle hover */
+}
+
+.suggestion-item.active {
+  background-color: #e3f2fd; /* Use light blue for active/selected */
+}
+
+.suggestion-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 10px; /* Add gap */
+}
+
+.product-name {
+  font-weight: 500; /* Medium weight */
+  color: #333; /* Darker text */
+  font-size: 0.95rem; /* Slightly adjusted size */
+  flex-grow: 1; /* Allow name to take space */
+}
+
+.quantity-unit-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.quantity-card {
+  background: #e3f2fd; /* Light blue background */
+  padding: 4px 12px;
+  border-radius: 16px; /* Pill shape */
+  box-shadow: none; /* Remove shadow for cleaner look */
+  font-weight: 600; /* Bolder */
+  font-size: 0.85rem; /* Adjusted size */
+  color: #1976d2; /* Theme blue */
+  border: 1px solid #bbdefb; /* Softer border */
+}
+
+.unit {
+  color: #757575;
+  font-size: 0.85rem; /* Adjusted size */
+  margin-right: 0; /* Remove margin, use gap */
+}
+
+/* Suggestion Details (If used) */
+.suggestion-details {
+  padding: 10px 14px; /* Consistent padding */
+  font-size: 0.85em;
+  color: #666;
+  background-color: #fafafa; /* Slightly off-white background */
+  border-top: 1px solid #eee;
+}
+
+.suggestion-details div {
+  margin: 4px 0;
+}
+
+/* Suggestion Controls (If used) */
+.suggestion-controls {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8em;
+  color: #999;
+  margin-top: 8px;
+  padding: 0 14px 8px; /* Add padding */
+}
+
+/* Disabled Suggestion Item Styling */
+.autocomplete-dropdown .suggestion-item.disabled {
+  color: #aaa;
+  background-color: #f9f9f9; /* Slightly different background */
+  cursor: not-allowed;
+}
+
+.autocomplete-dropdown .suggestion-item.disabled:hover {
+  background-color: #f9f9f9; /* Keep background same on hover */
+}
+
+.already-selected {
+  display: none; /* Keep hidden by default */
+  font-size: 0.75rem; /* Smaller text */
+  font-weight: 500; /* Medium weight */
+  color: #ef5350; /* Use theme red */
+  margin-left: 8px; /* Add space */
+  background-color: #ffebee; /* Light red background */
+  padding: 2px 6px; /* Add padding */
+  border-radius: 4px; /* Rounding */
+}
+
+.autocomplete-dropdown .suggestion-item.disabled:hover .already-selected {
+  display: inline-block; /* Show on hover */
+}
+
+
+/* Product Table */
+.product-table {
+  width: 100%;
+  border-collapse: separate; /* Use separate for border-spacing */
+  border-spacing: 0; /* Reset default spacing */
+  margin-bottom: 80px; /* Increased margin, ensure footer doesn't overlap */
+  border: 1px solid #e0e0e0; /* Add outer border */
+  border-radius: 8px; /* Round corners of the table */
+  overflow: hidden; /* Clip content to rounded corners */
+  font-size: 0.95rem; /* Consistent table font size */
+}
+
+.product-table th,
+.product-table td {
+  padding: 12px 16px; /* Increased padding */
+  border-bottom: 1px solid #e0e0e0; /* Horizontal lines */
+  text-align: left;
+  vertical-align: middle; /* Align content vertically */
+}
+
+.product-table th {
+  background-color: #f9f9f9; /* Lighter header background */
+  font-weight: 600; /* Bolder header text */
+  color: #333;
+  border-bottom-width: 2px; /* Thicker line below header */
+  border-top: none; /* Remove potential double border */
+}
+
+.product-table td {
+  color: #555; /* Slightly lighter text for body */
+  border-left: none; /* Remove vertical lines */
+  border-right: none;
+}
+
+.product-table tr:last-child td {
+  border-bottom: none; /* Remove border from last row */
+}
+
+/* Center the quantity container within the table cell */
+.product-table .quantity-container {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Center align content */
+  gap: 6px; /* Add gap */
+}
+
+/* Quantity Input in Table */
+.quantity-container input[type="number"] {
+  width: 55px; /* Slightly narrower */
+  text-align: center;
+  font-size: 1rem; /* Match base size */
+  padding: 6px 8px; /* Adjusted padding */
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  -moz-appearance: textfield; /* Hide spinners Firefox */
+}
+/* Hide spinners Chrome, Safari, Edge, Opera */
+.quantity-container input[type="number"]::-webkit-outer-spin-button,
+.quantity-container input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+
+/* Quantity Buttons (+/-) in Table */
+.quantity-button {
+  width: 28px; /* Slightly smaller */
+  height: 28px; /* Slightly smaller */
+  border: 1px solid #cccccc; /* Add subtle border */
+  background-color: #f5f5f5; /* Light grey background */
+  color: #555; /* Icon color */
+  border-radius: 50%; /* Keep circular */
+  font-size: 1.1rem; /* Adjust icon size if needed */
+  font-weight: bold; /* Make +/- bolder */
+  cursor: pointer;
+  line-height: 0; /* Ensure icon is centered */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0; /* Remove margin, use gap */
+  transition: all 0.15s ease; /* Faster transition */
+}
+
+.quantity-button:hover {
+  background-color: #e0e0e0; /* Darker grey on hover */
+  border-color: #bdbdbd;
+}
+
+.quantity-button.minus:hover {
+  background-color: #ef5350; /* Theme red */
+  color: white;
+  border-color: #ef5350;
+}
+
+.quantity-button.plus:hover {
+  background-color: #66bb6a; /* Theme green */
+  color: white;
+  border-color: #66bb6a;
+}
+
+/* Alternative Quantity Buttons (if .quantity-btn is used) */
+.quantity-btn {
+  background-color: #e0e0e0; /* Neutral background */
+  color: #555;
+  border: none;
+  padding: 6px 10px; /* Adjusted padding */
+  font-size: 1.1rem; /* Adjusted font size */
+  cursor: pointer;
+  border-radius: 4px;
+  margin: 0; /* Remove margin, use gap */
+  transition: background-color 0.15s ease, color 0.15s ease; /* Faster transition */
+  line-height: 1; /* Ensure proper height */
+}
+
+.quantity-btn:hover {
+  background-color: #bdbdbd; /* Darker hover */
+}
+
+/* Specific hover for plus/minus if using .quantity-btn */
+/* You might need separate classes or logic if both .quantity-button and .quantity-btn are used */
+/* Assuming .quantity-btn.plus and .quantity-btn.minus exist */
+.quantity-btn.minus:hover {
+  background-color: #ef5350;
+  color: white;
+}
+.quantity-btn.plus:hover {
+  background-color: #66bb6a;
+  color: white;
+}
+
+/* Quantity Input (if .quantity-input is used) */
+.quantity-input {
+  width: 60px;
+  text-align: center;
+  font-size: 1rem;
+  padding: 6px 8px; /* Adjusted padding */
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  -moz-appearance: textfield; /* Hide spinners Firefox */
+}
+.quantity-input::-webkit-outer-spin-button,
+.quantity-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Hapus/Delete Button in Table */
+.hapus-button, .delete-btn { /* Style both similarly */
+  padding: 6px 12px; /* Adjusted padding */
+  font-size: 0.85rem; /* Smaller font size */
+  background-color: #f5f5f5; /* Light grey */
+  color: #555; /* Darker text */
+  border: 1px solid #e0e0e0; /* Subtle border */
+  cursor: pointer;
+  border-radius: 4px; /* Consistent rounding */
+  font-weight: 500; /* Medium weight */
+  transition: all 0.15s ease; /* Faster transition */
+}
+
+.hapus-button:hover, .delete-btn:hover {
+  background-color: #f44336; /* Theme red */
+  color: white;
+  border-color: #f44336;
+}
+
+/* Footer */
+.footer {
+  position: sticky;
+  bottom: 0;
+  left: 0; /* Ensure it spans width */
+  right: 0; /* Ensure it spans width */
+  background-color: #ffffff;
+  padding: 12px 24px; /* Adjusted padding */
+  box-shadow: 0 -3px 8px rgba(0, 0, 0, 0.08); /* Softer, slightly larger shadow */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 10; /* Ensure it's above table content */
+  border-top: 1px solid #eeeeee; /* Subtle top border */
+}
+
+.footer h2 {
+  margin: 0;
+  font-size: 1.25rem; /* Adjust size as needed */
+  font-weight: 600; /* Bolder */
+  color: #333;
+}
+
+.footer button {
+  padding: 10px 24px; /* Increased padding */
+  font-size: 1rem; /* Standardize font size */
+  background-color: #4caf50; /* Keep original green */
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px; /* Consistent rounding */
+  font-weight: 500; /* Medium weight */
+  transition: background-color 0.15s ease, box-shadow 0.15s ease; /* Faster transition */
+}
+
+.footer button:hover {
+  background-color: #45a049; /* Slightly darker green */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); /* Hover shadow */
+}
+
+/* Payment Modal Overlay */
+.payment-modal-overlay {
+  position: fixed; /* Use fixed for full screen */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Slightly darker overlay */
+  z-index: 1050; /* Ensure it's above footer and other content */
+  /* Don't use flexbox here as it interferes with react-modal positioning */
+}
+/* Example: .payment-modal-overlay.visible { opacity: 1; visibility: visible; } */
+
+
+/* Payment Modal Container */
+.payment-modal {
+  /* The react-modal component centers properly with inline styles,
+     don't override with position: relative which breaks its positioning */
+  /* Use position: absolute for proper centering */
+  position: absolute;
+  /* Keep correct positioning - these are needed */
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  /* Keep other styles */
+  width: 90%; /* Responsive width */
+  max-width: 480px; /* Max width */
+  background-color: white;
+  padding: 24px 30px; /* Adjusted padding */
+  border-radius: 12px; /* Keep rounding */
+  outline: none;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15); /* Refined shadow */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Ensure font */
+}
+/* Example: .payment-modal-overlay.visible .payment-modal { transform: scale(1); } */
+
+
+.payment-modal h2 {
+  margin-top: 0;
+  margin-bottom: 20px; /* Add space below title */
+  font-size: 1.4rem; /* Adjust title size */
+  font-weight: 600;
+  color: #333;
+  text-align: center; /* Center title */
+}
+
+/* Modal Content Area */
+.modal-content, .payment-modal-content { /* Style both similarly */
+  margin-top: 0; /* Reset margin */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* Consistent gap */
+}
+
+/* Modal Row (Label/Value or Label/Input) */
+.modal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Vertically align items */
+  margin-bottom: 0; /* Remove margin, use gap in parent */
+  padding: 8px 0; /* Add some vertical padding */
+  border-bottom: 1px solid #f0f0f0; /* Very subtle separator */
+}
+.modal-row:last-of-type {
+  border-bottom: none; /* Remove border from last row */
+}
+
+.modal-row label {
+  font-weight: 500; /* Medium weight */
+  font-size: 1rem; /* Standardize size */
+  color: #555; /* Slightly lighter label color */
+  margin-right: 10px; /* Ensure space between label and value/input */
+  flex-shrink: 0; /* Prevent label from shrinking */
+}
+
+.modal-row input[type="text"], .modal-input { /* Style text inputs */
+  width: auto; /* Let it size naturally or set flex-grow */
+  min-width: 120px; /* Minimum width */
+  flex-basis: 150px; /* Suggest basis */
+  flex-grow: 1; /* Allow growth */
+  max-width: 200px; /* Max width */
+  padding: 8px 12px; /* Adjusted padding */
+  font-size: 1rem; /* Standardize size */
+  border: 1px solid #cccccc;
+  border-radius: 6px;
+  text-align: right;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease; /* Add transition */
+}
+
+.modal-row input[type="text"]:focus, .modal-input:focus {
+  border-color: #1976d2; /* Use theme blue for focus */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1); /* Subtle focus ring */
+}
+
+/* Modal Value Display */
+.modal-value {
+  font-weight: 600; /* Bolder value */
+  font-size: 1rem; /* Standardize size */
+  color: #1976d2; /* Use theme blue */
+  text-align: right; /* Ensure right alignment */
+  word-break: break-all; /* Prevent long values from overflowing */
+}
+
+/* Modal Buttons Container */
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px; /* Consistent gap */
+  margin-top: 24px; /* Increased margin */
+  padding-top: 16px; /* Add padding above buttons */
+  border-top: 1px solid #eeeeee; /* Separator line */
+}
+
+/* General Modal Button Style (Apply to all buttons inside .modal-buttons) */
+.modal-buttons button {
+  padding: 10px 20px;
+  font-size: 1rem; /* Standardize size */
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 6px; /* Consistent rounding */
+  font-weight: 500; /* Medium weight */
+  transition: background-color 0.15s ease, box-shadow 0.15s ease; /* Faster transition */
+}
+
+.modal-buttons button:hover {
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15); /* Hover shadow */
+}
+
+/* Specific Modal Buttons */
+.cancel-button {
+  background-color: #f44336; /* Keep original red */
+  /* Inherits general button styles */
+}
+
+.cancel-button:hover {
+  background-color: #d32f2f; /* Darker red */
+  /* Inherits hover shadow */
+}
+
+/* Assuming the green button is for completion/confirmation */
+.complete-button { /* Or the default button if no specific class */
+  background-color: #4caf50; /* Keep original green */
+  /* Inherits general button styles */
+}
+
+.complete-button:hover {
+  background-color: #45a049; /* Darker green */
+  /* Inherits hover shadow */
+}
+
+.complete-button:disabled {
+  background-color: #bdbdbd; /* Grey for disabled */
+  color: #757575;
+  cursor: not-allowed;
+  box-shadow: none; /* Remove shadow when disabled */
+}
+.complete-button:disabled:hover {
+  background-color: #bdbdbd; /* Keep same color on hover when disabled */
+}
+
+
+/* Loading Spinner */
+.loading-spinner {
+  display: inline-block;
+  margin-right: 8px; /* Adjusted margin */
+  width: 18px; /* Slightly smaller */
+  height: 18px; /* Slightly smaller */
+  border: 3px solid rgba(255, 255, 255, 0.4); /* Slightly more visible border */
+  border-radius: 50%;
+  border-top-color: #fff; /* Keep white */
+  animation: spin 0.8s linear infinite; /* Slightly faster spin */
+  vertical-align: middle; /* Align with text */
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Status Messages (Error, Processing, Success) */
+.error-message, .processing-message, .success-message {
+  font-size: 0.9rem; /* Consistent font size */
+  text-align: left; /* Align text left */
+  margin: 10px 0; /* Keep margin */
+  padding: 10px 14px; /* Adjusted padding */
+  border-radius: 6px; /* Consistent rounding */
+  border-left-width: 4px; /* Keep left border */
+  border-left-style: solid;
+  display: flex; /* Use flex for icon alignment if needed */
+  align-items: center;
+  gap: 8px; /* Gap for potential icon */
+}
+
+.error-message {
+  color: #d32f2f; /* Darker red text */
+  background-color: #ffebee; /* Light red background */
+  border-left-color: #f44336; /* Red border */
+}
+
+.processing-message {
+  color: #1976d2; /* Blue text */
+  background-color: #e3f2fd; /* Light blue background */
+  border-left-color: #2196F3; /* Blue border */
+}
+
+.success-message {
+  color: #388e3c; /* Darker green text */
+  background-color: #e8f5e9; /* Light green background */
+  border-left-color: #4CAF50; /* Green border */
+}
+
+
+/* Snackbar container for stacked notifications */
+.snackbar-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column-reverse; /* Show newest at bottom */
+  gap: 10px; /* Space between stacked snackbars */
+  z-index: 1100; /* Ensure it's above modals */
+  width: 80%; /* Limit width for readability */
+  max-width: 500px; /* Maximum width */
+}
+
+/* Snackbar */
+.snackbar {
+  width: 100%;
+  background: #333333; /* Dark background */
+  color: white;
+  padding: 14px 20px; /* Adjusted padding */
+  border-radius: 6px; /* Consistent rounding */
+  display: flex;
+  align-items: center;
+  gap: 16px; /* Adjusted gap */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Add shadow */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Ensure font */
+  font-size: 0.95rem;
+  animation: slideIn 0.3s ease-out;
+  margin-bottom: 8px; /* Space below each snackbar */
+}
+
+/* Snackbar variants */
+.snackbar-warning {
+  background-color: #ffc107; /* Warning yellow color */
+  color: #000; /* Black text for better contrast */
+}
+
+/* Low stock indicator in the table */
+.low-stock {
+  color: #f44336; /* Red text for low stock */
+  font-weight: 600; /* Make it bold */
+}
+
+.snackbar-error {
+  background-color: #f44336; /* Error red color */
+  color: #fff;
+}
+
+/* Example: .snackbar.visible { transform: translateX(-50%) translateY(0); opacity: 1; visibility: visible; } */
+
+.snackbar button {
+  background: none;
+  border: none;
+  color: #80cbc4; /* Teal accent for action */
+  font-size: 1.1em; /* Keep size or adjust */
+  cursor: pointer;
+  padding: 0; /* Remove padding if it's just an icon */
+  margin-left: auto; /* Push close button to the right */
+  line-height: 1; /* Ensure proper alignment */
+}
+
+.snackbar button:hover {
+  color: #4db6ac; /* Darker teal on hover */
+}
+
+/* Animation for snackbar */
+@keyframes slideIn {
+  from {
+    transform: translateX(-50%) translateY(100px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+

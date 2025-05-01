@@ -1,0 +1,115 @@
+/* Global style overrides with high specificity for LoginTailwind */
+
+/* Body class for Tailwind enabled components */
+body.tailwind-enabled {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Force the login container to use Tailwind */
+body .tailwind-login.tailwind-login {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  min-height: 100vh !important;
+  background-color: #f5f5f5 !important;
+}
+
+/* Force the card to use Tailwind */
+body .tailwind-card.tailwind-card {
+  width: 100% !important;
+  max-width: 450px !important;
+  padding: 2rem !important;
+  background: white !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+  overflow-y: auto !important;
+  margin: 1rem !important;
+}
+
+/* Force the inputs to use Tailwind */
+body .tailwind-input.tailwind-input {
+  padding: 0.75rem !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 0.375rem !important;
+  font-size: 1rem !important;
+  width: 100% !important;
+  transition: all 0.2s !important;
+  background-color: white !important;
+  color: #333 !important;
+}
+
+/* Ensure select elements have the same styling */
+body .tailwind-input.tailwind-input[type="date"],
+body select.tailwind-input.tailwind-input {
+  appearance: auto !important;
+  background-color: white !important;
+  cursor: pointer !important;
+}
+
+body .tailwind-input.tailwind-input:focus {
+  outline: none !important;
+  ring: 2px !important;
+  ring-color: #f77b7b !important;
+  border-color: #f77b7b !important;
+}
+
+/* Force the buttons to use Tailwind */
+body .tailwind-btn-primary.tailwind-btn-primary {
+  padding: 0.75rem !important;
+  background-color: #4CAF50 !important;
+  color: white !important;
+  border-radius: 0.375rem !important;
+  font-weight: 500 !important;
+  font-size: 1rem !important;
+  transition: background-color 0.2s !important;
+  border: none !important;
+  cursor: pointer !important;
+  width: 100% !important;
+}
+
+body .tailwind-btn-primary.tailwind-btn-primary:hover {
+  background-color: #3e8e41 !important;
+}
+
+body .tailwind-btn-secondary.tailwind-btn-secondary {
+  background-color: #2196F3 !important;
+  color: white !important;
+  font-weight: 500 !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.375rem !important;
+  transition: background-color 0.2s !important;
+  border: none !important;
+  cursor: pointer !important;
+}
+
+body .tailwind-btn-secondary.tailwind-btn-secondary:hover {
+  background-color: #1976D2 !important;
+}
+
+/* Form groups */
+body .tailwind-form-group.tailwind-form-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+/* Labels */
+body .tailwind-label.tailwind-label {
+  font-weight: 500 !important;
+  color: #4b5563 !important;
+}
+
+/* Error messages */
+body .tailwind-error.tailwind-error {
+  padding: 0.75rem !important;
+  background-color: #FEE2E2 !important;
+  color: #B91C1C !important;
+  border-radius: 0.375rem !important;
+  margin-bottom: 1rem !important;
+}

@@ -1,0 +1,321 @@
+/* StockModal.css - Dedicated modal styling for stock operations */
+
+:root {
+  /* Define theme colors */
+  --stockmodal-primary-color: #e66a6a;
+  --stockmodal-primary-darker: #d35454;
+  --stockmodal-primary-gradient: linear-gradient(135deg, #e66a6a 0%, #d35454 100%);
+  --stockmodal-accent-orange: #e67e22;
+  --stockmodal-accent-orange-darker: #d35400;
+  --stockmodal-text-primary: #343a40;
+  --stockmodal-text-secondary: #6c757d;
+  --stockmodal-background-light: #f8f9fa;
+  --stockmodal-background-white: #ffffff;
+  --stockmodal-border-color: #e0e0e0;
+  --stockmodal-success-color: #2ecc71;
+  --stockmodal-info-color: #3498db;
+  --stockmodal-warning-color: #f1c40f;
+  --stockmodal-danger-color: #e74c3c;
+
+  /* Define spacing and radius */
+  --stockmodal-spacing-xs: 4px;
+  --stockmodal-spacing-sm: 8px;
+  --stockmodal-spacing-md: 16px;
+  --stockmodal-spacing-lg: 24px;
+  --stockmodal-spacing-xl: 32px;
+  --stockmodal-border-radius-sm: 4px;
+  --stockmodal-border-radius-md: 8px;
+}
+
+/* ========== Modal Structure ========== */
+.stockmodal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(33, 37, 41, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--stockmodal-spacing-md);
+  backdrop-filter: blur(2px);
+}
+
+.stockmodal-content {
+  background-color: var(--stockmodal-background-white);
+  border-radius: var(--stockmodal-border-radius-md);
+  padding: 0;
+  width: 650px;
+  max-width: 95vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: stockmodal-fadein 0.3s ease;
+}
+
+@keyframes stockmodal-fadein {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal Header */
+.stockmodal-content h2 {
+  margin: 0;
+  padding: var(--stockmodal-spacing-md) var(--stockmodal-spacing-lg);
+  background: var(--stockmodal-primary-gradient);
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 600;
+  border-radius: var(--stockmodal-border-radius-md) var(--stockmodal-border-radius-md) 0 0;
+}
+
+/* Modal Body */
+.stockmodal-body {
+  padding: var(--stockmodal-spacing-lg);
+  overflow-y: auto;
+  flex-grow: 1;
+  max-height: 70vh;
+}
+
+/* Modal Footer / Buttons container */
+.stockmodal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--stockmodal-spacing-md);
+  padding: var(--stockmodal-spacing-md) var(--stockmodal-spacing-lg);
+  border-top: 1px solid var(--stockmodal-border-color);
+  background-color: var(--stockmodal-background-light);
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/* Button Styling */
+.stockmodal-buttons button {
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  border-radius: var(--stockmodal-border-radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+}
+
+/* Cancel/Secondary Button */
+.stockmodal-buttons button:first-child {
+  background-color: var(--stockmodal-background-white);
+  color: var(--stockmodal-text-secondary);
+  border: 1px solid var(--stockmodal-border-color);
+}
+.stockmodal-buttons button:first-child:hover {
+  background-color: var(--stockmodal-background-light);
+  border-color: #adb5bd;
+  color: var(--stockmodal-text-primary);
+}
+
+/* Confirm/Primary Button */
+.stockmodal-buttons button:last-child {
+  background: var(--stockmodal-primary-gradient);
+  color: white;
+  border: none;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+.stockmodal-buttons button:last-child:hover {
+  background: linear-gradient(135deg, #e66a6a 20%, #d35454 100%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+.stockmodal-buttons button:last-child:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ========== Form Elements ========== */
+.form-group {
+  margin-bottom: var(--stockmodal-spacing-lg);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.form-group label {
+  font-weight: 500;
+  margin-bottom: var(--stockmodal-spacing-sm);
+  font-size: 0.95rem;
+  color: var(--stockmodal-text-secondary);
+}
+
+/* Error message styling */
+.form-group .error-message {
+  color: var(--stockmodal-danger-color);
+  font-size: 0.85rem;
+  margin-top: 4px;
+  animation: error-message-fadein 0.3s ease;
+}
+
+@keyframes error-message-fadein {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Error state for inputs */
+.form-group input.error,
+.form-group select.error {
+  border-color: var(--stockmodal-danger-color);
+  background-color: rgba(231, 76, 60, 0.05);
+}
+
+.form-group input.error:focus,
+.form-group select.error:focus {
+  box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.2);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--stockmodal-border-color);
+  border-radius: var(--stockmodal-border-radius-md);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+  background-color: var(--stockmodal-background-white);
+  color: var(--stockmodal-text-primary);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--stockmodal-primary-color);
+  box-shadow: 0 0 0 3px rgba(230, 106, 106, 0.2);
+}
+
+/* Input group for quantity + unit select */
+.input-group {
+  display: flex;
+  gap: var(--stockmodal-spacing-sm);
+}
+
+.quantity-input {
+  flex: 3;
+}
+
+.unit-select {
+  flex: 1;
+}
+
+/* Currency Input Styling */
+.currency-input {
+  position: relative;
+}
+.currency-prefix {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--stockmodal-text-secondary);
+  font-size: 1rem;
+  pointer-events: none;
+}
+.currency-input input {
+  padding-left: 45px;
+}
+
+/* Checkbox group styling */
+.checkbox-group {
+  display: flex;
+  gap: var(--stockmodal-spacing-sm);
+  flex-wrap: wrap;
+}
+
+.pseudo-checkbox {
+  border: 1px solid var(--stockmodal-border-color);
+  border-radius: var(--stockmodal-border-radius-md);
+  padding: var(--stockmodal-spacing-xs) var(--stockmodal-spacing-md);
+  cursor: pointer;
+  background: var(--stockmodal-background-white);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  /* Make it clear this is a button */
+  display: inline-block;
+  appearance: none;
+  -webkit-appearance: none;
+  font-family: inherit;
+  outline: none;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.pseudo-checkbox:hover {
+  border-color: var(--stockmodal-primary-color);
+  background-color: #fff8f8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pseudo-checkbox.selected {
+  border-color: var(--stockmodal-primary-color);
+  background: #fff0f0;
+  font-weight: 600;
+  color: var(--stockmodal-primary-darker);
+  transform: scale(1.05);
+  box-shadow: 0 2px 5px rgba(230, 106, 106, 0.2);
+}
+
+.pseudo-checkbox:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Price fields styling */
+.price-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--stockmodal-spacing-md);
+}
+
+.price-field {
+  display: flex;
+  gap: var(--stockmodal-spacing-md);
+  align-items: center;
+}
+
+.price-field span {
+  width: 60px;
+  text-align: right;
+  font-size: 0.9rem;
+  color: var(--stockmodal-text-secondary);
+  font-weight: 500;
+}
+
+/* Delete confirmation styling */
+.stockmodal-body p {
+  font-size: 1.1rem;
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .stockmodal-content {
+    width: 95vw;
+    max-height: 85vh;
+  }
+  
+  .form-group label {
+    font-size: 0.9rem;
+  }
+  
+  .form-group input,
+  .form-group select {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.95rem;
+  }
+  
+  .input-group {
+    flex-direction: column;
+  }
+  
+  .stockmodal-buttons button {
+    padding: 0.6rem 1rem;
+  }
+}

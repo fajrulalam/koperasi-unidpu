@@ -1,0 +1,579 @@
+/* General Body Styles (Implicit - apply to body if possible, otherwise rely on container) */
+/* Assuming a base font for the whole page if possible, applied here conceptually */
+/* If not possible, apply font-family within specific selectors */
+
+/* Container for the page */
+.sejarah-transaksi-container {
+  padding: 24px; /* Slightly increased padding */
+  max-width: 850px; /* Slightly wider for modern layouts */
+  margin: 20px auto; /* Add some top/bottom margin */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Modern font stack */
+  background-color: #ffffff; /* Explicit white background */
+  border-radius: 8px; /* Subtle rounding */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Soft shadow */
+}
+
+/* Items Search Container */
+.items-search-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.items-search-input {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid #cccccc;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background-color: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.items-search-input:focus {
+  border-color: #1976d2;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+}
+
+.items-count {
+  font-size: 0.9rem;
+  color: #757575;
+  padding: 4px 8px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+/* Items Table Container */
+.items-table-container {
+  width: 100%;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+/* Items Table */
+.items-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.items-table th,
+.items-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+}
+
+.items-table th {
+  background-color: #f5f5f5;
+  font-weight: 600;
+  color: #333;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.items-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  padding-right: 24px;
+}
+
+.items-table th.sortable::after {
+  content: "▼";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75em;
+  opacity: 0.3;
+}
+
+.items-table th.sorted-asc::after {
+  content: "▲";
+  opacity: 1;
+  color: #1976d2;
+}
+
+.items-table th.sorted-desc::after {
+  content: "▼";
+  opacity: 1;
+  color: #1976d2;
+}
+
+.items-table tr:last-child td {
+  border-bottom: none;
+}
+
+.items-table tr.clickable-row {
+  cursor: pointer;
+}
+
+.items-table tr.clickable-row:hover {
+  background-color: #f1f8fe;
+}
+
+.items-table td.center,
+.items-table th.center {
+  text-align: center;
+}
+
+.items-table td.right,
+.items-table th.right {
+  text-align: right;
+}
+
+/* Transaction Type Colors */
+.transaction-type {
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.transaction-type-pengadaan {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.transaction-type-penjualan {
+  background-color: #e1f5fe;
+  color: #0277bd;
+}
+
+.transaction-type-pengurangan {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+/* Item Dialog Styles */
+.item-dialog {
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.item-details {
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.item-detail-row {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.item-detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.item-detail-label {
+  font-weight: 600;
+  min-width: 120px;
+  color: #555;
+}
+
+.item-detail-value {
+  flex: 1;
+}
+
+.item-dialog h3 {
+  margin-top: 24px;
+  margin-bottom: 12px;
+  font-size: 1.1rem;
+}
+
+.transactions-table-container {
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.transactions-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.transactions-table th,
+.transactions-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e0e0e0;
+  text-align: left;
+}
+
+.transactions-table th {
+  background-color: #f5f5f5;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.transactions-table tr:last-child td {
+  border-bottom: none;
+}
+
+.transactions-table tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* Chips at the top */
+.chips-container {
+  display: flex;
+  gap: 12px; /* Increased gap */
+  margin-bottom: 24px; /* Increased margin */
+  flex-wrap: wrap; /* Allow chips to wrap on smaller screens */
+}
+
+.chip {
+  padding: 8px 18px; /* Adjusted padding */
+  border: 1px solid #e0e0e0; /* Subtle border instead of none */
+  background-color: #f5f5f5; /* Lighter inactive background */
+  color: #555; /* Slightly darker text for better contrast */
+  border-radius: 100px; /* Fully rounded pills */
+  cursor: pointer;
+  /* FASTER transition */
+  transition: all 0.15s ease-in-out;
+  font-size: 0.9rem; /* Consistent font size */
+  font-weight: 500; /* Medium weight */
+}
+
+.chip:hover {
+  background-color: #e0e0e0; /* Darker hover */
+  border-color: #bdbdbd;
+  transform: translateY(-1px); /* Subtle lift effect */
+}
+
+.chip.active {
+  background-color: #1976d2; /* Slightly adjusted blue */
+  color: white;
+  border-color: #1976d2; /* Match border color */
+  font-weight: 600; /* Bolder active state */
+  box-shadow: 0 2px 4px rgba(25, 118, 210, 0.2); /* Subtle shadow for active chip */
+}
+
+.chip.active:hover {
+  background-color: #1565c0; /* Darker blue on hover for active */
+  transform: translateY(0); /* Reset lift */
+}
+
+
+/* Date Range Header */
+.date-range-header {
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping */
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px; /* Increased margin */
+  border-bottom: 1px solid #eeeeee; /* Lighter border */
+  padding-bottom: 16px; /* Increased padding */
+  gap: 16px; /* Add gap for wrapping */
+}
+
+.date-range-text {
+  font-size: 1.15em; /* Slightly larger */
+  font-weight: 600; /* Bolder */
+  color: #333;
+}
+
+/* Date Range Controls */
+.date-range-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Adjusted gap */
+  flex-wrap: wrap; /* Allow wrapping */
+}
+
+/* Date Range Filter Component */
+.date-range-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-range-filter .react-datepicker-wrapper {
+  display: inline-block; /* Keep as is */
+}
+
+.date-range-filter input {
+  padding: 8px 12px; /* Increased padding */
+  border: 1px solid #cccccc; /* Standard border */
+  border-radius: 6px; /* Slightly more rounded */
+  font-size: 0.9rem; /* Consistent font size */
+  background-color: #fff;
+  /* FASTER transition for focus */
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.date-range-filter input:focus {
+  border-color: #1976d2; /* Highlight focus */
+  outline: none; /* Remove default outline */
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1); /* Subtle focus ring */
+}
+
+/* Export to XLSX Button */
+.export-btn {
+  padding: 8px 16px; /* Adjusted padding */
+  background-color: #e3f2fd; /* Lighter blue background */
+  color: #1976d2; /* Matching blue text */
+  border: 1px solid #bbdefb; /* Softer border */
+  border-radius: 6px; /* Consistent rounding */
+  cursor: pointer;
+  font-size: 0.9rem; /* Consistent font size */
+  font-weight: 500; /* Medium weight */
+  /* FASTER transition */
+  transition: all 0.15s ease;
+  display: inline-flex; /* Align icon/text if any */
+  align-items: center;
+  gap: 6px; /* Space for potential icon */
+}
+
+.export-btn:hover {
+  background-color: #bbdefb; /* Darker background on hover */
+  border-color: #90caf9;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Subtle hover shadow */
+}
+
+/* Daily List (Aggregated Data) */
+.daily-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Adjusted gap */
+}
+
+.day-group {
+  padding: 16px; /* Increased padding */
+  border: 1px solid #e0e0e0; /* Lighter border */
+  border-radius: 6px; /* Consistent rounding */
+  cursor: pointer;
+  /* FASTER transition */
+  transition: all 0.15s ease-in-out;
+  background-color: #fff; /* Explicit white background */
+}
+
+.day-group:hover {
+  background-color: #f9f9f9; /* Very subtle hover */
+  border-color: #bdbdbd;
+  transform: translateY(-2px); /* Lift effect */
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05); /* Soft hover shadow */
+}
+
+.day-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Vertically align items */
+  font-size: 1rem;
+  color: #333;
+}
+
+.day-info span:last-child { /* Style the amount/value differently */
+  font-weight: 600;
+  color: #1976d2; /* Use theme color for emphasis */
+}
+
+/* Show More Button */
+.show-more-btn {
+  margin-top: 24px; /* Increased margin */
+  padding: 10px 24px; /* Adjusted padding */
+  background-color: #1976d2; /* Consistent blue */
+  color: white;
+  border: none;
+  border-radius: 6px; /* Consistent rounding */
+  cursor: pointer;
+  /* FASTER transition */
+  transition: all 0.15s ease;
+  font-size: 0.95rem; /* Slightly larger text */
+  font-weight: 500;
+  display: block; /* Make it block */
+  width: fit-content; /* Fit content width */
+  margin-left: auto; /* Align right */
+  margin-right: auto; /* Or center */
+}
+
+.show-more-btn:hover:not(:disabled) {
+  background-color: #1565c0; /* Darker blue on hover */
+  box-shadow: 0 2px 6px rgba(25, 118, 210, 0.2); /* Hover shadow */
+  transform: translateY(-1px); /* Lift effect */
+}
+
+.show-more-btn:disabled {
+  background-color: #bdbdbd; /* Grey background for disabled */
+  color: #757575; /* Darker grey text */
+  opacity: 1; /* Override default opacity for custom style */
+  cursor: not-allowed;
+  box-shadow: none; /* Remove shadow when disabled */
+  transform: none; /* Remove transform when disabled */
+}
+
+/* Dialog Overlay */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5); /* Slightly darker overlay */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  opacity: 1; /* Make visible by default */
+  visibility: visible; /* Make visible by default */
+  /* Using a slightly faster transition for dialog appearance */
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+/* Dialog Container */
+.dialog {
+  position: relative;
+  background: #ffffff;
+  padding: 24px; /* Increased padding */
+  border-radius: 8px; /* More rounded corners */
+  max-width: 600px;
+  width: calc(100% - 40px); /* Responsive width with padding */
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); /* More prominent shadow */
+  transform: scale(1); /* Show at full scale */
+  /* Using a slightly faster transition for dialog appearance */
+  transition: transform 0.2s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Ensure font consistency */
+}
+
+/* Dialog Close Button */
+.dialog-close-btn {
+  position: absolute;
+  top: 16px; /* Adjusted position */
+  right: 16px; /* Adjusted position */
+  background: #f5f5f5; /* Light background */
+  border: none;
+  border-radius: 50%; /* Circular button */
+  font-size: 1.2rem; /* Adjusted size */
+  cursor: pointer;
+  line-height: 1;
+  width: 32px; /* Explicit size */
+  height: 32px; /* Explicit size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #757575; /* Icon color */
+  /* FASTER transition */
+  transition: all 0.15s ease;
+}
+
+.dialog-close-btn:hover {
+  background: #e0e0e0; /* Darker background on hover */
+  color: #333; /* Darker icon color */
+  transform: rotate(90deg); /* Fun rotate effect */
+}
+
+/* Breakdown List (Inside Dialog) */
+.breakdown-list {
+  margin-top: 20px; /* Increased margin */
+  max-height: 60vh; /* Limit height and allow scroll */
+  overflow-y: auto; /* Enable vertical scroll */
+  padding-right: 8px; /* Space for scrollbar */
+}
+
+/* Breakdown Row: Grid with Three Columns */
+.breakdown-item {
+  display: grid;
+  grid-template-columns: 1.5fr auto 1fr; /* Keep original ratio */
+  align-items: center;
+  column-gap: 8px; /* Increased gap */
+  padding: 10px 4px; /* Adjusted padding */
+  border-bottom: 1px solid #eeeeee; /* Lighter border */
+  font-size: 0.95rem; /* Consistent font size */
+}
+
+.breakdown-item:last-child {
+  border-bottom: none; /* Remove border from last item */
+}
+
+/* Item Name */
+.item-name {
+  font-weight: 500; /* Medium weight */
+  text-align: left;
+  color: #333;
+}
+
+/* Quantity & Unit */
+.quantity-unit {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline; /* Align text baseline */
+  gap: 4px;
+  color: #555; /* Slightly lighter color */
+}
+
+.item-quantity {
+  display: inline-block;
+  width: auto; /* Let it size naturally */
+  min-width: 40px; /* Minimum width for alignment */
+  text-align: right;
+  font-weight: 500; /* Make quantity stand out slightly */
+}
+
+.item-unit {
+  font-size: 0.85em; /* Smaller unit text */
+  color: #757575; /* Greyer unit text */
+}
+
+/* Subtotal */
+.item-subtotal {
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 600; /* Bolder subtotal */
+  color: #1976d2; /* Use theme color */
+}
+
+/* Snackbar Styles */
+.snackbar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0); /* Show on screen */
+  z-index: 1001;
+  background: #333333; /* Standard dark background */
+  color: white;
+  padding: 12px 20px; /* Adjusted padding */
+  border-radius: 6px; /* Consistent rounding */
+  display: flex;
+  align-items: center;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2); /* Add shadow */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Ensure font consistency */
+  font-size: 0.95rem;
+  opacity: 1; /* Visible */
+  visibility: visible; /* Visible */
+  /* Using a slightly faster transition for snackbar appearance */
+  transition: transform 0.25s ease, opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.snackbar button {
+  background: transparent;
+  border: none;
+  color: #80cbc4; /* Teal accent for action */
+  margin-left: 16px; /* Increased margin */
+  cursor: pointer;
+  font-weight: 600; /* Bolder action text */
+  padding: 4px 8px; /* Add some padding */
+  border-radius: 4px; /* Slight rounding */
+  /* FASTER transition */
+  transition: background-color 0.15s ease;
+}
+
+.snackbar button:hover {
+  background-color: rgba(255, 255, 255, 0.1); /* Subtle hover background */
+}

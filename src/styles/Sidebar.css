@@ -1,0 +1,303 @@
+/* Sidebar styling - Modern Red Theme */
+.kop-sidebar {
+  width: 250px; /* Expanded width */
+  height: 100vh; /* Full viewport height */
+  background-color: #e66a6a; /* Base red background */
+  color: #ffffff; /* Default text color: white */
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  box-shadow: none; /* Flat design */
+  transition: width 0.3s ease-in-out; /* Slightly smoother ease */
+  display: flex;
+  flex-direction: column;
+  padding-top: 0;
+  overflow-x: hidden;
+}
+
+.kop-sidebar.kop-collapsed {
+  width: 75px; /* Slightly wider collapsed state for better icon spacing */
+}
+
+/* Shared header styles */
+.kop-sidebar-header,
+.kop-sidebar-header-small {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px; /* Adjusted padding */
+  flex-shrink: 0;
+  min-height: 65px; /* Slightly taller header */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15); /* Subtle separator */
+}
+
+.kop-sidebar-header {
+  justify-content: space-between;
+}
+
+.kop-sidebar-header-small {
+  justify-content: center;
+  flex-direction: column;
+  padding: 15px 10px;
+  gap: 12px; /* Space in collapsed header */
+}
+
+.kop-header-small-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.kop-logo-wrapper {
+  overflow: hidden;
+  white-space: nowrap;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.kop-logo-text {
+  font-size: 1.4rem; /* Slightly larger logo text */
+  font-weight: 500;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Slightly more gap */
+  color: #ffffff;
+  opacity: 1;
+  max-width: 180px;
+  transition: opacity 0.2s ease-out 0.1s, max-width 0.3s ease-out;
+}
+
+.kop-collapsed-logo {
+  width: 38px; /* Adjusted size */
+  height: 38px;
+  object-fit: contain;
+}
+
+/* Environment Tag Styling */
+.kop-env-tag {
+  font-size: 0.6rem; /* Smaller tag */
+  padding: 2px 6px;
+  border-radius: 4px; /* Slightly more rounded */
+  font-weight: 600; /* Bolder */
+  vertical-align: middle;
+  text-transform: uppercase; /* Uppercase for emphasis */
+}
+
+.kop-env-tag.kop-testing {
+  background-color: rgba(255, 255, 255, 0.2); /* Semi-transparent white */
+  color: #ffffff; /* White text */
+}
+
+/* Small Environment Tag Styling */
+.kop-env-tag-small {
+  position: absolute;
+  top: -6px; /* Adjust position */
+  right: -6px;
+  font-size: 0.55rem;
+  padding: 1px 4px;
+  border-radius: 50%;
+  font-weight: bold;
+  border: 1px solid #e66a6a;
+}
+
+.kop-env-tag-small.kop-testing {
+  background-color: #ff9800; /* Keep orange for high visibility */
+  color: white;
+}
+
+/* Collapse/Expand Buttons */
+.kop-collapse-btn,
+.kop-expand-btn {
+  cursor: pointer;
+  font-size: 1.4rem; /* Larger icons */
+  color: rgba(255, 255, 255, 0.8); /* Slightly transparent white */
+  transition: transform 0.2s ease, opacity 0.3s ease, color 0.2s ease;
+  flex-shrink: 0;
+  padding: 5px; /* Add padding to increase tap target */
+  border-radius: 4px;
+}
+
+.kop-collapse-btn:hover,
+.kop-expand-btn:hover {
+  color: #ffffff; /* Full white on hover */
+  background-color: rgba(255, 255, 255, 0.1); /* Subtle background on hover */
+  transform: scale(1.05); /* Slight scale */
+}
+
+/* Menu List */
+.kop-menu-list {
+  list-style: none;
+  padding: 15px 0; /* More padding around the list */
+  margin: 0;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+/* Menu Items */
+.kop-menu-item {
+  padding: 12px 20px 12px 18px; /* Adjust padding: T R B L */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  position: relative; /* Needed for active indicator */
+  overflow: hidden;
+  transition: background-color 0.2s ease, color 0.2s ease,
+    padding-left 0.2s ease;
+  color: rgba(255, 255, 255, 0.85); /* Slightly transparent white text */
+  border-radius: 0;
+  margin: 0 10px; /* Add horizontal margin */
+  border-radius: 6px; /* Rounded corners for items */
+  border-left: 4px solid transparent; /* Placeholder for active indicator */
+  margin-bottom: 4px; /* Space between items */
+}
+
+/* Menu Item Hover State */
+.kop-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08); /* Very subtle white overlay */
+  color: #ffffff; /* Full white text */
+  border-left-color: rgba(255, 255, 255, 0.3); /* Subtle border hint on hover */
+}
+
+/* Menu Item Active State */
+.kop-menu-item.kop-active {
+  background-color: rgba(
+    255,
+    255,
+    255,
+    0.15
+  ); /* Brighter white overlay for active */
+  color: #ffffff; /* Full white text */
+  font-weight: 600;
+  border-left-color: #ffffff; /* Solid white border for active */
+}
+.kop-menu-item.kop-active .kop-menu-icon {
+  color: #ffffff; /* Ensure active icon is full white */
+}
+
+/* Menu Item Icon */
+.kop-menu-icon {
+  font-size: 1.2rem; /* Slightly larger icon */
+  min-width: 24px; /* Consistent width */
+  width: 24px;
+  margin-right: 15px; /* More space */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.85); /* Match text transparency */
+  transition: margin 0.3s ease, color 0.2s ease;
+}
+/* Icon color changes on hover/active via parent */
+.kop-menu-item:hover .kop-menu-icon,
+.kop-menu-item.kop-active .kop-menu-icon {
+  color: #ffffff;
+}
+
+/* Menu Item Text Wrapper */
+.kop-menu-text-wrapper {
+  overflow: hidden;
+  white-space: nowrap;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+/* Menu Item Text */
+.kop-menu-text {
+  transition: opacity 0.2s ease-out 0.1s, max-width 0.3s ease-out;
+  display: inline-block;
+  vertical-align: middle;
+  opacity: 1;
+  max-width: 170px;
+}
+
+/* --- Collapsed State Adjustments --- */
+.kop-sidebar.kop-collapsed .kop-logo-text {
+  opacity: 0;
+  max-width: 0;
+}
+
+.kop-sidebar.kop-collapsed .kop-collapse-btn {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.kop-sidebar.kop-collapsed .kop-menu-item {
+  justify-content: center;
+  padding: 12px 0; /* Vertical padding */
+  margin: 0 5px 4px 5px; /* Adjust margin */
+  border-left-color: transparent !important; /* Remove border indicator */
+}
+
+/* Optional: Add background on active when collapsed */
+.kop-sidebar.kop-collapsed .kop-menu-item.kop-active {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.kop-sidebar.kop-collapsed .kop-menu-icon {
+  margin-right: 0;
+  font-size: 1.5rem; /* Even larger icons when collapsed */
+  color: rgba(255, 255, 255, 0.85); /* Default collapsed icon color */
+}
+/* Ensure active icon color persists when collapsed */
+.kop-sidebar.kop-collapsed .kop-menu-item.kop-active .kop-menu-icon {
+  color: #ffffff;
+}
+
+.kop-sidebar.kop-collapsed .kop-menu-text {
+  opacity: 0;
+  max-width: 0;
+}
+
+/* --- Footer Styling --- */
+.kop-sidebar-footer {
+  padding: 15px 20px; /* Match header padding */
+  border-top: 1px solid rgba(255, 255, 255, 0.15); /* Match header border */
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+/* Toggle Button Styling */
+.kop-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 15px; /* Slightly larger button */
+  background-color: transparent; /* Transparent background */
+  border: 1px solid rgba(255, 255, 255, 0.3); /* White border */
+  border-radius: 6px; /* Match item rounding */
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  color: rgba(255, 255, 255, 0.9); /* Button text color */
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.kop-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1); /* Subtle background */
+  border-color: rgba(255, 255, 255, 0.5); /* Brighter border */
+  color: #ffffff; /* Full white */
+}
+
+/* Text span inside button */
+.kop-toggle-btn span {
+  margin-left: 10px; /* More space */
+  display: inline-block;
+}
+
+/* Collapsed Toggle Button */
+.kop-sidebar.kop-collapsed .kop-toggle-btn {
+  width: auto; /* Size to icon */
+  padding: 10px; /* Square padding */
+  border-color: transparent; /* Hide border */
+}
+.kop-sidebar.kop-collapsed .kop-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1); /* Keep hover effect */
+  border-color: transparent;
+}
+
+.kop-sidebar.kop-collapsed .kop-toggle-btn span {
+  display: none; /* Hide text */
+}

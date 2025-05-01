@@ -1,0 +1,124 @@
+/* SejarahBelanja.css */
+
+.sejarah-belanja-container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: sans-serif;
+}
+
+.sejarah-belanja-container h1 {
+  font-size: 1.8rem;
+  margin-bottom: 1rem;
+}
+
+/* The row containing search, date, and export button */
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 1rem;
+}
+
+.search-options {
+  display: flex;
+  align-items: center;
+}
+
+.chips-search {
+  position: relative;
+  width: 300px;
+}
+
+.chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px;
+  background-color: #fff;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f3f3f3;
+  border-radius: 3px;
+  padding: 3px 6px;
+  margin-right: 5px;
+  margin-bottom: 3px;
+}
+
+.chip-close {
+  margin-left: 4px;
+  cursor: pointer;
+}
+
+.chips-row input {
+  border: none;
+  outline: none;
+  flex: 1;
+  margin: 3px;
+}
+
+.suggestion-dropdown {
+  position: absolute;
+  top: 42px;
+  left: 0;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 0 0 4px 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 999;
+}
+
+.suggestion-item {
+  padding: 8px;
+  cursor: pointer;
+}
+
+.suggestion-item:hover {
+  background-color: #eaeaea;
+}
+
+.date-range-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-button {
+  padding: 6px 12px;
+  background-color: #e0f2ff;
+  color: #1a73e8;
+  border: 1px solid #1a73e8;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.export-button:hover {
+  background-color: #cfe9ff;
+}
+
+/* Table styling */
+.sejarah-belanja-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.sejarah-belanja-table th,
+.sejarah-belanja-table td {
+  border: 1px solid #ccc;
+  padding: 8px;
+}
+
+.sejarah-belanja-table th {
+  background-color: #f5f5f5;
+  text-align: left;
+}

@@ -1,0 +1,620 @@
+/* --- Restyled CSS for Daftar Anggota --- */
+
+/* Base Font (Apply to a parent container or body if possible) */
+/* Assuming 'Inter' is available */
+/* .parent-container-or-body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+} */
+
+.daftar-anggota-container {
+  padding: 24px; /* Increased padding */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Apply font here if not globally */
+  background-color: #f9fafb; /* Slightly off-white background for the page */
+}
+
+.daftar-anggota-container h1 {
+  margin-bottom: 24px; /* Increased margin */
+  color: #111827; /* Darker text for better contrast */
+  font-size: 1.75rem; /* Slightly larger title */
+  font-weight: 600; /* Bolder title */
+}
+
+.loading, .error {
+  padding: 3rem; /* Increased padding */
+  text-align: center;
+  font-size: 1rem;
+  color: #6b7280; /* Neutral color for loading */
+  background-color: #ffffff; /* White background */
+  border-radius: 8px; /* Rounded corners */
+  margin-top: 1.5rem; /* Add margin */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+}
+
+.error {
+  color: #dc2626; /* Adjusted error color */
+  background-color: #fee2e2; /* Light red background */
+  border-left: 4px solid #ef4444; /* Red accent border */
+  text-align: left; /* Align text left */
+  padding: 1rem 1.5rem; /* Adjust padding */
+}
+
+/* Filter and Search */
+.filter-container {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px; /* Increased margin */
+  gap: 16px; /* Consistent gap */
+  flex-wrap: wrap;
+  background-color: #ffffff; /* White background for filter area */
+  padding: 16px; /* Add padding */
+  border-radius: 8px; /* Rounded corners */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+}
+
+.search-box {
+  flex: 2 1 300px; /* Allow growing and shrinking, base width */
+  min-width: 250px; /* Minimum width */
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 14px; /* Adjusted padding */
+  border: 1px solid #d1d5db; /* Slightly darker border */
+  border-radius: 6px; /* Consistent rounding */
+  font-size: 0.9rem; /* Adjusted font size */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: #3b82f6; /* Blue focus border */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); /* Blue focus ring */
+}
+
+.status-filter {
+  flex: 1 1 200px; /* Allow growing and shrinking, base width */
+  max-width: 250px; /* Keep max-width */
+  min-width: 180px; /* Minimum width */
+}
+
+.filter-select {
+  width: 100%;
+  padding: 10px 14px; /* Adjusted padding */
+  border: 1px solid #d1d5db; /* Slightly darker border */
+  border-radius: 6px; /* Consistent rounding */
+  font-size: 0.9rem; /* Adjusted font size */
+  background-color: white;
+  appearance: none; /* Remove default arrow */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E"); /* Add custom arrow */
+  background-position: right 0.7rem center;
+  background-repeat: no-repeat;
+  background-size: 1.2em 1.2em;
+  padding-right: 2.5rem; /* Space for custom arrow */
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.filter-select:focus {
+  border-color: #3b82f6; /* Blue focus border */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); /* Blue focus ring */
+}
+
+.empty-state {
+  padding: 3rem 1.5rem; /* Adjusted padding */
+  text-align: center;
+  background-color: #ffffff; /* White background */
+  border-radius: 8px;
+  margin-top: 1.5rem; /* Adjusted margin */
+  border: 1px dashed #d1d5db; /* Dashed border */
+}
+
+.empty-state p {
+  color: #6b7280; /* Softer text color */
+  font-size: 1rem; /* Adjusted font size */
+}
+
+.table-container {
+  overflow-x: auto;
+  margin-top: 1.5rem; /* Adjusted margin */
+  border-radius: 8px; /* Round corners for container */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06); /* Slightly stronger shadow */
+  border: 1px solid #e5e7eb; /* Add container border */
+}
+
+.members-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  /* Remove shadow from table itself, apply to container */
+  /* box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); */
+  min-width: 600px; /* Ensure table has minimum width for horizontal scroll */
+}
+
+.members-table th,
+.members-table td {
+  padding: 12px 16px; /* Consistent padding */
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb; /* Slightly lighter border */
+  font-size: 0.9rem; /* Consistent font size */
+  vertical-align: middle; /* Align content vertically */
+}
+
+.members-table th {
+  background-color: #f9fafb; /* Very light grey header */
+  font-weight: 600; /* Bolder header */
+  color: #374151; /* Darker grey header text */
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom-width: 1px; /* Consistent border width */
+  white-space: nowrap; /* Prevent header text wrapping */
+}
+
+.members-table td {
+  color: #4b5563; /* Slightly softer body text */
+}
+
+.members-table tr:last-child td {
+  border-bottom: none; /* Remove border from last row */
+}
+
+.members-table tr:hover {
+  background-color: #f9fafb; /* Subtle hover */
+}
+
+/* Status badges */
+.status-badge {
+  display: inline-block;
+  padding: 5px 10px; /* Slightly larger padding */
+  border-radius: 12px; /* Pill shape */
+  font-size: 0.75rem; /* Slightly smaller font */
+  font-weight: 600; /* Keep bold */
+  text-transform: uppercase;
+  line-height: 1; /* Ensure consistent height */
+  border: 1px solid transparent; /* Add border for definition */
+}
+
+.status-badge.approved {
+  background-color: #dcfce7; /* Light green background */
+  color: #166534; /* Dark green text */
+  border-color: #bbf7d0; /* Green border */
+}
+
+.status-badge.pending {
+  background-color: #fef3c7; /* Light yellow background */
+  color: #92400e; /* Dark yellow/brown text */
+  border-color: #fde68a; /* Yellow border */
+}
+
+.status-badge.inactive {
+  background-color: #e5e7eb; /* Light grey background */
+  color: #4b5563; /* Dark grey text */
+  border-color: #d1d5db; /* Grey border */
+}
+
+.status-badge.rejected {
+  background-color: #fee2e2; /* Light red background */
+  color: #991b1b; /* Dark red text */
+  border-color: #fecaca; /* Red border */
+}
+
+.status-badge.removed {
+  background-color: #d1d5db; /* Medium grey background */
+  color: #1f2937; /* Very dark grey text */
+  border-color: #9ca3af; /* Darker grey border */
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap; /* Prevent wrapping by default */
+}
+
+.review-button,
+.edit-button,
+.approve-button,
+.reject-button,
+.save-button,
+.cancel-button {
+  padding: 6px 12px;
+  border: 1px solid transparent; /* Add border for definition */
+  border-radius: 6px; /* Consistent rounding */
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.85rem; /* Slightly smaller font */
+  transition: all 0.15s ease; /* Faster transition for multiple properties */
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+.review-button {
+  background-color: #3b82f6; /* Blue */
+  color: white;
+  border-color: #3b82f6;
+}
+
+.review-button:hover {
+  background-color: #2563eb; /* Darker blue */
+  border-color: #2563eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.edit-button {
+  background-color: #6b7280; /* Grey */
+  color: white;
+  border-color: #6b7280;
+}
+
+.edit-button:hover {
+  background-color: #4b5563; /* Darker grey */
+  border-color: #4b5563;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.approve-button, .save-button { /* Combine green buttons */
+  background-color: #22c55e; /* Green */
+  color: white;
+  border-color: #22c55e;
+}
+
+.approve-button:hover, .save-button:hover {
+  background-color: #16a34a; /* Darker green */
+  border-color: #16a34a;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.reject-button {
+  background-color: #ef4444; /* Red */
+  color: white;
+  border-color: #ef4444;
+}
+
+.reject-button:hover {
+  background-color: #dc2626; /* Darker red */
+  border-color: #dc2626;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.cancel-button {
+  background-color: #ffffff; /* White background */
+  color: #4b5563; /* Grey text */
+  border-color: #d1d5db; /* Grey border */
+}
+
+.cancel-button:hover {
+  background-color: #f9fafb; /* Very light grey background */
+  border-color: #9ca3af; /* Darker grey border */
+}
+
+/* Modal styles */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(17, 24, 39, 0.6); /* Darker overlay with hint of blue */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 1rem; /* Add padding for smaller screens */
+  /* Add transitions for fade-in if controlled by JS class */
+  /* opacity: 0; */
+  /* visibility: hidden; */
+  /* transition: opacity 0.2s ease, visibility 0.2s ease; */
+}
+/* Example: .modal-backdrop.visible { opacity: 1; visibility: visible; } */
+
+
+.member-modal {
+  background-color: white;
+  border-radius: 8px; /* Consistent rounding */
+  width: 100%;
+  max-width: 700px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Refined shadow */
+  overflow: hidden; /* Prevent content spill */
+  /* Add transition for scale/fade if controlled by JS class */
+  /* transform: scale(0.95); */
+  /* transition: transform 0.2s ease; */
+}
+/* Example: .modal-backdrop.visible .member-modal { transform: scale(1); } */
+
+
+.modal-header {
+  padding: 1rem 1.5rem; /* Adjusted padding */
+  border-bottom: 1px solid #e5e7eb; /* Lighter border */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0; /* Prevent header shrinking */
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #1f2937; /* Darker header text */
+  font-size: 1.15rem; /* Adjusted size */
+  font-weight: 600; /* Bolder */
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem; /* Larger close icon */
+  cursor: pointer;
+  color: #9ca3af; /* Grey icon */
+  padding: 4px; /* Add padding for easier clicking */
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.modal-close:hover {
+  color: #4b5563; /* Darker grey on hover */
+}
+
+.modal-content {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex-grow: 1; /* Allow content to take available space */
+}
+
+.member-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Adjust min width */
+  gap: 1.5rem; /* Increased gap */
+  margin-bottom: 1.5rem;
+}
+
+.detail-item {
+  padding: 0; /* Remove padding */
+  border-bottom: none; /* Remove border, rely on grid gap */
+}
+
+.detail-item strong {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b7280; /* Lighter label color */
+  margin-bottom: 4px; /* Adjusted margin */
+  font-weight: 500; /* Medium weight label */
+  text-transform: uppercase; /* Uppercase label */
+}
+
+.detail-item span {
+  font-size: 0.95rem; /* Adjusted value size */
+  color: #374151; /* Darker value text */
+  line-height: 1.4; /* Improve readability */
+}
+
+.payment-proof-section {
+  margin: 1.5rem 0;
+  padding: 1rem 1.5rem; /* Adjusted padding */
+  background-color: #f9fafb; /* Light background */
+  border-radius: 6px; /* Consistent rounding */
+  border: 1px solid #e5e7eb; /* Add border */
+}
+
+.payment-proof-section h4 {
+  margin-top: 0;
+  margin-bottom: 12px; /* Increased margin */
+  font-size: 1rem;
+  font-weight: 600; /* Bolder heading */
+  color: #374151;
+}
+
+.payment-link {
+  display: inline-flex; /* Use inline-flex for alignment */
+  align-items: center;
+  gap: 6px; /* Space for potential icon */
+  padding: 8px 16px;
+  background-color: #3b82f6; /* Blue */
+  color: white;
+  text-decoration: none;
+  border-radius: 6px; /* Consistent rounding */
+  font-weight: 500;
+  font-size: 0.9rem; /* Consistent font size */
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.payment-link:hover {
+  background-color: #2563eb; /* Darker blue */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px; /* Consistent gap */
+  margin-top: 1.5rem;
+  padding: 1rem 1.5rem; /* Add padding */
+  border-top: 1px solid #e5e7eb; /* Add separator line */
+  background-color: #f9fafb; /* Slightly different background for actions */
+  flex-shrink: 0; /* Prevent actions area shrinking */
+}
+
+.whatsapp-section {
+  margin-top: 1.5rem;
+  text-align: center; /* Keep centered */
+  padding-top: 1.5rem; /* Add space above */
+  border-top: 1px solid #e5e7eb; /* Add separator */
+}
+
+.whatsapp-button {
+  padding: 10px 20px;
+  background-color: #25D366; /* Keep original WhatsApp green */
+  color: white;
+  border: none;
+  border-radius: 6px; /* Consistent rounding */
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px; /* Space for icon */
+  font-size: 0.95rem; /* Consistent size */
+}
+
+.whatsapp-button:hover {
+  background-color: #1ead56; /* Slightly darker green */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.whatsapp-button:disabled,
+.approve-button:disabled,
+.reject-button:disabled,
+.save-button:disabled,
+.cancel-button:disabled {
+  opacity: 0.6; /* Slightly more visible disabled state */
+  cursor: not-allowed;
+  background-color: #d1d5db; /* Consistent disabled background */
+  color: #6b7280; /* Consistent disabled text */
+  border-color: #d1d5db; /* Consistent disabled border */
+  box-shadow: none; /* Remove shadow when disabled */
+}
+/* Ensure specific disabled colors don't override general */
+.approve-button:disabled, .save-button:disabled { background-color: #d1d5db; border-color: #d1d5db; }
+.reject-button:disabled { background-color: #d1d5db; border-color: #d1d5db; }
+.cancel-button:disabled { background-color: #e5e7eb; border-color: #e5e7eb; color: #9ca3af; }
+.whatsapp-button:disabled { background-color: #d1d5db; border-color: #d1d5db; }
+
+
+/* Edit form styles */
+.edit-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem 1.5rem; /* Row and column gap */
+}
+
+.form-group {
+  margin-bottom: 0; /* Remove margin, rely on grid gap */
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 6px; /* Increased margin */
+  color: #374151; /* Darker label text */
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db; /* Consistent border */
+  border-radius: 6px; /* Consistent rounding */
+  font-size: 0.9rem; /* Consistent font size */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background-color: #ffffff; /* Ensure white background */
+}
+
+.form-input:focus {
+  border-color: #3b82f6; /* Blue focus border */
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2); /* Blue focus ring */
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .daftar-anggota-container {
+    padding: 16px; /* Reduced padding */
+  }
+
+  .daftar-anggota-container h1 {
+    font-size: 1.5rem; /* Smaller title */
+  }
+
+  .filter-container {
+    flex-direction: column;
+    padding: 12px; /* Reduced padding */
+  }
+
+  .status-filter {
+    max-width: none; /* Allow full width */
+  }
+
+  .members-table th,
+  .members-table td {
+    padding: 10px 12px; /* Reduced padding */
+    font-size: 0.85rem; /* Smaller font */
+  }
+
+  /* Consider making table display block on small screens for better layout */
+  /* .members-table, .members-table thead, .members-table tbody, .members-table th, .members-table td, .members-table tr {
+      display: block;
+  }
+  .members-table thead tr {
+      position: absolute;
+      top: -9999px;
+      left: -9999px;
+  }
+   .members-table tr { border: 1px solid #e5e7eb; margin-bottom: 1rem; border-radius: 6px; }
+   .members-table td {
+      border: none;
+      border-bottom: 1px solid #f3f4f6;
+      position: relative;
+      padding-left: 50%;
+      white-space: normal;
+      text-align: right;
+  }
+   .members-table td::before {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      width: 45%;
+      padding-right: 10px;
+      white-space: nowrap;
+      content: attr(data-label); /* Requires adding data-label attributes to TDs */
+  /* font-weight: 600;
+      text-align: left;
+      color: #374151;
+  } */
+  /* Note: The above table transformation requires JS/backend to add data-label attributes */
+
+
+  .action-buttons {
+    flex-direction: row; /* Keep as row but allow wrapping */
+    flex-wrap: wrap;
+    gap: 6px; /* Reduced gap */
+  }
+
+  .member-modal {
+    width: 95%;
+    max-width: 95%; /* Ensure it doesn't exceed viewport */
+    max-height: 85vh; /* Adjust max height */
+    margin: 0 auto; /* Center horizontally */
+  }
+
+  .modal-header {
+    padding: 0.75rem 1rem; /* Reduced padding */
+  }
+  .modal-header h3 {
+    font-size: 1.1rem; /* Smaller title */
+  }
+  .modal-content {
+    padding: 1rem; /* Reduced padding */
+  }
+  .modal-actions {
+    padding: 0.75rem 1rem; /* Reduced padding */
+    flex-direction: row; /* Keep as row */
+    flex-wrap: wrap; /* Allow buttons to wrap */
+    justify-content: flex-end;
+  }
+  .modal-actions button {
+    width: auto; /* Allow buttons to size naturally */
+    flex-grow: 1; /* Allow buttons to grow */
+  }
+
+  .edit-form {
+    grid-template-columns: 1fr; /* Single column */
+  }
+
+  .member-detail-grid {
+    grid-template-columns: 1fr; /* Single column */
+    gap: 1rem; /* Reduced gap */
+  }
+}

@@ -1,0 +1,731 @@
+/* Login.css - Neubrutalism Design System */
+
+/* Import a bold font (e.g., Inter) */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap");
+
+/* Color Variables - High Contrast Neubrutalist Palette */
+:root {
+  --bg-color: #f0f4f8; /* Light cool gray background */
+  --card-bg-color: #ffffff; /* White card background */
+  --text-color: #000000; /* Pure Black text */
+  --border-color: #000000; /* Pure Black borders */
+  --primary-bg: #ffd166; /* Vibrant Yellow */
+  --primary-hover-bg: #fca311; /* Darker Orange/Yellow for hover */
+  --primary-text: #000000; /* Black text on primary */
+  --secondary-bg: #e8e8e8; /* Light Gray for secondary button */
+  --secondary-hover-bg: #d0d0d0; /* Darker Gray for hover */
+  --secondary-text: #000000; /* Black text on secondary */
+  --accent-color: #06d6a0; /* Vibrant Teal/Green accent (e.g., for focus) */
+  --error-bg: #ffadad; /* Light Pink/Red */
+  --error-text: #a4161a; /* Dark Red */
+  --error-border: #a4161a; /* Dark Red border for errors */
+  --success-bg: #bde0fe; /* Light Blue */
+  --success-text: #0077b6; /* Dark Blue */
+  --success-border: #0077b6; /* Dark Blue border for success */
+  --step-active: #06d6a0; /* Active step indicator */
+  --step-inactive: #e8e8e8; /* Inactive step indicator */
+
+  /* Shadow Offset (used for hard shadows) */
+  --shadow-offset: 6px;
+  --button-shadow-offset: 4px;
+}
+
+/* Base Styles */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-weight: 400; /* Default weight */
+}
+
+/* Login Container */
+.brutal-login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+/* Neubrutalist Card */
+.brutal-card {
+  background-color: var(--card-bg-color);
+  border-radius: 4px; /* Minimal rounding */
+  border: 3px solid var(--border-color);
+  /* Hard shadow - no blur, just offset */
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0px 0px
+    var(--border-color);
+  padding: 30px;
+  width: 100%;
+  max-width: 500px;
+  overflow-y: auto; /* Keep scrolling if content overflows */
+  max-height: 90vh; /* Adjusted max-height */
+  position: relative;
+  transition: box-shadow 0.2s ease-out; /* Add transition for potential future interactions */
+}
+
+/* Card Header */
+.card-header {
+  text-align: center;
+  margin-bottom: 30px;
+  border-bottom: 2px solid var(--border-color); /* Separator */
+  padding-bottom: 20px;
+}
+
+.card-title {
+  font-size: 28px; /* Larger size */
+  font-weight: 900; /* Boldest weight */
+  color: var(--text-color);
+  margin: 0;
+  text-transform: uppercase; /* Optional: Uppercase for impact */
+}
+
+/* Form Elements */
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 700; /* Bolder labels */
+  color: var(--text-color);
+  font-size: 14px; /* Slightly smaller label */
+  text-transform: uppercase;
+}
+
+.brutal-input {
+  width: 100%;
+  padding: 12px 15px;
+  border-radius: 4px; /* Minimal rounding */
+  border: 2px solid var(--border-color);
+  background-color: var(
+    --card-bg-color
+  ); /* Match card background or use white */
+  color: var(--text-color);
+  font-size: 16px;
+  font-weight: 400;
+  box-shadow: none; /* No inset shadow */
+  transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out;
+  box-sizing: border-box;
+  appearance: none; /* Remove default styling */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+
+.brutal-input:focus {
+  outline: none;
+  border: 3px solid var(--accent-color); /* Highlight border on focus */
+  /* Optional: Add a subtle hard shadow on focus */
+  /* box-shadow: 2px 2px 0px 0px var(--accent-color); */
+}
+
+/* File input styling */
+.brutal-file-input {
+  padding: 10px;
+  border: 2px solid var(--border-color);
+  background-color: var(--card-bg-color);
+  border-radius: 4px;
+  font-family: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+
+.file-selected {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+/* Specific overrides for date/select if needed, but base style should cover most */
+.date-input,
+.select-input {
+  cursor: pointer;
+}
+
+.select-input {
+  /* Update SVG color to black */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px; /* Slightly smaller arrow */
+  padding-right: 40px; /* Ensure space for arrow */
+}
+
+/* Neubrutalist Buttons */
+.brutal-button {
+  border: 2px solid var(--border-color);
+  border-radius: 4px; /* Minimal rounding */
+  padding: 12px 25px; /* Adjust padding */
+  font-size: 16px;
+  font-weight: 700; /* Bold text */
+  cursor: pointer;
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out,
+    background-color 0.15s ease-out;
+  display: inline-block;
+  text-align: center;
+  text-transform: uppercase;
+  /* Hard shadow */
+  box-shadow: var(--button-shadow-offset) var(--button-shadow-offset) 0px 0px
+    var(--border-color);
+  position: relative; /* Needed for potential pseudo-elements if desired later */
+}
+
+.primary-button {
+  background-color: var(--primary-bg);
+  color: var(--primary-text);
+  width: 100%;
+  margin-top: 20px;
+}
+
+.primary-button:hover,
+.primary-button:focus {
+  background-color: var(--primary-hover-bg);
+  /* Shift button and shadow slightly on hover */
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--button-shadow-offset) + 2px)
+    calc(var(--button-shadow-offset) + 2px) 0px 0px var(--border-color);
+  outline: none; /* Remove default focus outline if needed */
+}
+
+.primary-button:active {
+  /* Simulate press: move button to where shadow was, remove shadow */
+  transform: translate(
+    var(--button-shadow-offset),
+    var(--button-shadow-offset)
+  );
+  box-shadow: none;
+}
+
+.secondary-button {
+  background-color: var(--secondary-bg);
+  color: var(--secondary-text);
+  /* Add margin if used next to other elements */
+  /* margin-top: 15px; */
+}
+
+.secondary-button:hover,
+.secondary-button:focus {
+  background-color: var(--secondary-hover-bg);
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--button-shadow-offset) + 2px)
+    calc(var(--button-shadow-offset) + 2px) 0px 0px var(--border-color);
+  outline: none;
+}
+
+.secondary-button:active {
+  transform: translate(
+    var(--button-shadow-offset),
+    var(--button-shadow-offset)
+  );
+  box-shadow: none;
+}
+
+/* Specific style for back button if needed, otherwise inherits .brutal-button */
+.back-button {
+  background-color: transparent; /* Make it look different */
+  color: var(--text-color);
+  padding: 8px 15px;
+  font-size: 14px;
+  margin-bottom: 20px;
+  box-shadow: none; /* No shadow for back button */
+  border: none; /* No border */
+  text-transform: none; /* Normal case */
+  font-weight: 700;
+}
+.back-button:hover,
+.back-button:focus {
+  background-color: rgba(0, 0, 0, 0.05); /* Subtle hover */
+  transform: none;
+  box-shadow: none;
+  text-decoration: underline;
+}
+.back-button:active {
+  transform: none;
+  box-shadow: none;
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.button-loading {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background-color: #cccccc !important; /* Distinct loading state */
+  color: #666666 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  pointer-events: none; /* Prevent clicks */
+}
+
+/* Form Footer */
+.form-footer {
+  margin-top: 35px;
+  padding-top: 20px;
+  border-top: 2px solid var(--border-color); /* Thicker border */
+  text-align: center;
+}
+
+.footer-text {
+  margin-bottom: 15px;
+  color: var(--text-color); /* Use main text color */
+  font-size: 14px;
+}
+
+/* Error Messages */
+.error-message {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border: 2px solid var(--error-border);
+  padding: 12px 15px;
+  border-radius: 4px; /* Minimal rounding */
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 700; /* Bolder text */
+  box-shadow: none; /* No shadow */
+}
+
+/* Success Screen & Messages */
+.success-content {
+  /* Container for success message */
+  text-align: center;
+  padding: 20px 0;
+}
+
+.success-message {
+  /* General success message styling */
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border: 2px solid var(--success-border);
+  padding: 12px 15px;
+  border-radius: 4px;
+  margin-bottom: 20px; /* Consistent margin */
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.success-title {
+  /* Specific title within success screen */
+  color: var(--success-text); /* Use success text color */
+  font-size: 24px;
+  font-weight: 900; /* Bold */
+  margin-bottom: 15px;
+  text-transform: uppercase;
+}
+
+/* Form Title and Subtitle (Inside the card, if used) */
+.form-title {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--text-color);
+  text-align: center;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.form-subtitle {
+  text-align: center;
+  color: var(--text-color); /* Use main text color */
+  margin-bottom: 30px;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+/* Registration Form Grid */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px; /* Increased gap */
+  margin-bottom: 20px;
+}
+
+/* Multi-Step Registration Styles */
+.registration-container {
+  width: 100%;
+}
+
+.register-header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 25px;
+}
+
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+}
+
+.step {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background-color: var(--step-inactive);
+  border: 2px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 900;
+  font-size: 18px;
+}
+
+.step.active {
+  background-color: var(--step-active);
+  color: white;
+}
+
+.step-line {
+  flex-grow: 1;
+  height: 3px;
+  background-color: var(--border-color);
+  margin: 0 10px;
+  max-width: 60px;
+}
+
+.step-navigation {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+  align-items: center;
+}
+
+.step-navigation .back-button {
+  margin-bottom: 0;
+}
+
+.step-navigation .primary-button {
+  margin-top: 0;
+  max-width: 180px;
+}
+
+/* Terms and Agreement Styles */
+.form-terms {
+  border: 2px solid var(--border-color);
+  padding: 15px;
+  margin-bottom: 25px;
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.terms-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+}
+
+.terms-content {
+  margin-bottom: 20px;
+}
+
+.terms-content p, .terms-content ul {
+  margin-bottom: 15px;
+}
+
+.terms-content ul {
+  padding-left: 20px;
+}
+
+.terms-content li {
+  margin-bottom: 5px;
+}
+
+/* Checkbox and Radio Styles */
+.checkbox-container, .radio-container {
+  display: flex;
+  align-items: flex-start;
+  margin-top: 15px;
+}
+
+.brutal-checkbox, .brutal-radio {
+  width: 22px;
+  height: 22px;
+  margin-right: 12px;
+  margin-top: 2px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border: 2px solid var(--border-color);
+  background-color: var(--card-bg-color);
+  cursor: pointer;
+  position: relative;
+}
+
+.brutal-checkbox, .brutal-radio {
+  border-radius: 2px;
+}
+
+.brutal-checkbox:checked, .brutal-radio:checked {
+  background-color: var(--accent-color);
+  border-color: var(--border-color);
+}
+
+.brutal-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  color: var(--card-bg-color);
+  font-size: 16px;
+  font-weight: bold;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.brutal-radio:checked::after {
+  content: '✓';
+  position: absolute;
+  color: var(--card-bg-color);
+  font-size: 16px;
+  font-weight: bold;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.checkbox-label, .radio-label {
+  font-size: 14px;
+  font-weight: 500;
+  max-width: calc(100% - 34px);
+}
+
+.option-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  margin-top: 15px;
+}
+
+.membership-options {
+  margin-top: 15px;
+  padding: 15px;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--secondary-bg);
+}
+
+/* WhatsApp Input Styling */
+.whatsapp-input-container {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--card-bg-color);
+  overflow: hidden;
+}
+
+.whatsapp-prefix {
+  background-color: var(--secondary-bg);
+  color: var(--text-color);
+  padding: 12px 10px;
+  font-weight: 700;
+  border-right: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+}
+
+.whatsapp-input {
+  border: none;
+  border-radius: 0;
+  flex-grow: 1;
+}
+
+.whatsapp-input:focus {
+  border: none;
+  outline: none;
+}
+
+.whatsapp-input-container:focus-within {
+  border: 3px solid var(--accent-color);
+}
+
+/* Member Page Styles */
+.member-page-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  background-color: var(--bg-color);
+}
+
+.member-card {
+  width: 100%;
+  max-width: 600px;
+  background-color: var(--card-bg-color);
+  border: 3px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0px 0px var(--border-color);
+  padding: 30px;
+}
+
+.member-header {
+  text-align: center;
+  margin-bottom: 30px;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 20px;
+}
+
+.member-title {
+  font-size: 28px;
+  font-weight: 900;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.member-subtitle {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.member-content {
+  margin-bottom: 30px;
+}
+
+.member-info-section {
+  margin-bottom: 25px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 800;
+  margin-bottom: 15px;
+  text-transform: uppercase;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 15px;
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 12px;
+  background-color: var(--card-bg-color);
+}
+
+.info-label {
+  font-weight: 700;
+}
+
+.info-value {
+  font-weight: 400;
+}
+
+.status-indicator {
+  display: inline-block;
+  padding: 8px 15px;
+  font-weight: 700;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.status-pending {
+  background-color: #ffd166;
+  color: black;
+  border: 2px solid black;
+}
+
+.status-approved {
+  background-color: #06d6a0;
+  color: black;
+  border: 2px solid black;
+}
+
+.member-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Responsive Styles */
+@media (min-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr 1fr; /* Two columns on larger screens */
+  }
+
+  .brutal-card {
+    padding: 40px; /* Increase padding on desktop */
+  }
+  
+  .step-navigation .primary-button {
+    max-width: 200px;
+  }
+}
+
+/* Mobile-specific adjustments */
+@media (max-width: 480px) {
+  .brutal-card {
+    padding: 20px; /* Reduce padding on mobile */
+    /* Slightly smaller shadow on mobile */
+    box-shadow: calc(var(--shadow-offset) - 2px)
+      calc(var(--shadow-offset) - 2px) 0px 0px var(--border-color);
+  }
+
+  .brutal-input,
+  .brutal-button {
+    padding: 10px 15px; /* Adjust padding */
+    font-size: 15px; /* Slightly smaller font */
+  }
+
+  .brutal-button {
+    box-shadow: calc(var(--button-shadow-offset) - 1px)
+      calc(var(--button-shadow-offset) - 1px) 0px 0px var(--border-color);
+  }
+  
+  .primary-button:hover,
+  .primary-button:focus {
+    transform: translate(-1px, -1px);
+    box-shadow: var(--button-shadow-offset) var(--button-shadow-offset) 0px 0px
+      var(--border-color);
+  }
+  
+  .primary-button:active {
+    transform: translate(
+      calc(var(--button-shadow-offset) - 1px),
+      calc(var(--button-shadow-offset) - 1px)
+    );
+    box-shadow: none;
+  }
+  
+  .step {
+    width: 30px;
+    height: 30px;
+    font-size: 16px;
+  }
+  
+  .step-line {
+    max-width: 40px;
+  }
+  
+  .step-navigation {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .step-navigation .back-button,
+  .step-navigation .primary-button {
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
+  }
+
+  .card-title {
+    font-size: 24px; /* Adjust title size */
+  }
+
+  .form-title {
+    font-size: 20px;
+  }
+}
