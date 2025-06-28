@@ -205,11 +205,112 @@
   border-color: #9ca3af; /* Darker grey border */
 }
 
+/* Member number styling */
+.member-number {
+  font-size: 9px;
+  font-style: italic;
+  color: #6b7280;
+  margin-top: 4px;
+  line-height: 1.2;
+}
+
+/* Header with buttons */
+.header-with-button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.add-member-button,
+.import-csv-button,
+.delete-members-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-weight: 500;
+  color: white;
+}
+
+.add-member-button,
+.import-csv-button {
+  background-color: #3b82f6;
+}
+
+.add-member-button:hover,
+.import-csv-button:hover {
+  background-color: #2563eb;
+}
+
+.delete-members-button {
+  background-color: #ef4444;
+}
+
+.delete-members-button:hover {
+  background-color: #dc2626;
+}
+
+/* Checkbox column */
+.checkbox-column {
+  width: 40px;
+  text-align: center;
+}
+
+.checkbox-column input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+/* Delete button styles */
+.delete-button {
+  background-color: #ef4444;
+  color: white;
+  border-color: #ef4444;
+  min-width: 90px;
+  text-align: center;
+}
+
+.delete-button:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.delete-modal .delete-warning {
+  color: #ef4444;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+/* Sticky actions column */
+.members-table th:last-child,
+.members-table td:last-child {
+  position: sticky;
+  right: 0;
+  background-color: white;
+  z-index: 5;
+  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+}
+
+.members-table th:last-child {
+  background-color: #f9fafb;
+  z-index: 15;
+}
+
 /* Action buttons */
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 12px; /* Increased gap between buttons */
   flex-wrap: nowrap; /* Prevent wrapping by default */
+  align-items: center; /* Center align buttons vertically */
 }
 
 .review-button,
@@ -217,38 +318,81 @@
 .approve-button,
 .reject-button,
 .save-button,
+.add-button,
 .cancel-button {
-  padding: 6px 12px;
+  padding: 8px 16px; /* Increased padding for better clickable area */
   border: 1px solid transparent; /* Add border for definition */
   border-radius: 6px; /* Consistent rounding */
   cursor: pointer;
   font-weight: 500;
-  font-size: 0.85rem; /* Slightly smaller font */
-  transition: all 0.15s ease; /* Faster transition for multiple properties */
-  white-space: nowrap; /* Prevent text wrapping */
+  font-size: 0.875rem; /* Adjusted font size */
+  transition: all 0.2s ease;
+  white-space: nowrap; /* Prevent text wrapping in buttons */
+  letter-spacing: 0.01em; /* Slight letter spacing for better readability */
+  display: flex; /* Using flexbox for button content */
+  align-items: center; /* Center content vertically */
+  justify-content: center; /* Center content horizontally */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* Subtle shadow for depth */
 }
 
-.review-button {
+.edit-button {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); /* Enhanced shadow for edit button */
+}
+
+.add-button {
+  background-color: #4f46e5; /* Indigo */
+  color: white;
+  border-color: #4f46e5;
+  padding: 8px 16px;
+  min-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.add-button:hover {
+  background-color: #4338ca; /* Darker indigo */
+  border-color: #4338ca;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.add-button:active {
+  transform: translateY(1px); /* Slight push effect when clicked */
+}
+
+.add-button::before {
+  content: '+';
+  font-size: 1rem;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.save-button {
   background-color: #3b82f6; /* Blue */
   color: white;
   border-color: #3b82f6;
+  min-width: 90px; /* Minimum width for buttons */
+  text-align: center; /* Center text */
 }
 
-.review-button:hover {
+.save-button:hover {
   background-color: #2563eb; /* Darker blue */
   border-color: #2563eb;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.edit-button {
-  background-color: #6b7280; /* Grey */
+.approve-button {
+  background-color: #10b981; /* Green */
   color: white;
-  border-color: #6b7280;
+  border-color: #10b981;
+  min-width: 90px; /* Minimum width for buttons */
+  text-align: center; /* Center text */
 }
 
-.edit-button:hover {
-  background-color: #4b5563; /* Darker grey */
-  border-color: #4b5563;
+.approve-button:hover {
+  background-color: #059669; /* Darker green */
+  border-color: #059669;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
@@ -268,6 +412,8 @@
   background-color: #ef4444; /* Red */
   color: white;
   border-color: #ef4444;
+  min-width: 90px; /* Minimum width for buttons */
+  text-align: center; /* Center text */
 }
 
 .reject-button:hover {
@@ -280,6 +426,8 @@
   background-color: #ffffff; /* White background */
   color: #4b5563; /* Grey text */
   border-color: #d1d5db; /* Grey border */
+  min-width: 90px; /* Minimum width for buttons */
+  text-align: center; /* Center text */
 }
 
 .cancel-button:hover {
@@ -427,7 +575,7 @@
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px; /* Consistent gap */
+  gap: 16px; /* Increased gap between buttons */
   margin-top: 1.5rem;
   padding: 1rem 1.5rem; /* Add padding */
   border-top: 1px solid #e5e7eb; /* Add separator line */
@@ -542,6 +690,25 @@
     padding: 10px 12px; /* Reduced padding */
     font-size: 0.85rem; /* Smaller font */
   }
+  
+  /* Improved button responsiveness on mobile */
+  .add-button,
+  .review-button,
+  .edit-button,
+  .approve-button,
+  .reject-button,
+  .save-button,
+  .cancel-button {
+    padding: 8px 12px; /* Slightly smaller padding on mobile */
+    min-width: auto; /* Allow buttons to be narrower on mobile */
+    font-size: 0.75rem; /* Smaller font size on mobile */
+  }
+  
+  /* Ensure buttons don't overflow on mobile */
+  .action-buttons {
+    flex-wrap: wrap; /* Allow wrapping on mobile */
+    gap: 8px; /* Smaller gap on mobile */
+  }
 
   /* Consider making table display block on small screens for better layout */
   /* .members-table, .members-table thead, .members-table tbody, .members-table th, .members-table td, .members-table tr {
@@ -602,11 +769,14 @@
     padding: 0.75rem 1rem; /* Reduced padding */
     flex-direction: row; /* Keep as row */
     flex-wrap: wrap; /* Allow buttons to wrap */
+    gap: 10px; /* Consistent gap for wrapped buttons */
     justify-content: flex-end;
   }
   .modal-actions button {
     width: auto; /* Allow buttons to size naturally */
-    flex-grow: 1; /* Allow buttons to grow */
+    flex: 1 0 auto; /* Allow buttons to grow but not shrink below their content size */
+    min-width: 85px; /* Ensure minimum width even when wrapped */
+    max-width: 160px; /* Limit maximum width to prevent uneven buttons */
   }
 
   .edit-form {

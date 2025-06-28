@@ -130,7 +130,7 @@ const MemberPage = () => {
     if (!userData) return;
 
     // Format the WhatsApp number properly
-    const nomorBuAna = "+6281336500027"; // Admin number
+    const nomorBuAna = "+6285604795346"; // Admin number
 
     const message = encodeURIComponent(
       `[Pendaftaran Anggota Koperasi]\n\nNama: ${userData.nama}\nKantor: ${userData.kantor}\nSatuan Kerja: ${userData.satuanKerja}\n\nSaya telah mendaftar sebagai anggota koperasi dan menunggu persetujuan. Terima kasih.`
@@ -163,7 +163,7 @@ const MemberPage = () => {
           return <MemberSimpanPinjam />;
         case "beranda":
         default:
-          return <MemberBeranda />;
+          return <MemberBeranda setActivePage={setActivePage} />;
       }
     } else {
       // For pending members, always show the pending status page
@@ -217,7 +217,7 @@ const MemberPage = () => {
     return (
       <div className="member-page-container">
         <div className="member-nav-container">
-          <div className="nav-logo">UniMart</div>
+          <div className="nav-logo">Koperasi Unipdu</div>
           <button className="nav-menu-button">
             <span>☰</span>
           </button>
@@ -231,7 +231,7 @@ const MemberPage = () => {
     return (
       <div className="member-page-container">
         <div className="member-nav-container">
-          <div className="nav-logo">UniMart</div>
+          <div className="nav-logo">Koperasi Unipdu</div>
           <button className="nav-menu-button">
             <span>☰</span>
           </button>
@@ -268,7 +268,7 @@ const MemberPage = () => {
     <div className="member-page-container">
       {/* Top Navigation */}
       <div className="member-nav-container">
-        <div className="nav-logo">UniMart</div>
+        <div className="nav-logo">Koperasi Unipdu</div>
         <button className="nav-menu-button" onClick={toggleMenu}>
           <span>☰</span>
         </button>
@@ -306,7 +306,7 @@ const MemberPage = () => {
 
           {(isApproved || isInactive) && (
             <>
-              <div
+              {/* <div
                 className={`menu-item ${
                   activePage === "voucher" ? "active" : ""
                 }`}
@@ -316,7 +316,7 @@ const MemberPage = () => {
                 }}
               >
                 Ambil Sembako
-              </div>
+              </div> */}
 
               <div
                 className={`menu-item ${

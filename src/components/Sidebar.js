@@ -18,7 +18,7 @@ import "../styles/Sidebar.css"; // Custom styles for the sidebar
 const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
   const { hasAccess, userRole } = useAuth();
   const { isProduction, environment } = useEnvironment();
-  
+
   const allMenuItems = [
     { id: "Transaksi", label: "Transaksi", icon: <FaMoneyCheckAlt /> },
     { id: "SimpanPinjam", label: "Simpan-Pinjam", icon: <FaWallet /> },
@@ -40,15 +40,15 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
       icon: <FaCog />,
     },
   ];
-  
+
   // Add AdminPanel and Settings for admin and Director roles
-  if (userRole === 'admin' || userRole === 'Director') {
+  if (userRole === "admin" || userRole === "Director") {
     allMenuItems.push({
       id: "AdminPanel",
       label: "Admin Panel",
       icon: <FaUsersCog />,
     });
-    
+
     // Also add AdminSettings
     allMenuItems.push({
       id: "AdminSettings",
@@ -56,9 +56,9 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
       icon: <FaCog />,
     });
   }
-  
+
   // Filter menu items based on user role
-  const menuItems = allMenuItems.filter(item => hasAccess(item.id));
+  const menuItems = allMenuItems.filter((item) => hasAccess(item.id));
 
   return (
     <div className={`kop-sidebar ${isCollapsed ? "kop-collapsed" : ""}`}>
@@ -86,7 +86,7 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
           {/* Show an image instead of the hamburger icon, remove "M" */}
           <div className="kop-header-small-container">
             <img
-              src="/logo-koperasi-unipdu-removebg-preview.png"
+              src="/no-background-koperasi-logo-cropped.png"
               alt="Koperasi Unipdu"
               className="kop-collapsed-logo"
               title="Koperasi Unipdu"
@@ -95,7 +95,7 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
               <span className="kop-env-tag-small kop-testing">T</span>
             )}
           </div>
-          
+
           <FaArrowRight
             className="kop-expand-btn"
             onClick={onCollapseToggle}
@@ -108,7 +108,9 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
         {menuItems.map((item) => (
           <li
             key={item.id}
-            className={`kop-menu-item ${selectedItem === item.id ? "kop-active" : ""}`}
+            className={`kop-menu-item ${
+              selectedItem === item.id ? "kop-active" : ""
+            }`}
             onClick={() => onSelect(item.id)}
             title={isCollapsed ? item.label : ""}
           >
@@ -122,20 +124,20 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
           </li>
         ))}
       </ul>
-      
+
       {/* Collapse/Expand control at the bottom */}
       <div className="kop-sidebar-footer">
         {!isCollapsed ? (
-          <button 
-            className="kop-toggle-btn" 
+          <button
+            className="kop-toggle-btn"
             onClick={onCollapseToggle}
             title="Collapse Sidebar"
           >
             <FaArrowLeft /> <span>Collapse</span>
           </button>
         ) : (
-          <button 
-            className="kop-toggle-btn kop-btn-small" 
+          <button
+            className="kop-toggle-btn kop-btn-small"
             onClick={onCollapseToggle}
             title="Expand Sidebar"
           >

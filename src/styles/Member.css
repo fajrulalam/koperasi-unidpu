@@ -677,6 +677,177 @@ textarea.form-input {
 }
 /* --- End Inactive Stamp Styling --- */
 
+/* --- Loan Feature Styles --- */
+.loan-list {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.loan-card {
+  background: var(--card-bg-color);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 0 var(--border-color);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.loan-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--shadow-offset) + 2px) calc(var(--shadow-offset) + 2px) 0 0 var(--border-color);
+}
+
+.loan-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.loan-header h4 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.loan-details {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.loan-detail {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: var(--text-color);
+  flex: 0 0 160px;
+}
+
+.detail-value {
+  flex: 1;
+  text-align: right;
+  word-break: break-word;
+}
+
+.loan-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--border-color);
+}
+
+.loan-actions .brutal-button {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.no-loans {
+  text-align: center;
+  padding: 2rem;
+  background: var(--card-bg-color);
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.no-loans p {
+  margin: 0;
+  color: var(--placeholder-text-color);
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 2px solid var(--border-color);
+}
+
+.status-badge.success {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border-color: var(--success-border);
+}
+
+.status-badge.error {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border-color: var(--error-border);
+}
+
+.status-badge.warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border-color: #ffeeba;
+}
+
+.status-badge.info {
+  background-color: #cce5ff;
+  color: #004085;
+  border-color: #b8daff;
+}
+
+/* Form Elements */
+.character-count {
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--placeholder-text-color);
+  margin-top: 0.25rem;
+}
+
+.error-message {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border: 2px solid var(--error-border);
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.25rem;
+  font-weight: 500;
+}
+
+.form-note {
+  font-size: 0.85rem;
+  color: var(--placeholder-text-color);
+  margin-top: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 600px) {
+  .loan-detail {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .detail-label,
+  .detail-value {
+    text-align: left;
+    flex: 1;
+  }
+  
+  .loan-actions {
+    flex-direction: column;
+  }
+  
+  .loan-actions .brutal-button {
+    width: 100%;
+  }
+}
+
 .balance-card {
   /* Use card background color (white) */
   background-color: var(--card-bg-color);
@@ -1033,18 +1204,16 @@ textarea.form-input {
   font-size: 16px;
   margin: 20px 0;
   padding: 15px;
-  background-color: #ffeeee;
-  border: 2px solid var(--error-border);
-  border-radius: 4px;
 }
 
 /* Registration specific styles */
 .registration-info {
-  font-size: 16px;
-  margin-bottom: 20px;
+font-size: 16px;
+margin-bottom: 20px;
 }
 
 .terms-agreement {
+margin: 20px 0;
   margin: 20px 0;
 }
 

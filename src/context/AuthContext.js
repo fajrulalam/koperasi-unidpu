@@ -1,7 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db } from '../firebase';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { auth, db } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -15,34 +22,37 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
-      
+
       if (user) {
         // Fetch user role from Firestore
         try {
           // First try to find the document with user.uid as document ID
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          const userDoc = await getDoc(doc(db, "users", user.uid));
           if (userDoc.exists()) {
             setUserRole(userDoc.data().role);
           } else {
             // If not found, query for documents with the uid field matching user.uid
-            const q = query(collection(db, 'users'), where('uid', '==', user.uid));
+            const q = query(
+              collection(db, "users"),
+              where("uid", "==", user.uid)
+            );
             const querySnapshot = await getDocs(q);
-            
+
             if (!querySnapshot.empty) {
               // Use the first matching document
               const userData = querySnapshot.docs[0].data();
               setUserRole(userData.role);
             } else {
-              console.error('User document not found in either location');
+              console.error("User document not found in either location");
             }
           }
         } catch (error) {
-          console.error('Error fetching user role:', error);
+          console.error("Error fetching user role:", error);
         }
       } else {
         setUserRole(null);
       }
-      
+
       setLoading(false);
     });
 
@@ -52,23 +62,70 @@ export const AuthProvider = ({ children }) => {
   // Define access permissions based on role
   const hasAccess = (component) => {
     if (!userRole) return false;
-    
+
     const permissions = {
-      'Director': ['Transaksi', 'SimpanPinjam', 'DaftarAnggotaBaru', 'Stocks', 'SejarahBelanja', 'SejarahTransaksi', 'AdminPanel', 'AdminSettings', 'TailwindTest'],
-      'Admin': ['Transaksi', 'DaftarAnggotaBaru', 'Stocks', 'SimpanPinjam', 'SejarahTransaksi', 'TailwindTest'],
-      'Cashier': ['Transaksi', 'DaftarAnggotaBaru', 'SejarahTransaksi', 'TailwindTest'],
-      'admin': ['Transaksi', 'SimpanPinjam', 'DaftarAnggotaBaru', 'Stocks', 'SejarahBelanja', 'SejarahTransaksi', 'AdminPanel', 'AdminSettings', 'TailwindTest'],
-      'Member': ['MemberPage'] // Members only have access to the MemberPage
+      Director: [
+        "Transaksi",
+        "SimpanPinjam",
+        "DaftarAnggotaBaru",
+        "Stocks",
+        "SejarahBelanja",
+        "SejarahTransaksi",
+        "AdminPanel",
+        "AdminSettings",
+        "TailwindTest",
+      ],
+      "Wakil Rektor 2": [
+        "Transaksi",
+        "SimpanPinjam",
+        "DaftarAnggotaBaru",
+        "Stocks",
+        "SejarahBelanja",
+        "SejarahTransaksi",
+        "AdminPanel",
+        "AdminSettings",
+        "TailwindTest",
+        "MemberPage",
+      ], // Full access to everything
+      BAK: ["SimpanPinjam", "DaftarAnggotaBaru", "SejarahTransaksi"], // Access to SimpanPinjam and DaftarAnggotaBaru
+      Admin: [
+        "Transaksi",
+        "DaftarAnggotaBaru",
+        "Stocks",
+        "SimpanPinjam",
+        "SejarahTransaksi",
+        "TailwindTest",
+      ],
+      Cashier: [
+        "Transaksi",
+        "DaftarAnggotaBaru",
+        "SejarahTransaksi",
+        "TailwindTest",
+      ],
+      admin: [
+        "Transaksi",
+        "SimpanPinjam",
+        "DaftarAnggotaBaru",
+        "Stocks",
+        "SejarahBelanja",
+        "SejarahTransaksi",
+        "AdminPanel",
+        "AdminSettings",
+        "TailwindTest",
+      ],
+      Member: ["MemberPage"], // Members only have access to the MemberPage
     };
-    
-    return permissions[userRole]?.includes(component) || false;
+
+    // Convert userRole to string and trim any whitespace for comparison
+    const normalizedUserRole = userRole.toString().trim();
+    return permissions[normalizedUserRole]?.includes(component) || false;
   };
 
   const value = {
     currentUser,
     userRole,
     loading,
-    hasAccess
+    hasAccess,
   };
 
   return (
