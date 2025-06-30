@@ -7,37 +7,76 @@ import ViewMemberModal from "./ViewMemberModal";
 import AddMemberModal from "./AddMemberModal";
 import EditMemberModal from "./EditMemberModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
+import NominalTabunganTooltip from "./NominalTabunganTooltip";
 import { updateAllUsersWithMemberNumbers } from "../utils/memberNumberUtils";
+import { 
+  getNext5thOfMonth, 
+  getIndonesianMonthName, 
+  getNextPaymentInfo 
+} from "../utils/memberBerandaUtils";
+import { useAuth } from "../context/AuthContext";
 
-const DaftarAnggotaBaru = ({ isProduction = true }) => {
-  const [isBatchUpdating, setIsBatchUpdating] = useState(false);
+const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
+  const [tooltipState, setTooltipState] = useState({
+    isVisible: false,
+    position: { x: 0, y: 0 },
+    member: null
+  });
+  const { hasAccess } = useAuth();
 
-  // Function to handle batch member number update
-  const handleGenerateMemberNumbers = async () => {
-    const confirmUpdate = window.confirm(
-      "Apakah Anda yakin ingin membuat nomor anggota untuk semua anggota yang belum memiliki nomor? Proses ini mungkin membutuhkan waktu beberapa saat."
-    );
-
-    if (!confirmUpdate) return;
-
-    setIsBatchUpdating(true);
-    try {
-      const result = await updateAllUsersWithMemberNumbers();
-      alert(
-        `Berhasil! ${result.updatedCount} anggota telah diberi nomor anggota.`
-      );
-      // Refresh the member list to show the new member numbers
-      window.location.reload();
-    } catch (error) {
-      console.error("Error updating member numbers:", error);
-      alert(`Gagal mengupdate nomor anggota: ${error.message}`);
-    } finally {
-      setIsBatchUpdating(false);
-    }
+  // Handle tooltip visibility
+  const handleMouseEnter = (event, member) => {
+    const rect = event.target.getBoundingClientRect();
+    setTooltipState({
+      isVisible: true,
+      position: {
+        x: rect.left + rect.width / 2,
+        y: rect.top
+      },
+      member
+    });
   };
+
+  const handleMouseLeave = () => {
+    setTooltipState({
+      isVisible: false,
+      position: { x: 0, y: 0 },
+      member: null
+    });
+  };
+
+  // Get next payment info for tooltip
+  const getTooltipPaymentInfo = (member) => {
+    // Check if member has Payroll Deduction payment status
+    if (member.paymentStatus !== "Payroll Deduction") {
+      return {
+        amount: "Tidak ada",
+        date: "-",
+        description: "(bukan potong gaji)"
+      };
+    }
+
+    if (member.paymentStatus === "Yayasan Subsidy") {
+      return {
+        amount: "Tidak ada",
+        date: "-",
+        description: "(subsidi yayasan)"
+      };
+    }
+
+    const next5th = getNext5thOfMonth();
+    const monthName = getIndonesianMonthName(next5th);
+    const nextPaymentInfo = getNextPaymentInfo(member);
+    
+    return {
+      amount: formatCurrency(nextPaymentInfo.amount),
+      date: `5 ${monthName}`,
+      description: nextPaymentInfo.description
+    };
+  };
+
   const {
     // State
-    members,
     loading,
     error,
     selectedMember,
@@ -109,6 +148,14 @@ const DaftarAnggotaBaru = ({ isProduction = true }) => {
           >
             Tambah Anggota Baru
           </button>
+          {hasAccess("TabunganLogs") && (
+            <button
+              className="tabungan-logs-button"
+              onClick={() => setActivePage && setActivePage("TabunganLogs")}
+            >
+              Tabungan Logs
+            </button>
+          )}
           {/* <button
             className="generate-numbers-button"
             onClick={handleGenerateMemberNumbers}
@@ -120,7 +167,7 @@ const DaftarAnggotaBaru = ({ isProduction = true }) => {
               border: "none",
               borderRadius: "4px",
               cursor: isBatchUpdating ? "not-allowed" : "pointer",
-              opacity: isBatchUpdating ? 0.7 : 1
+              opacity: isBatchUpdating ? 0.7 : 1,
             }}
           >
             {isBatchUpdating ? "Memproses..." : "Generate Nomor Anggota"}
@@ -184,8 +231,7 @@ const DaftarAnggotaBaru = ({ isProduction = true }) => {
                 <th>Satuan Kerja</th>
                 <th>WhatsApp</th>
                 <th>Email</th>
-                {/* <th>Iuran Pokok</th> */}
-                {/* <th>Iuran Wajib</th> */}
+                <th>Nominal Tabungan</th>
                 <th>Status Pembayaran</th>
                 <th>Status Keanggotaan</th>
                 <th>Aksi</th>
@@ -206,8 +252,19 @@ const DaftarAnggotaBaru = ({ isProduction = true }) => {
                   <td>{member.satuanKerja || "-"}</td>
                   <td>{member.nomorWhatsapp || "-"}</td>
                   <td>{member.email || "-"}</td>
-                  {/* <td>{formatCurrency(member.iuranPokok)}</td> */}
-                  {/* <td>{formatCurrency(member.iuranWajib)}</td> */}
+                  <td 
+                    className="nominal-tabungan-cell"
+                    onMouseEnter={(e) => member.membershipStatus === "approved" ? handleMouseEnter(e, member) : null}
+                    onMouseLeave={handleMouseLeave}
+                  >
+                    {member.membershipStatus === "approved" ? (
+                      <span className="nominal-tabungan-amount">
+                        {formatCurrency(member.nominalTabungan || 0)}
+                      </span>
+                    ) : (
+                      <span className="nominal-tabungan-inactive">-</span>
+                    )}
+                  </td>
                   <td>{member.paymentStatus || "-"}</td>
                   <td>
                     <span
@@ -299,6 +356,17 @@ const DaftarAnggotaBaru = ({ isProduction = true }) => {
         selectedMembers={selectedMembers}
         actionLoading={actionLoading}
       />
+
+      {/* Nominal Tabungan Tooltip */}
+      {tooltipState.member && (
+        <NominalTabunganTooltip
+          isVisible={tooltipState.isVisible}
+          position={tooltipState.position}
+          nextPaymentAmount={getTooltipPaymentInfo(tooltipState.member).amount}
+          nextPaymentDate={getTooltipPaymentInfo(tooltipState.member).date}
+          nextPaymentDescription={getTooltipPaymentInfo(tooltipState.member).description}
+        />
+      )}
     </div>
   );
 };

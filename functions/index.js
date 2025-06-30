@@ -16,6 +16,14 @@ try {
 
 admin.initializeApp();
 
+// Import nominalTabungan functions
+const { 
+  incrementNominalTabungan, 
+  manualIncrementNominalTabungan,
+  initializeNominalTabungan,
+  rollbackTabunganLog
+} = require('./incrementNominalTabungan');
+
 // Function that runs every day at 23:50 Jakarta time (UTC+7)
 exports.createDailyStockSnapshot = functions.pubsub
   .schedule("50 23 * * *")
@@ -210,3 +218,9 @@ exports.printReceipt = functions.https.onRequest((req, res) => {
     }
   });
 });
+
+// Export nominalTabungan functions
+exports.incrementNominalTabungan = incrementNominalTabungan;
+exports.manualIncrementNominalTabungan = manualIncrementNominalTabungan;
+exports.initializeNominalTabungan = initializeNominalTabungan;
+exports.rollbackTabunganLog = rollbackTabunganLog;

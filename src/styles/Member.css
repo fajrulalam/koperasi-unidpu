@@ -695,7 +695,8 @@ textarea.form-input {
 
 .loan-card:hover {
   transform: translate(-2px, -2px);
-  box-shadow: calc(var(--shadow-offset) + 2px) calc(var(--shadow-offset) + 2px) 0 0 var(--border-color);
+  box-shadow: calc(var(--shadow-offset) + 2px) calc(var(--shadow-offset) + 2px)
+    0 0 var(--border-color);
 }
 
 .loan-header {
@@ -832,17 +833,17 @@ textarea.form-input {
     flex-direction: column;
     gap: 0.25rem;
   }
-  
+
   .detail-label,
   .detail-value {
     text-align: left;
     flex: 1;
   }
-  
+
   .loan-actions {
     flex-direction: column;
   }
-  
+
   .loan-actions .brutal-button {
     width: 100%;
   }
@@ -875,6 +876,26 @@ textarea.form-input {
   font-weight: 900;
   /* Use main text color */
   color: var(--text-color);
+}
+
+.next-payment-info {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+  width: 100%;
+}
+
+.next-payment-text {
+  font-size: 10px;
+  color: var(--placeholder-text-color);
+  line-height: 1.2;
+  text-align: right;
+  display: block;
+}
+
+.next-payment-amount {
+  color: #0fa320;
+  font-weight: 900;
 }
 
 /* --- Button Styling --- */
@@ -1170,7 +1191,7 @@ textarea.form-input {
 }
 
 .modal-header {
-  padding: 15px 20px;
+  padding: 10px 20px;
   border-bottom: 2px solid var(--border-color);
   display: flex;
   justify-content: space-between;
@@ -1191,8 +1212,9 @@ textarea.form-input {
 }
 
 .modal-body {
-  padding: 20px;
+  padding: 10px 20px 20px;
   overflow-y: auto;
+  max-height: 70vh; /* Set a max height for scrollability */
 }
 
 /* Inactive message styles */
@@ -1208,12 +1230,12 @@ textarea.form-input {
 
 /* Registration specific styles */
 .registration-info {
-font-size: 16px;
-margin-bottom: 20px;
+  font-size: 16px;
+  margin-bottom: 20px;
 }
 
 .terms-agreement {
-margin: 20px 0;
+  margin: 20px 0;
   margin: 20px 0;
 }
 

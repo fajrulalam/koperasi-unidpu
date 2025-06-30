@@ -10,6 +10,7 @@ import {
   FaShoppingBasket,
   FaUsersCog,
   FaCog,
+  FaHistory,
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -23,6 +24,7 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
     { id: "Transaksi", label: "Transaksi", icon: <FaMoneyCheckAlt /> },
     { id: "SimpanPinjam", label: "Simpan-Pinjam", icon: <FaWallet /> },
     { id: "DaftarAnggotaBaru", label: "Anggota Baru", icon: <FaUserPlus /> },
+    { id: "TabunganLogs", label: "Tabungan Logs", icon: <FaHistory /> },
     { id: "Stocks", label: "Stocks", icon: <FaBoxOpen /> },
     {
       id: "SejarahBelanja",

@@ -19,6 +19,7 @@ import {
   AdminSettings
 } from "../components";
 import TailwindTest from "../components/TailwindTest";
+import TabunganLogs from "../components/TabunganLogs";
 
 const MainPage = () => {
   const { currentUser, userRole, hasAccess } = useAuth();
@@ -40,6 +41,8 @@ const MainPage = () => {
         setActiveComponent("SimpanPinjam");
       } else if (hasAccess("SejarahTransaksi")) {
         setActiveComponent("SejarahTransaksi");
+      } else if (hasAccess("TabunganLogs")) {
+        setActiveComponent("TabunganLogs");
       } else if (hasAccess("SejarahBelanja")) {
         setActiveComponent("SejarahBelanja");
       } else if (hasAccess("AdminPanel")) {
@@ -65,7 +68,9 @@ const MainPage = () => {
       case "SimpanPinjam":
         return <SimpanPinjam />;
       case "DaftarAnggotaBaru":
-        return <DaftarAnggotaBaru />;
+        return <DaftarAnggotaBaru setActivePage={setActiveComponent} />;
+      case "TabunganLogs":
+        return <TabunganLogs />;
       case "Stocks":
         return <Stocks />;
       case "SejarahBelanja":

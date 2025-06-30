@@ -68,6 +68,7 @@ export const AuthProvider = ({ children }) => {
         "Transaksi",
         "SimpanPinjam",
         "DaftarAnggotaBaru",
+        "TabunganLogs",
         "Stocks",
         "SejarahBelanja",
         "SejarahTransaksi",
@@ -79,6 +80,7 @@ export const AuthProvider = ({ children }) => {
         "Transaksi",
         "SimpanPinjam",
         "DaftarAnggotaBaru",
+        "TabunganLogs",
         "Stocks",
         "SejarahBelanja",
         "SejarahTransaksi",
@@ -87,10 +89,11 @@ export const AuthProvider = ({ children }) => {
         "TailwindTest",
         "MemberPage",
       ], // Full access to everything
-      BAK: ["SimpanPinjam", "DaftarAnggotaBaru", "SejarahTransaksi"], // Access to SimpanPinjam and DaftarAnggotaBaru
+      BAK: ["SimpanPinjam", "DaftarAnggotaBaru", "TabunganLogs", "SejarahTransaksi"], // Access to SimpanPinjam and DaftarAnggotaBaru
       Admin: [
         "Transaksi",
         "DaftarAnggotaBaru",
+        "TabunganLogs",
         "Stocks",
         "SimpanPinjam",
         "SejarahTransaksi",
@@ -106,6 +109,7 @@ export const AuthProvider = ({ children }) => {
         "Transaksi",
         "SimpanPinjam",
         "DaftarAnggotaBaru",
+        "TabunganLogs",
         "Stocks",
         "SejarahBelanja",
         "SejarahTransaksi",

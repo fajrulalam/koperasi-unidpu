@@ -214,6 +214,31 @@
   line-height: 1.2;
 }
 
+/* Nominal Tabungan column styling */
+.nominal-tabungan-cell {
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.nominal-tabungan-cell:hover {
+  background-color: #f3f4f6;
+}
+
+.nominal-tabungan-amount {
+  font-weight: 600;
+  color: #047857;
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: rgba(4, 120, 87, 0.1);
+}
+
+.nominal-tabungan-inactive {
+  color: #9ca3af;
+  font-style: italic;
+}
+
 /* Header with buttons */
 .header-with-button {
   display: flex;
@@ -229,7 +254,8 @@
 
 .add-member-button,
 .import-csv-button,
-.delete-members-button {
+.delete-members-button,
+.tabungan-logs-button {
   padding: 0.5rem 1rem;
   border: none;
   border-radius: 4px;
@@ -247,6 +273,14 @@
 .add-member-button:hover,
 .import-csv-button:hover {
   background-color: #2563eb;
+}
+
+.tabungan-logs-button {
+  background-color: #047857;
+}
+
+.tabungan-logs-button:hover {
+  background-color: #065f46;
 }
 
 .delete-members-button {
@@ -465,7 +499,7 @@
   display: flex;
   flex-direction: column;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Refined shadow */
-  overflow: hidden; /* Prevent content spill */
+  /* overflow: hidden; */ /* Removed to allow child scrolling */
   /* Add transition for scale/fade if controlled by JS class */
   /* transform: scale(0.95); */
   /* transition: transform 0.2s ease; */
@@ -474,7 +508,7 @@
 
 
 .modal-header {
-  padding: 1rem 1.5rem; /* Adjusted padding */
+  padding: 0.75rem 1rem; /* Drastically reduce padding */
   border-bottom: 1px solid #e5e7eb; /* Lighter border */
   display: flex;
   justify-content: space-between;
@@ -505,7 +539,7 @@
 }
 
 .modal-content {
-  padding: 1.5rem;
+  padding: 0.5rem 1rem; /* Drastically reduce padding */
   overflow-y: auto;
   flex-grow: 1; /* Allow content to take available space */
 }
@@ -513,8 +547,8 @@
 .member-detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Adjust min width */
-  gap: 1.5rem; /* Increased gap */
-  margin-bottom: 1.5rem;
+  gap: 0.5rem; /* Drastically reduce gap */
+  margin-bottom: 1rem;
 }
 
 .detail-item {
@@ -690,6 +724,11 @@
     padding: 10px 12px; /* Reduced padding */
     font-size: 0.85rem; /* Smaller font */
   }
+
+  .nominal-tabungan-amount {
+    font-size: 0.8rem; /* Smaller font on mobile */
+    padding: 1px 4px; /* Reduced padding on mobile */
+  }
   
   /* Improved button responsiveness on mobile */
   .add-button,
@@ -753,7 +792,7 @@
     width: 95%;
     max-width: 95%; /* Ensure it doesn't exceed viewport */
     max-height: 85vh; /* Adjust max height */
-    margin: 0 auto; /* Center horizontally */
+    margin: 1rem auto; /* Center horizontally with some margin */
   }
 
   .modal-header {

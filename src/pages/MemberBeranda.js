@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { auth, db } from "../firebase";
+import { auth } from "../firebase";
+import LoanHistoryModal from "../components/LoanHistoryModal";
 import {
-  doc,
-  getDoc,
-  query,
-  collection,
-  where,
-  getDocs,
-  updateDoc,
-  onSnapshot,
-} from "firebase/firestore";
+  setupUserDataListener,
+  setupActiveLoansListener,
+  handleUpdateToActiveStatus,
+  formatCurrency,
+  formatDate,
+  generateTransactionHistory,
+  // getCurrentDate,
+  getMembershipStatus,
+  getBalanceDisplay,
+  getLoanButtonText,
+  getStatusBadgeClass,
+} from "../utils/memberBerandaUtils";
 import "../styles/Member.css";
 import "../styles/MemberLoanStyles.css";
 
@@ -24,91 +28,14 @@ const MemberBeranda = ({ setActivePage }) => {
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [userDocRef, setUserDocRef] = useState(null);
-  const [currentDate] = useState(
-    new Date().toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    })
-  );
 
+  // Setup user data listener
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        // Try direct document match first
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-
-        if (docSnap.exists()) {
-          setUserData(docSnap.data());
-          setUserDocRef(docRef);
-        } else {
-          // Try to find by uid field
-          const q = query(
-            collection(db, "users"),
-            where("uid", "==", user.uid)
-          );
-          const querySnapshot = await getDocs(q);
-
-          if (!querySnapshot.empty) {
-            setUserData(querySnapshot.docs[0].data());
-            setUserDocRef(doc(db, "users", querySnapshot.docs[0].id));
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
-
-  // Fetch active loans
-  useEffect(() => {
-    if (!auth.currentUser) return;
-
-    const fetchActiveLoans = async () => {
-      try {
-        const user = auth.currentUser;
-        if (!user) return;
-
-        // Query loans collection for this user with active status
-        const loansQuery = query(
-          collection(db, "simpanPinjam"),
-          where("userId", "==", user.uid),
-          where("status", "==", "Disetujui dan Aktif")
-        );
-
-        // Use onSnapshot for real-time updates
-        const unsubscribe = onSnapshot(
-          loansQuery,
-          (snapshot) => {
-            const loansData = snapshot.docs.map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }));
-            setActiveLoans(loansData);
-            setLoadingLoans(false);
-          },
-          (error) => {
-            console.error("Error fetching loans:", error);
-            setLoadingLoans(false);
-          }
-        );
-
-        return unsubscribe;
-      } catch (error) {
-        console.error("Error setting up loans listener:", error);
-        setLoadingLoans(false);
-      }
-    };
-
-    const unsubscribe = fetchActiveLoans();
+    const unsubscribe = setupUserDataListener(
+      setUserData,
+      setUserDocRef,
+      setLoading
+    );
     return () => {
       if (unsubscribe && typeof unsubscribe === "function") {
         unsubscribe();
@@ -116,155 +43,37 @@ const MemberBeranda = ({ setActivePage }) => {
     };
   }, []);
 
-  // Format currency to IDR
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })
-      .format(amount)
-      .replace("Rp", "Rp ")
-      .trim();
+  // Setup active loans listener
+  useEffect(() => {
+    if (!auth.currentUser) return;
+
+    const unsubscribe = setupActiveLoansListener(
+      setActiveLoans,
+      setLoadingLoans
+    );
+    return () => {
+      if (unsubscribe && typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  // Handle membership status update
+  const handleMembershipUpdate = () => {
+    handleUpdateToActiveStatus(
+      termsAgreed,
+      userDocRef,
+      userData,
+      setUserData,
+      setShowRegistrationModal
+    );
   };
 
-  // Format date from Firestore timestamp
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "-";
-
-    // Convert Firebase timestamp to JS Date
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-
-    // Format the date
-    return new Intl.DateTimeFormat("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }).format(date);
-  };
-
-  // Get status badge class
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case "Disetujui dan Aktif":
-      case "Lunas":
-        return "status-badge success";
-      case "Menunggu Transfer BAK":
-      case "Menunggu Persetujuan BAK":
-      case "Menunggu Persetujuan Wakil Rektor 2":
-        return "status-badge info";
-      case "Direvisi BAK":
-        return "status-badge warning";
-      case "Ditolak BAK":
-      case "Ditolak Wakil Rektor 2":
-      case "Dibatalkan":
-        return "status-badge error";
-      default:
-        return "status-badge";
-    }
-  };
-
-  // Format detailed date with time
-  const formatDetailedDate = (timestamp) => {
-    if (!timestamp) return "-";
-
-    // Convert Firebase timestamp or date object to JS Date
-    const date = timestamp.toDate
-      ? timestamp.toDate()
-      : timestamp instanceof Date
-      ? timestamp
-      : new Date(timestamp);
-
-    // Format the date with time
-    return new Intl.DateTimeFormat("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(date);
-  };
-
-  // Format date from ISO string
-  const formatDateIso = (dateString) => {
-    if (!dateString) return "-";
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("id-ID", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
-    } catch (e) {
-      console.error("Error formatting date:", e);
-      return dateString;
-    }
-  };
-
-  // Generate a mock transaction history
-  const generateTransactionHistory = () => {
-    return [
-      {
-        date: "15 April 2025",
-        type: "Simpanan Wajib",
-        amount: 25000,
-        status: "Sukses",
-      },
-      {
-        date: "15 Maret 2025",
-        type: "Simpanan Wajib",
-        amount: 25000,
-        status: "Sukses",
-      },
-      {
-        date: "15 Februari 2025",
-        type: "Simpanan Wajib",
-        amount: 25000,
-        status: "Sukses",
-      },
-    ];
-  };
-
-  const handleUpdateToActiveStatus = async () => {
-    if (!termsAgreed || !userDocRef) return;
-
-    try {
-      await updateDoc(userDocRef, {
-        membershipStatus: "Pending",
-        iuranPokok: 250000,
-        iuranWajib: 25000,
-        paymentStatus:
-          userData.kantor === "Unipdu"
-            ? "Payroll Deduction"
-            : "Pending Verification",
-      });
-
-      // Update local state
-      setUserData({
-        ...userData,
-        membershipStatus: "Pending",
-        iuranPokok: 250000,
-        iuranWajib: 25000,
-        paymentStatus:
-          userData.kantor === "Unipdu"
-            ? "Payroll Deduction"
-            : "Pending Verification",
-      });
-
-      setShowRegistrationModal(false);
-
-      // Show success message
-      alert(
-        "Pendaftaran berhasil! Status keanggotaan Anda telah diubah menjadi Pending."
-      );
-    } catch (error) {
-      console.error("Error updating membership status:", error);
-      alert(
-        "Terjadi kesalahan saat memperbarui status keanggotaan. Silakan coba lagi."
-      );
-    }
+  // Handle loan history modal
+  const handleShowLoanHistory = (loan) => {
+    const loanMember = activeLoans.find((l) => l.id === loan.id);
+    setSelectedLoanForHistory(loanMember);
+    setShowLoanHistoryModal(true);
   };
 
   if (loading) {
@@ -276,10 +85,10 @@ const MemberBeranda = ({ setActivePage }) => {
     );
   }
 
-  const isInactive = userData?.membershipStatus === "inactive";
-  const isApproved = userData?.membershipStatus === "approved";
+  const { isInactive, isApproved } = getMembershipStatus(userData);
   const transactions = generateTransactionHistory();
-  console.log(isInactive);
+  const balanceDisplay = getBalanceDisplay(isInactive, userData);
+  const loanButtonText = getLoanButtonText(activeLoans);
 
   return (
     <div className="member-content">
@@ -291,7 +100,7 @@ const MemberBeranda = ({ setActivePage }) => {
           <h3>{userData?.nama || "Anggota"}</h3>
           {isInactive ? (
             <>
-              <p>Aktif sejak: -</p>
+              <p>Nomor Anggota: -</p>
               <button
                 className="brutal-button primary-button activate-button"
                 style={{ backgroundColor: "#ffd166" }}
@@ -301,7 +110,7 @@ const MemberBeranda = ({ setActivePage }) => {
               </button>
             </>
           ) : (
-            <p>Aktif sejak: {formatDate(userData?.registrationDate)}</p>
+            <p>Nomor Anggota: {userData?.nomorAnggota || "-"}</p>
           )}
         </div>
 
@@ -310,9 +119,14 @@ const MemberBeranda = ({ setActivePage }) => {
 
           <div className="balance-card">
             <span className="balance-label">Saldo Simpanan</span>
-            <span className="balance-amount">
-              {isInactive ? formatCurrency(0) : formatCurrency(275000)}
-            </span>
+            <span className="balance-amount">{balanceDisplay.currentBalance}</span>
+            {balanceDisplay.nextPayment && (
+              <div className="next-payment-info">
+                <span className="next-payment-text">
+                  <span className="next-payment-amount">+{balanceDisplay.nextPayment.amount}</span> pada tanggal {balanceDisplay.nextPayment.date} {balanceDisplay.nextPayment.description}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -385,7 +199,7 @@ const MemberBeranda = ({ setActivePage }) => {
                 className="brutal-button primary-button apply-loan-btn"
                 onClick={() => setActivePage("simpanpinjam")}
               >
-                Ajukan Pinjaman Baru
+                {loanButtonText}
               </button>
             </div>
 
@@ -401,8 +215,8 @@ const MemberBeranda = ({ setActivePage }) => {
                       <div className="loan-amount">
                         {formatCurrency(loan.jumlahPinjaman)}
                       </div>
-                      <div className="status-badge success">
-                        Disetujui dan Aktif
+                      <div className={getStatusBadgeClass(loan.status)}>
+                        {loan.status}
                       </div>
                     </div>
                     <div className="loan-info-grid">
@@ -418,14 +232,16 @@ const MemberBeranda = ({ setActivePage }) => {
                           {loan.tujuanPinjaman}
                         </div>
                       </div>
-                      <div className="loan-info-item">
-                        <div className="loan-info-label">
-                          Progres Pembayaran:
+                      {loan.status === "Disetujui dan Aktif" && (
+                        <div className="loan-info-item">
+                          <div className="loan-info-label">
+                            Progres Pembayaran:
+                          </div>
+                          <div className="loan-info-value">
+                            {loan.jumlahMenyicil || 0}/{loan.tenor} cicilan
+                          </div>
                         </div>
-                        <div className="loan-info-value">
-                          {loan.jumlahMenyicil || 0}/{loan.tenor} cicilan
-                        </div>
-                      </div>
+                      )}
                       <div className="loan-info-item">
                         <div className="loan-info-label">
                           Tanggal Pengajuan:
@@ -435,28 +251,24 @@ const MemberBeranda = ({ setActivePage }) => {
                         </div>
                       </div>
                     </div>
-                    <div className="payment-progress-container">
-                      <div className="payment-progress-bar">
-                        <div
-                          className="progress-fill"
-                          style={{
-                            width: `${
-                              ((loan.jumlahMenyicil || 0) / loan.tenor) * 100
-                            }%`,
-                          }}
-                        ></div>
+                    {loan.status === "Disetujui dan Aktif" && (
+                      <div className="payment-progress-container">
+                        <div className="payment-progress-bar">
+                          <div
+                            className="progress-fill"
+                            style={{
+                              width: `${
+                                ((loan.jumlahMenyicil || 0) / loan.tenor) * 100
+                              }%`,
+                            }}
+                          ></div>
+                        </div>
                       </div>
-                    </div>
+                    )}
                     <div className="loan-actions">
                       <button
                         className="brutal-button secondary-button"
-                        onClick={() => {
-                          const loanMember = activeLoans.find(
-                            (l) => l.id === loan.id
-                          );
-                          setSelectedLoanForHistory(loanMember);
-                          setShowLoanHistoryModal(true);
-                        }}
+                        onClick={() => handleShowLoanHistory(loan)}
                       >
                         Lihat Riwayat
                       </button>
@@ -476,7 +288,7 @@ const MemberBeranda = ({ setActivePage }) => {
               className="btn-link"
               onClick={() => setActivePage("simpanpinjam")}
             >
-              Ajukan Pinjaman Baru
+              {loanButtonText}
             </button>
           </div>
         </>
@@ -574,7 +386,7 @@ const MemberBeranda = ({ setActivePage }) => {
                 className={`brutal-button primary-button ${
                   !termsAgreed ? "button-disabled" : ""
                 }`}
-                onClick={handleUpdateToActiveStatus}
+                onClick={handleMembershipUpdate}
                 disabled={!termsAgreed}
               >
                 Daftar
@@ -585,171 +397,11 @@ const MemberBeranda = ({ setActivePage }) => {
       )}
 
       {/* Loan History Modal */}
-      {showLoanHistoryModal && selectedLoanForHistory && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowLoanHistoryModal(false)}
-        >
-          <div
-            className="modal-content loan-detail-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h3>
-                Riwayat Pinjaman #{selectedLoanForHistory.id.substring(0, 8)}
-              </h3>
-              <button
-                className="modal-close"
-                onClick={() => setShowLoanHistoryModal(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="modal-body">
-              {/* Loan Info */}
-              <div className="loan-detail-section">
-                <h4>Informasi Pinjaman</h4>
-                <div className="detail-grid">
-                  <div className="detail-item">
-                    <div className="detail-label">Jumlah Pinjaman</div>
-                    <div className="detail-value">
-                      {formatCurrency(selectedLoanForHistory.jumlahPinjaman)}
-                    </div>
-                  </div>
-                  <div className="detail-item">
-                    <div className="detail-label">Tenor</div>
-                    <div className="detail-value">
-                      {selectedLoanForHistory.tenor} bulan
-                    </div>
-                  </div>
-                  <div className="detail-item">
-                    <div className="detail-label">Tujuan</div>
-                    <div className="detail-value">
-                      {selectedLoanForHistory.tujuanPinjaman}
-                    </div>
-                  </div>
-                  <div className="detail-item">
-                    <div className="detail-label">Status</div>
-                    <div className="detail-value">
-                      <span
-                        className={getStatusBadgeClass(
-                          selectedLoanForHistory.status
-                        )}
-                      >
-                        {selectedLoanForHistory.status}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="detail-item">
-                    <div className="detail-label">Tanggal Pengajuan</div>
-                    <div className="detail-value">
-                      {formatDate(selectedLoanForHistory.tanggalPengajuan)}
-                    </div>
-                  </div>
-                  {selectedLoanForHistory.tanggalDisetujui && (
-                    <div className="detail-item">
-                      <div className="detail-label">Tanggal Disetujui</div>
-                      <div className="detail-value">
-                        {formatDate(selectedLoanForHistory.tanggalDisetujui)}
-                      </div>
-                    </div>
-                  )}
-                  {selectedLoanForHistory.status === "Disetujui dan Aktif" && (
-                    <div className="detail-item wide">
-                      <div className="detail-label">Progres Pembayaran</div>
-                      <div className="detail-value">
-                        {selectedLoanForHistory.jumlahMenyicil || 0}/
-                        {selectedLoanForHistory.tenor} cicilan
-                      </div>
-                      <div className="payment-progress-container">
-                        <div className="payment-progress-bar">
-                          <div
-                            className="progress-fill"
-                            style={{
-                              width: `${
-                                ((selectedLoanForHistory.jumlahMenyicil || 0) /
-                                  selectedLoanForHistory.tenor) *
-                                100
-                              }%`,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Payment Proof Section - only show if available */}
-              {selectedLoanForHistory.buktiTransfer && (
-                <div className="loan-detail-section">
-                  <h4>Bukti Transfer</h4>
-                  <div className="payment-proof-container">
-                    {selectedLoanForHistory.buktiTransfer
-                      .toLowerCase()
-                      .includes(".pdf") ? (
-                      <div className="payment-proof-link">
-                        <i className="file-icon">📄</i>
-                        <a
-                          href={selectedLoanForHistory.buktiTransfer}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Lihat Dokumen PDF
-                        </a>
-                      </div>
-                    ) : (
-                      <img
-                        src={selectedLoanForHistory.buktiTransfer}
-                        alt="Bukti Transfer"
-                        className="payment-proof-image"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Loan History Timeline */}
-              <div className="loan-detail-section">
-                <h4>Riwayat Status Pinjaman</h4>
-                <div className="history-timeline">
-                  {selectedLoanForHistory.history &&
-                  selectedLoanForHistory.history.length > 0 ? (
-                    selectedLoanForHistory.history.map((entry, index) => (
-                      <div key={index} className="history-item">
-                        <div className="history-marker"></div>
-                        <div className="history-content">
-                          <div
-                            className={`history-status ${getStatusBadgeClass(
-                              entry.status
-                            )}`}
-                          >
-                            {entry.status}
-                          </div>
-                          <div className="history-time">
-                            {formatDetailedDate(entry.timestamp)}
-                          </div>
-                          <div className="history-notes">{entry.notes}</div>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p>Tidak ada riwayat</p>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button
-                className="brutal-button secondary-button"
-                onClick={() => setShowLoanHistoryModal(false)}
-              >
-                Tutup
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <LoanHistoryModal
+        isOpen={showLoanHistoryModal}
+        onClose={() => setShowLoanHistoryModal(false)}
+        selectedLoan={selectedLoanForHistory}
+      />
     </div>
   );
 };

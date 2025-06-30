@@ -87,6 +87,7 @@ const SimpanPinjam = () => {
       "Lunas",
       "Ditolak BAK",
       "Ditolak Wakil Rektor 2",
+      "Revisi Ditolak Anggota",
     ]);
   };
 
@@ -291,6 +292,22 @@ const SimpanPinjam = () => {
                 }
               />
               Ditolak Wakil Rektor 2
+            </label>
+            <label
+              className={`chip ${
+                selectedStatuses.includes("Revisi Ditolak Anggota")
+                  ? "active"
+                  : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={selectedStatuses.includes("Revisi Ditolak Anggota")}
+                onChange={() =>
+                  handleStatusFilterChange("Revisi Ditolak Anggota")
+                }
+              />
+              Revisi Ditolak Anggota
             </label>
           </div>
         </div>
