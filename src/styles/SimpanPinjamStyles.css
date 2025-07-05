@@ -1,0 +1,401 @@
+/* SimpanPinjamStyles.css */
+
+/* Main container for the SimpanPinjam page */
+.simpan-pinjam-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+  background-color: #f8f9fa; /* Light grey background for the page */
+  font-family: 'Arial', sans-serif;
+  color: #333;
+}
+
+/* Header styling */
+.simpan-pinjam-header h1 {
+  font-size: 28px;
+  color: #2c3e50; /* Dark blue-grey for headings */
+  margin-bottom: 16px;
+}
+
+/* Header with actions styling */
+.header-with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header-with-actions h2 {
+  font-size: 24px;
+  color: #2c3e50;
+  margin: 0;
+}
+
+/* Export Excel button styling */
+.export-excel-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background-color: #28a745; /* Green color for export */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.export-excel-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.export-excel-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.export-icon {
+  font-size: 16px;
+}
+
+/* Filter section styling */
+.filters-section {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-weight: bold;
+  font-size: 14px;
+  color: #555;
+}
+
+.filter-inputs,
+.status-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Input field styling */
+.filters-section input[type='text'],
+.filters-section input[type='date'] {
+  padding: 10px 14px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.filters-section input[type='text']:focus,
+.filters-section input[type='date']:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  outline: none;
+}
+
+/* Styling for filter chips (checkboxes styled as chips) */
+.status-filter-chips .chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 20px; /* Pill shape */
+  background-color: #e9ecef; /* Default light grey */
+  color: #495057;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease, transform 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.status-filter-chips .chip:hover {
+  background-color: #d3d9df;
+  transform: translateY(-1px);
+}
+
+.status-filter-chips .chip.active {
+  background-color: #007bff; /* Primary blue for active */
+  color: #ffffff;
+  border-color: #0056b3;
+}
+
+.status-filter-chips .chip.active:hover {
+  background-color: #0056b3;
+}
+
+/* Hide actual checkbox, style the label (chip) */
+.status-filter-chips input[type='checkbox'] {
+  display: none;
+}
+
+/* Table styling */
+.loan-table-container {
+  background-color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow-x: auto; /* For responsive tables */
+}
+
+.loan-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.loan-table th,
+.loan-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6; /* Light border for rows */
+}
+
+.loan-table th {
+  background-color: #f1f3f5; /* Very light grey for header */
+  color: #343a40;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.loan-table tbody tr:hover {
+  background-color: #f8f9fa; /* Slight hover effect for rows */
+}
+
+/* Action buttons styling */
+.action-button {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  margin-right: 6px; /* Space between buttons */
+}
+
+.action-button:hover {
+  transform: translateY(-1px);
+}
+
+.action-button.approve {
+  background-color: #28a745; /* Green */
+  color: white;
+}
+.action-button.approve:hover {
+  background-color: #218838;
+}
+
+.action-button.reject {
+  background-color: #dc3545; /* Red */
+  color: white;
+}
+.action-button.reject:hover {
+  background-color: #c82333;
+}
+
+.action-button.revise {
+  background-color: #ffc107; /* Yellow */
+  color: #212529;
+}
+.action-button.revise:hover {
+  background-color: #e0a800;
+}
+
+.action-button.detail,
+.action-button.transfer,
+.action-button.cicil,
+.action-button.lunas {
+  background-color: #007bff; /* Blue */
+  color: white;
+}
+.action-button.detail:hover,
+.action-button.transfer:hover,
+.action-button.cicil:hover,
+.action-button.lunas:hover {
+  background-color: #0056b3;
+}
+
+.action-button.disabled {
+  background-color: #6c757d; /* Grey for disabled */
+  color: white;
+  cursor: not-allowed;
+}
+.action-button.disabled:hover {
+  background-color: #5a6268;
+  transform: none;
+}
+
+/* Status badges in table */
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 120px; /* Ensure badges have some width */
+  display: inline-block;
+}
+
+.status-menunggu-bak { background-color: #ffc107; color: #333; } /* Yellow */
+.status-menunggu-wr1 { background-color: #fd7e14; color: white; } /* Orange */
+.status-menunggu-transfer { background-color: #17a2b8; color: white; } /* Teal */
+.status-aktif { background-color: #28a745; color: white; } /* Green */
+.status-lunas { background-color: #007bff; color: white; } /* Blue */
+.status-direvisi { background-color: #6f42c1; color: white; } /* Purple */
+.status-ditolak { background-color: #dc3545; color: white; } /* Red */
+
+/* Pagination styling */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px 0;
+  gap: 8px;
+}
+
+.pagination-controls button {
+  padding: 8px 12px;
+  border: 1px solid #007bff;
+  background-color: #ffffff;
+  color: #007bff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.pagination-controls button:hover:not(:disabled) {
+  background-color: #007bff;
+  color: #ffffff;
+}
+
+.pagination-controls button:disabled {
+  border-color: #ced4da;
+  color: #ced4da;
+  cursor: not-allowed;
+}
+
+.pagination-controls span {
+  font-size: 14px;
+  color: #555;
+}
+
+/* Modal basic styling (assuming modals are rendered within this component's scope) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: #fff;
+  padding: 25px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 500px;
+  position: relative;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+.modal-header h2 {
+  font-size: 20px;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.modal-close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #888;
+}
+
+.modal-close-button:hover {
+  color: #333;
+}
+
+.modal-body {
+  margin-bottom: 20px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Utility classes */
+.text-center { text-align: center; }
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 16px; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .filters-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-inputs {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .filters-section input[type='text'],
+  .filters-section input[type='date'] {
+    width: 100%; /* Full width on smaller screens */
+  }
+
+  .loan-table th,
+  .loan-table td {
+    font-size: 13px;
+    padding: 10px 8px;
+  }
+
+  .action-button {
+    padding: 7px 10px;
+    font-size: 12px;
+    margin-bottom: 5px; /* Stack buttons nicely */
+  }
+
+  .modal-content {
+    width: 95%;
+  }
+}

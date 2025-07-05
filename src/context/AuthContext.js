@@ -75,6 +75,7 @@ export const AuthProvider = ({ children }) => {
         "AdminPanel",
         "AdminSettings",
         "TailwindTest",
+        "VoucherKoperasi",
       ],
       "Wakil Rektor 2": [
         "Transaksi",
@@ -88,8 +89,9 @@ export const AuthProvider = ({ children }) => {
         "AdminSettings",
         "TailwindTest",
         "MemberPage",
+        "VoucherKoperasi",
       ], // Full access to everything
-      BAK: ["SimpanPinjam", "DaftarAnggotaBaru", "TabunganLogs", "SejarahTransaksi"], // Access to SimpanPinjam and DaftarAnggotaBaru
+      BAK: ["SimpanPinjam", "DaftarAnggotaBaru", "TabunganLogs", "SejarahTransaksi", "VoucherKoperasi"], // Access to SimpanPinjam and DaftarAnggotaBaru
       Admin: [
         "Transaksi",
         "DaftarAnggotaBaru",

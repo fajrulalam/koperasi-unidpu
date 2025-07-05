@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { auth } from "../firebase";
 import LoanHistoryModal from "../components/LoanHistoryModal";
+import MemberVoucherList from "../components/MemberVoucherList";
 import {
   setupUserDataListener,
   setupActiveLoansListener,
@@ -130,6 +131,8 @@ const MemberBeranda = ({ setActivePage }) => {
           </div>
         </div>
       </div>
+
+      {isApproved && <MemberVoucherList />}
 
       <div className="info-card">
         <h3 className="section-title">Informasi Anggota</h3>

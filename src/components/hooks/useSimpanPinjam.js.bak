@@ -1,0 +1,832 @@
+import { useState, useEffect } from "react";
+import {
+  collection,
+  query,
+  where,
+  limit,
+  getDocs,
+  getDoc,
+  doc,
+  updateDoc,
+  serverTimestamp,
+  orderBy,
+  onSnapshot,
+} from "firebase/firestore";
+import { db, auth, storage, uploadFile } from "../../firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { exportLoansToExcel } from "../../utils/exportUtils";
+
+// Format number to Rupiah currency
+const formatRupiah = (number) => {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })
+    .format(number)
+    .replace("IDR", "Rp")
+    .trim();
+};
+
+const useSimpanPinjam = () => {
+  const [loans, setLoans] = useState([]);
+  const [filteredLoans, setFilteredLoans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [revisionAmount, setRevisionAmount] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
+  // Removed activeTab state since we're using a filter-based approach now
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userRole, setUserRole] = useState("");
+  const [viewingLoan, setViewingLoan] = useState(null);
+  const [revisionTenor, setRevisionTenor] = useState("");
+
+  // Filter states
+  const [nameFilter, setNameFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
+
+  // Get current user and role from Firestore
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        setCurrentUser(user);
+
+        try {
+          // First try: Direct document lookup
+          const userDocRef = doc(db, "users", user.uid);
+          let userDoc = await getDoc(userDocRef);
+
+          if (!userDoc.exists()) {
+            // Second try: Query users collection where document ID equals UID
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("uid", "==", user.uid), limit(1));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+              userDoc = querySnapshot.docs[0];
+            }
+          }
+
+          if (userDoc?.exists?.()) {
+            const userData = userDoc.data();
+            const role = userData.role || "";
+            console.log("Fetched user role from Firestore:", role);
+            setUserRole(role);
+          } else {
+            console.log("No user document found in Firestore");
+            setUserRole("");
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+          setUserRole("");
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch all loans based on status filter
+  useEffect(() => {
+    // Return early if no user role is set
+    if (!userRole) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // Parse the status filter if it exists
+      const statusFilters = statusFilter ? statusFilter.split(',') : [
+        // Default visible statuses if no filter is set
+        "Menunggu Persetujuan BAK",
+        "Menunggu Persetujuan Wakil Rektor 2",
+        "Direvisi BAK",
+        "Menunggu Transfer BAK",
+        "Disetujui dan Aktif"
+      ];
+
+      // If there are no status filters, don't query anything
+      if (statusFilters.length === 0) {
+        setLoans([]);
+        setLoading(false);
+        return;
+      }
+
+      // Create a query based on status filters
+      const loanQuery = query(
+        collection(db, "simpanPinjam"),
+        where("status", "in", statusFilters),
+        orderBy("tanggalPengajuan", "desc")
+      );
+
+      // Subscribe to real-time updates
+      const unsubscribe = onSnapshot(loanQuery, async (querySnapshot) => {
+        try {
+          const loansData = [];
+
+          // Process loan data
+          for (const loanDoc of querySnapshot.docs) {
+            const loanData = { id: loanDoc.id, ...loanDoc.data() };
+
+            // Fetch user data for each loan
+            if (loanData.userId) {
+              const userDocRef = doc(db, "users", loanData.userId);
+              const userDoc = await getDoc(userDocRef);
+              if (userDoc.exists()) {
+                loanData.userData = userDoc.data();
+              }
+            }
+
+            loansData.push(loanData);
+          }
+
+          setLoans(loansData);
+          setLoading(false);
+        } catch (error) {
+          console.error("Error loading loans:", error);
+          setError("Gagal memuat data pinjaman");
+          setLoading(false);
+        }
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Error setting up query:", error);
+      setError("Terjadi kesalahan saat mengambil data pinjaman");
+      setLoading(false);
+    }
+  }, [userRole, statusFilter]);
+
+  // Apply filters whenever loans data or filter values change
+  useEffect(() => {
+    if (!loans) return;
+
+    let filtered = [...loans];
+
+    // Filter by name
+    if (nameFilter) {
+      const searchTerm = nameFilter.toLowerCase();
+      filtered = filtered.filter((loan) => {
+        const name = loan.userData?.namaLengkap?.toLowerCase() || "";
+        return name.includes(searchTerm);
+      });
+    }
+
+    // Filter by status - support comma-separated list for multiple statuses
+    if (statusFilter) {
+      const statuses = statusFilter.split(',');
+      filtered = filtered.filter((loan) => statuses.includes(loan.status));
+    }
+
+    // Filter by approval date range (start date)
+    if (startDateFilter) {
+      const startDate = new Date(startDateFilter);
+      startDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter((loan) => {
+        // For approved loans, check approval date
+        if (loan.tanggalDisetujui) {
+          try {
+            const approvalDate = loan.tanggalDisetujui.toDate();
+            return approvalDate >= startDate;
+          } catch (error) {
+            return false;
+          }
+        } 
+        // For pending loans, check application date
+        else if (loan.tanggalPengajuan) {
+          try {
+            const applicationDate = loan.tanggalPengajuan.toDate();
+            return applicationDate >= startDate;
+          } catch (error) {
+            return false;
+          }
+        }
+        return false;
+      });
+    }
+
+    // Filter by date range (end date)
+    if (endDateFilter) {
+      const endDate = new Date(endDateFilter);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((loan) => {
+        // For approved loans, check approval date
+        if (loan.tanggalDisetujui) {
+          try {
+            const approvalDate = loan.tanggalDisetujui.toDate();
+            return approvalDate <= endDate;
+          } catch (error) {
+            return false;
+          }
+        } 
+        // For pending loans, check application date
+        else if (loan.tanggalPengajuan) {
+          try {
+            const applicationDate = loan.tanggalPengajuan.toDate();
+            return applicationDate <= endDate;
+          } catch (error) {
+            return false;
+          }
+        }
+        return false;
+      });
+    }
+
+    setFilteredLoans(filtered);
+  }, [loans, nameFilter, statusFilter, startDateFilter, endDateFilter]);
+
+  // Handle loan approval
+  const handleApprove = async (loanId, currentStatus) => {
+    if (!window.confirm("Apakah Anda yakin menyetujui pengajuan pinjaman ini?"))
+      return;
+
+    try {
+      // Get the current loan document
+      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanSnap = await getDoc(loanRef);
+
+      if (!loanSnap.exists()) {
+        throw new Error("Pinjaman tidak ditemukan");
+      }
+
+      // Get existing history
+      const loanData = loanSnap.data();
+      const currentHistory = loanData.history || [];
+
+      // Set new status and note based on current status and user role
+      let newStatus = "";
+      let note = "";
+      let setApprovalDate = false;
+
+      // For Director role - special handling to allow any approval path
+      if (userRole === "Direktur") {
+        // Allow Director to specify the next status
+        if (currentStatus === "Menunggu Persetujuan BAK") {
+          // For BAK stage, Director can approve directly or send to WR1
+          const selectedOption = window.confirm(
+            "Pilih 'OK' untuk menyetujui langsung menjadi 'Menunggu Transfer BAK'.\n" +
+              "Pilih 'Cancel' untuk melanjutkan ke proses persetujuan WR1."
+          );
+
+          if (selectedOption) {
+            // Approve directly to waiting for transfer status
+            newStatus = "Menunggu Transfer BAK";
+            note = "Pinjaman disetujui langsung oleh Direktur, menunggu transfer";
+          } else {
+            // Move to next step in approval process
+            newStatus = "Menunggu Persetujuan Wakil Rektor 2";
+            note = "Pinjaman disetujui oleh Direktur dan dilanjutkan ke WR1";
+          }
+        } else if (currentStatus === "Menunggu Persetujuan Wakil Rektor 2") {
+          // For WR1 stage, Director approves to waiting for transfer
+          newStatus = "Menunggu Transfer BAK";
+          note = "Pinjaman disetujui oleh Direktur, menunggu transfer";
+        }
+      } else {
+        // Standard approval process for non-Director roles
+        if (
+          currentStatus === "Menunggu Persetujuan BAK" &&
+          userRole === "BAK"
+        ) {
+          newStatus = "Menunggu Persetujuan Wakil Rektor 2";
+          note = "Pinjaman disetujui oleh BAK";
+        } else if (
+          currentStatus === "Menunggu Persetujuan Wakil Rektor 2" &&
+          userRole === "Wakil Rektor 2"
+        ) {
+          newStatus = "Menunggu Transfer BAK";
+          note = "Pinjaman disetujui oleh Wakil Rektor 2, menunggu transfer";
+        }
+      }
+
+      // Create history entry with client-side timestamp
+      const newHistoryEntry = {
+        status: newStatus,
+        timestamp: new Date(),
+        updatedBy: currentUser.uid,
+        notes: note,
+      };
+
+      // Prepare update object
+      const updateData = {
+        status: newStatus,
+        [`approvedBy${userRole.replace(/\s+/g, "")}`]: currentUser.uid,
+        updatedAt: serverTimestamp(),
+        history: [...currentHistory, newHistoryEntry],
+      };
+
+      // Update the document
+      await updateDoc(loanRef, updateData);
+
+      setSuccess(`Pinjaman berhasil ${note.toLowerCase()}`);
+    } catch (error) {
+      console.error("Error approving loan:", error);
+      setError("Gagal menyetujui pinjaman");
+    }
+  };
+
+  // Handle loan rejection
+  const handleReject = async (loanId, currentStatus) => {
+    if (!rejectionReason.trim()) {
+      setError("Harap masukkan alasan penolakan");
+      return;
+    }
+
+    if (!window.confirm("Apakah Anda yakin menolak pengajuan pinjaman ini?"))
+      return;
+
+    try {
+      // Get the current loan document
+      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanSnap = await getDoc(loanRef);
+
+      if (!loanSnap.exists()) {
+        throw new Error("Pinjaman tidak ditemukan");
+      }
+
+      // Get existing history
+      const loanData = loanSnap.data();
+      const currentHistory = loanData.history || [];
+
+      // Determine rejection status based on user role
+      let rejectionStatus;
+
+      if (userRole === "Direktur") {
+        rejectionStatus = "Ditolak Direktur";
+      } else if (userRole === "BAK") {
+        rejectionStatus = "Ditolak BAK";
+      } else if (userRole === "Wakil Rektor 2") {
+        rejectionStatus = "Ditolak Wakil Rektor 2";
+      }
+
+      // Create history entry with client-side timestamp
+      const newHistoryEntry = {
+        status: rejectionStatus,
+        timestamp: new Date(),
+        updatedBy: currentUser.uid,
+        notes: `Ditolak dengan alasan: ${rejectionReason}`,
+      };
+
+      // Update the document with combined history
+      await updateDoc(loanRef, {
+        status: rejectionStatus,
+        alasanPenolakan: rejectionReason,
+        updatedAt: serverTimestamp(),
+        history: [...currentHistory, newHistoryEntry],
+      });
+
+      setSuccess("Pengajuan pinjaman berhasil ditolak");
+      setSelectedLoan(null);
+      setRejectionReason("");
+    } catch (error) {
+      console.error("Error rejecting loan:", error);
+      setError("Gagal menolak pengajuan pinjaman");
+    }
+  };
+
+  // Handle loan revision
+  const handleRevise = async (loanId) => {
+    if (!revisionAmount && !revisionTenor) {
+      setError("Harap masukkan jumlah revisi atau tenor baru");
+      return;
+    }
+
+    if (!window.confirm("Apakah Anda yakin merevisi pinjaman ini?")) return;
+
+    try {
+      // Get the current loan document
+      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanSnap = await getDoc(loanRef);
+
+      if (!loanSnap.exists()) {
+        throw new Error("Pinjaman tidak ditemukan");
+      }
+
+      // Get existing history
+      const loanData = loanSnap.data();
+      const currentHistory = loanData.history || [];
+      const updateData = {
+        updatedAt: serverTimestamp(),
+        status: "Direvisi BAK",
+        history: [...currentHistory],
+      };
+
+      // Add revision notes
+      let revisionNotes = "Direvisi: ";
+      const changes = [];
+
+      if (revisionAmount) {
+        const revisedAmount = parseInt(revisionAmount.replace(/\./g, ""));
+        updateData.jumlahPinjaman = revisedAmount;
+        changes.push(`Jumlah pinjaman menjadi ${formatRupiah(revisedAmount)}`);
+      }
+
+      if (revisionTenor) {
+        const newTenor = parseInt(revisionTenor);
+        updateData.tenor = newTenor;
+        changes.push(`Tenor menjadi ${newTenor} bulan`);
+      }
+
+      revisionNotes += changes.join(", ");
+
+      // Add history entry
+      const newHistoryEntry = {
+        status: "Direvisi",
+        timestamp: new Date(),
+        updatedBy: currentUser.uid,
+        notes: revisionNotes,
+      };
+
+      updateData.history.push(newHistoryEntry);
+
+      // Update the document
+      await updateDoc(loanRef, updateData);
+
+      setSuccess("Pengajuan pinjaman berhasil direvisi");
+      setSelectedLoan(null);
+      setRevisionAmount("");
+      setRevisionTenor("");
+    } catch (error) {
+      console.error("Error revising loan:", error);
+      setError("Gagal merevisi pengajuan pinjaman");
+    }
+  };
+
+  // Handle making a payment
+  const handleMakePayment = async (loanId) => {
+    if (!window.confirm("Apakah Anda yakin mencatat cicilan untuk pinjaman ini?")) {
+      return;
+    }
+
+    try {
+      // Get the current loan document
+      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanSnap = await getDoc(loanRef);
+
+      if (!loanSnap.exists()) {
+        throw new Error("Pinjaman tidak ditemukan");
+      }
+
+      // Get existing loan data
+      const loanData = loanSnap.data();
+      const currentHistory = loanData.history || [];
+      const currentPayments = loanData.jumlahMenyicil || 0;
+      const tenor = loanData.tenor || 0;
+      
+      // Increment payment count
+      const newPaymentCount = currentPayments + 1;
+      
+      // Create history entry with client-side timestamp
+      const newHistoryEntry = {
+        status: "Pembayaran Cicilan", // Use "Pembayaran Cicilan" as the status
+        timestamp: new Date(),
+        updatedBy: currentUser.uid,
+        notes: `${newPaymentCount}/${tenor}`,
+      };
+
+      // Update the document with new payment count and history
+      await updateDoc(loanRef, {
+        jumlahMenyicil: newPaymentCount,
+        updatedAt: serverTimestamp(),
+        history: [...currentHistory, newHistoryEntry],
+      });
+
+      setSuccess(`Cicilan ${newPaymentCount} dari ${tenor} berhasil dicatat`);
+    } catch (error) {
+      console.error("Error recording payment:", error);
+      setError("Gagal mencatat pembayaran cicilan");
+    }
+  };
+
+  // Handle marking a loan as complete
+  const handleMarkComplete = async (loanId) => {
+    if (
+      !window.confirm("Apakah Anda yakin menandai pinjaman ini sebagai Lunas?")
+    ) {
+      return;
+    }
+
+    try {
+      // Get the current loan document
+      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanSnap = await getDoc(loanRef);
+
+      if (!loanSnap.exists()) {
+        throw new Error("Pinjaman tidak ditemukan");
+      }
+
+      // Get existing history
+      const loanData = loanSnap.data();
+      const currentHistory = loanData.history || [];
+      const tenor = loanData.tenor || 0;
+
+      // Create history entry with client-side timestamp
+      const newHistoryEntry = {
+        status: "Lunas",
+        timestamp: new Date(),
+        updatedBy: currentUser.uid,
+        notes: "Pinjaman telah dilunasi",
+      };
+
+      // Update the document with combined history
+      await updateDoc(loanRef, {
+        status: "Lunas",
+        jumlahMenyicil: tenor, // Set payment count to match tenor (fully paid)
+        tanggalPelunasan: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        history: [...currentHistory, newHistoryEntry],
+      });
+
+      setSuccess("Pinjaman berhasil ditandai sebagai lunas");
+      setViewingLoan(null);
+    } catch (error) {
+      console.error("Error marking loan as complete:", error);
+      setError("Gagal menandai pinjaman sebagai lunas");
+    }
+  };
+
+  // Format date
+  const formatDate = (timestamp) => {
+    if (!timestamp) return "-";
+    const date = timestamp.toDate();
+    return date.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  // Calculate loan end date based on approval date and tenor
+  const calculateEndDate = (approvalDate, tenor) => {
+    if (!approvalDate || !tenor) return "-";
+
+    try {
+      // Convert Firebase timestamp to JavaScript Date
+      const startDate = approvalDate.toDate();
+
+      // Add tenor months to the start date
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + tenor);
+
+      // Format the end date without time
+      return endDate.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      });
+    } catch (error) {
+      console.error("Error calculating end date:", error);
+      return "-";
+    }
+  };
+
+  // Check if loan is overdue based on end date
+  const isLoanOverdue = (approvalDate, tenor) => {
+    if (!approvalDate || !tenor) return false;
+
+    try {
+      const startDate = approvalDate.toDate();
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + tenor);
+
+      const now = new Date();
+      return now >= endDate;
+    } catch (error) {
+      console.error("Error checking if loan is overdue:", error);
+      return false;
+    }
+  };
+
+  // Calculate payment progress in months
+  const calculatePaymentProgress = (approvalDate, tenor) => {
+    if (!approvalDate || !tenor) return "0/0";
+
+    try {
+      const startDate = approvalDate.toDate();
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + tenor);
+
+      const now = new Date();
+
+      // Calculate months elapsed since approval
+      const monthsElapsed =
+        (now.getFullYear() - startDate.getFullYear()) * 12 +
+        (now.getMonth() - startDate.getMonth());
+
+      // Ensure we don't exceed the tenor
+      const monthsPaid = Math.min(Math.max(0, monthsElapsed), tenor);
+
+      return `${monthsPaid}/${tenor}`;
+    } catch (error) {
+      console.error("Error calculating payment progress:", error);
+      return "0/0";
+    }
+  };
+
+  // Handle uploading payment proof and activating the loan
+  const handleUploadPaymentProof = async (loanId, file) => {
+    if (!file) {
+      setError("Harap pilih file bukti transfer");
+      return;
+    }
+
+    if (!window.confirm("Apakah Anda yakin mengupload bukti transfer ini?")) {
+      return;
+    }
+
+    try {
+      // Get the current loan document
+      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanSnap = await getDoc(loanRef);
+
+      if (!loanSnap.exists()) {
+        throw new Error("Pinjaman tidak ditemukan");
+      }
+
+      // Get existing loan data
+      const loanData = loanSnap.data();
+      const currentHistory = loanData.history || [];
+      
+      // Upload file to Firebase Storage
+      const fileName = `loan_proof_${loanId}_${Date.now()}.${file.name.split('.').pop()}`;
+      const storagePath = `loan_proofs/${fileName}`;
+      
+      // Create a storage reference
+      const storageRef = ref(storage, storagePath);
+      
+      // Upload file
+      await uploadBytes(storageRef, file);
+      
+      // Get download URL
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      // Create history entry with client-side timestamp
+      const newHistoryEntry = {
+        status: "Disetujui dan Aktif",
+        timestamp: new Date(),
+        updatedBy: currentUser.uid,
+        notes: "Bukti transfer telah diupload, pinjaman diaktifkan",
+      };
+
+      // Update the document with new status and payment proof URL
+      await updateDoc(loanRef, {
+        status: "Disetujui dan Aktif",
+        buktiTransfer: downloadURL,
+        buktiTransferPath: storagePath,
+        tanggalDisetujui: serverTimestamp(),
+        jumlahMenyicil: 0, // Initialize payment tracking
+        updatedAt: serverTimestamp(),
+        history: [...currentHistory, newHistoryEntry],
+      });
+
+      setSuccess("Bukti transfer berhasil diupload dan pinjaman telah diaktifkan");
+    } catch (error) {
+      console.error("Error uploading payment proof:", error);
+      setError("Gagal mengupload bukti transfer");
+    }
+  };
+
+  // Get status badge class
+  const getStatusBadgeClass = (status) => {
+    switch (status) {
+      case "Disetujui dan Aktif":
+      case "Lunas":
+      case "Pembayaran Cicilan":
+        return "status-badge success";
+      case "Ditolak BAK":
+      case "Ditolak Wakil Rektor 2":
+        return "status-badge error";
+      case "Direvisi BAK":
+        return "status-badge warning";
+      case "Menunggu Transfer BAK":
+        return "status-badge warning";
+      default:
+
+  setSuccess("Bukti transfer berhasil diupload dan pinjaman telah diaktifkan");
+} catch (error) {
+  console.error("Error uploading payment proof:", error);
+  setError("Gagal mengupload bukti transfer");
+}
+};
+
+// Get status badge class
+const getStatusBadgeClass = (status) => {
+switch (status) {
+  case "Disetujui dan Aktif":
+  case "Lunas":
+  case "Pembayaran Cicilan":
+    return "status-badge success";
+  case "Ditolak BAK":
+  case "Ditolak Wakil Rektor 2":
+    return "status-badge error";
+  case "Direvisi BAK":
+    return "status-badge warning";
+  case "Menunggu Transfer BAK":
+    return "status-badge warning";
+  default:
+    return "status-badge info";
+}
+};
+
+// Handle exporting loans to Excel
+const handleExportToExcel = () => {
+// Show loading message
+setSuccess("Memproses ekspor data...");
+  
+// Use the exportLoansToExcel utility with calculateEndDate function
+const result = exportLoansToExcel(filteredLoans, formatDate, calculateEndDate);
+  
+// Show success or clear message
+if (result) {
+  setSuccess("Data berhasil diekspor ke Excel");
+} else {
+  setSuccess("");
+}
+  
+// Clear success message after 3 seconds
+setTimeout(() => setSuccess(""), 3000);
+};
+
+return {
+loans,
+filteredLoans,
+loading,
+error,
+success,
+selectedLoan,
+setSelectedLoan,
+revisionAmount,
+setRevisionAmount,
+rejectionReason,
+setRejectionReason,
+userRole,
+viewingLoan,
+setViewingLoan,
+revisionTenor,
+setRevisionTenor,
+nameFilter,
+setNameFilter,
+statusFilter,
+setStatusFilter,
+startDateFilter, 
+setStartDateFilter,
+endDateFilter,
+setEndDateFilter,
+handleApprove,
+handleReject,
+handleRevise,
+handleMakePayment,
+handleMarkComplete,
+handleUploadPaymentProof,
+handleExportToExcel,
+formatDate,
+calculateEndDate,
+isLoanOverdue,
+calculatePaymentProgress,
+getStatusBadgeClass
+};
+    success,
+    selectedLoan,
+    setSelectedLoan,
+    revisionAmount,
+    setRevisionAmount,
+    rejectionReason,
+    setRejectionReason,
+    userRole,
+    viewingLoan,
+    setViewingLoan,
+    revisionTenor,
+    setRevisionTenor,
+    nameFilter,
+    setNameFilter,
+    statusFilter,
+    setStatusFilter,
+    startDateFilter, 
+    setStartDateFilter,
+    endDateFilter,
+    setEndDateFilter,
+    handleApprove,
+    handleReject,
+    handleRevise,
+    handleMakePayment,
+    handleMarkComplete,
+    handleUploadPaymentProof,
+    handleExportToExcel,
+    formatDate,
+    calculateEndDate,
+    isLoanOverdue,
+    calculatePaymentProgress,
+    getStatusBadgeClass
+  };
+};
+
+export default useSimpanPinjam;

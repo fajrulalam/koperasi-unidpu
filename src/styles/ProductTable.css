@@ -1,0 +1,242 @@
+/* src/styles/ProductTable.css */
+
+.product-table-container {
+  margin: 24px 0;
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.product-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.product-table th {
+  background-color: #f8f9fa;
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.product-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #dee2e6;
+  vertical-align: middle;
+}
+
+.product-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.product-name-cell {
+  font-weight: 500;
+  color: #333;
+  min-width: 150px;
+}
+
+.quantity-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: center;
+}
+
+.quantity-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid #ddd;
+  background-color: #f8f9fa;
+  color: #495057;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.quantity-btn:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.quantity-btn:active {
+  background-color: #dee2e6;
+}
+
+.quantity-input {
+  width: 60px;
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.quantity-input:focus {
+  outline: none;
+  border-color: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.stock-cell {
+  color: #666;
+  font-size: 0.9rem;
+  min-width: 80px;
+}
+
+.low-stock {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.price-cell {
+  min-width: 120px;
+}
+
+.price-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.price-amount {
+  font-weight: 600;
+  color: #2c5530;
+  font-size: 0.9rem;
+}
+
+.price-separator {
+  color: #666;
+}
+
+.unit-select {
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background-color: white;
+  cursor: pointer;
+}
+
+.unit-select:focus {
+  outline: none;
+  border-color: #4caf50;
+}
+
+.subtotal-cell {
+  font-weight: 600;
+  color: #2c5530;
+  min-width: 100px;
+}
+
+.delete-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+}
+
+.empty-table {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 8px;
+  margin: 24px 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.empty-table p {
+  color: #666;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .product-table-container {
+    margin: 16px 0;
+  }
+  
+  .product-table {
+    font-size: 0.85rem;
+  }
+  
+  .product-table th,
+  .product-table td {
+    padding: 8px 4px;
+  }
+  
+  .product-name-cell {
+    min-width: 120px;
+  }
+  
+  .quantity-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 0.8rem;
+  }
+  
+  .quantity-input {
+    width: 50px;
+    font-size: 0.8rem;
+  }
+  
+  .price-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .unit-select {
+    font-size: 0.8rem;
+    padding: 2px 4px;
+  }
+  
+  .delete-btn {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-table th,
+  .product-table td {
+    padding: 6px 2px;
+  }
+  
+  .product-table {
+    font-size: 0.8rem;
+  }
+  
+  .quantity-container {
+    gap: 2px;
+  }
+  
+  .quantity-btn {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .quantity-input {
+    width: 40px;
+  }
+}

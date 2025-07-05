@@ -1,0 +1,281 @@
+/* MemberVoucherTile.css - Neubrutalist Design */
+.member-voucher-tile {
+  background: var(--card-bg-color, #ffffff);
+  border: 3px solid var(--border-color, #000000);
+  border-radius: 0;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-offset, 6px) var(--shadow-offset, 6px) 0 var(--border-color, #000000);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  font-family: "Inter", sans-serif;
+  width: 90%;
+  min-width: 90%;
+  flex-shrink: 0;
+}
+
+/* Single voucher takes full width */
+.member-voucher-tile:only-child {
+  width: 100%;
+  min-width: 100%;
+}
+
+.member-voucher-tile:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--shadow-offset, 6px) + 2px) calc(var(--shadow-offset, 6px) + 2px) 0 var(--border-color, #000000);
+}
+
+.voucher-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.voucher-name-section {
+  flex: 1;
+  min-width: 0;
+}
+
+.voucher-name {
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--text-color, #000000);
+  line-height: 1.3;
+  word-wrap: break-word;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.voucher-value {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--success-text, #0077b6);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.voucher-status {
+  padding: 6px 12px;
+  border: 2px solid var(--border-color, #000000);
+  border-radius: 0;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  text-align: center;
+  box-shadow: 3px 3px 0 var(--border-color, #000000);
+}
+
+.voucher-status.active {
+  background-color: var(--accent-color, #06d6a0);
+  color: var(--text-color, #000000);
+}
+
+.voucher-status.claimed {
+  background-color: var(--success-bg, #bde0fe);
+  color: var(--text-color, #000000);
+}
+
+.voucher-status.inactive {
+  background-color: var(--secondary-bg, #e8e8e8);
+  color: var(--text-color, #000000);
+}
+
+.voucher-status.pending {
+  background-color: var(--primary-bg, #ffd166);
+  color: var(--text-color, #000000);
+}
+
+.voucher-status.expired {
+  background-color: var(--error-bg, #ffadad);
+  color: var(--text-color, #000000);
+}
+
+.voucher-barcode-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  padding: 12px;
+  background-color: var(--secondary-bg, #e8e8e8);
+  border: 2px solid var(--border-color, #000000);
+  border-radius: 0;
+  min-height: 80px;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+.voucher-barcode {
+  max-width: 100%;
+  height: auto;
+}
+
+.voucher-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px solid var(--border-color, #000000);
+}
+
+.voucher-date-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.date-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.date-label {
+  font-size: 0.75rem;
+  color: var(--text-color, #000000);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.date-value {
+  font-size: 0.85rem;
+  color: var(--text-color, #000000);
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+/* Mobile responsive design */
+@media (max-width: 768px) {
+  .member-voucher-tile {
+    padding: 10px;
+    margin-bottom: 6px;
+    box-shadow: 4px 4px 0 var(--border-color, #000000);
+  }
+
+  .member-voucher-tile:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 var(--border-color, #000000);
+  }
+
+  .voucher-header {
+    margin-bottom: 8px;
+  }
+
+  .voucher-name {
+    font-size: 1rem;
+    margin: 0 0 2px 0;
+  }
+
+  .voucher-value {
+    font-size: 0.85rem;
+    margin: 0;
+  }
+
+  .voucher-status {
+    padding: 3px 6px;
+    font-size: 0.7rem;
+    box-shadow: 2px 2px 0 var(--border-color, #000000);
+  }
+
+  .voucher-barcode-section {
+    margin: 8px 0;
+    padding: 6px;
+    min-height: 50px;
+  }
+
+  .voucher-footer {
+    gap: 8px;
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .date-label {
+    font-size: 0.7rem;
+  }
+
+  .date-value {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .member-voucher-tile {
+    padding: 8px;
+    margin-bottom: 4px;
+  }
+
+  .voucher-header {
+    position: relative;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .voucher-name-section {
+    flex: 1;
+    min-width: 0;
+    padding-right: 6px;
+  }
+
+  .voucher-status {
+    position: absolute;
+    top: 0;
+    right: 0;
+    flex-shrink: 0;
+    z-index: 1;
+    padding: 2px 5px;
+  }
+
+  /* If the status badge overlaps with text, it will automatically wrap above */
+  .voucher-name {
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+    padding-right: 55px; /* Space for the badge */
+  }
+
+  .voucher-value {
+    font-size: 0.8rem;
+  }
+
+  .voucher-barcode-section {
+    margin: 6px 0;
+    padding: 4px;
+    min-height: 45px;
+  }
+
+  .voucher-footer {
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+
+  .date-item {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-color, #000000);
+  }
+
+  .date-item:last-child {
+    border-bottom: none;
+  }
+
+  .date-label {
+    font-size: 0.75rem;
+  }
+
+  .date-value {
+    font-size: 0.8rem;
+    text-align: right;
+    font-weight: 700;
+  }
+}

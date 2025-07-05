@@ -1,0 +1,345 @@
+/* styles/LoanDetailModal.css */
+
+.modal-overlay-loanDetailModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(17, 24, 39, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content-loanDetailModal {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 700px; /* Wider for more details */
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.modal-header-loanDetailModal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.modal-header-loanDetailModal h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.modal-close-loanDetailModal {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.modal-close-loanDetailModal:hover {
+  color: #1f2937;
+}
+
+.modal-body-loanDetailModal {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex-grow: 1;
+  background-color: #f9fafb;
+}
+
+.detail-section-loanDetailModal {
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+}
+
+.detail-section-loanDetailModal:last-child {
+  margin-bottom: 0;
+}
+
+.detail-section-loanDetailModal h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 0.75rem;
+}
+
+.detail-grid-loanDetailModal {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.detail-item-loanDetailModal {
+  font-size: 0.9rem;
+}
+
+.detail-item-loanDetailModal span {
+  display: block;
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.detail-item-loanDetailModal strong {
+  color: #374151;
+  font-weight: 500;
+}
+
+.status-badge-loanDetailModal {
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-block;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+/* Badge Colors Revamp */
+.status-badge-loanDetailModal.status-active {
+  background-color: #D1FAE5;
+  color: #065F46;
+}
+.status-badge-loanDetailModal.status-waiting {
+  background-color: #DBEAFE;
+  color: #1E40AF;
+}
+.status-badge-loanDetailModal.status-revision {
+  background-color: #FEF3C7;
+  color: #92400E;
+}
+.status-badge-loanDetailModal.status-pending {
+  background-color: #F3F4F6;
+  color: #374151;
+}
+.status-badge-loanDetailModal.status-rejected {
+  background-color: #FEE2E2;
+  color: #991B1B;
+}
+.status-badge-loanDetailModal.status-completed {
+  background-color: #DBEAFE;
+  color: #1E40AF;
+}
+.status-badge-loanDetailModal.status-default {
+  background-color: #F3F4F6;
+  color: #374151;
+}
+
+.history-timeline-loanDetailModal {
+  position: relative;
+}
+
+.history-timeline-loanDetailModal::before {
+  content: '';
+  position: absolute;
+  left: 12px; /* Center of the 24px marker */
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background-color: #e5e7eb;
+}
+
+.history-item-loanDetailModal {
+  position: relative;
+  padding-left: 40px; /* Space for marker and connector */
+  margin-bottom: 1.5rem;
+}
+
+.history-item-loanDetailModal:last-child {
+  margin-bottom: 0;
+}
+
+/* The connector from the timeline to the box */
+.history-item-loanDetailModal::before {
+  content: '';
+  position: absolute;
+  left: 24px; /* End of the marker */
+  top: 15px; /* Vertically centered with marker */
+  width: 16px; /* Bridge the gap */
+  height: 2px;
+  background-color: #e5e7eb;
+}
+
+.history-marker-loanDetailModal {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #fff;
+  border: 2px solid; /* Color is set by status */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  z-index: 1;
+}
+
+.history-content-loanDetailModal {
+  background-color: #f9fafb; /* Slightly grey background */
+  border-width: 2px; /* Beefier outline */
+  border-style: solid;
+  border-radius: 8px;
+  padding: 1rem;
+  position: relative;
+}
+
+.history-content-loanDetailModal p {
+    margin: 0;
+}
+
+.history-content-loanDetailModal .status-loanDetailModal {
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+}
+
+.history-content-loanDetailModal .meta-loanDetailModal {
+    font-size: 0.8rem;
+    color: #6b7280;
+}
+
+.history-content-loanDetailModal .notes-loanDetailModal {
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+    border-left-width: 3px;
+    border-left-style: solid;
+    padding: 0.75rem;
+    border-radius: 4px;
+}
+
+/* --- Unified Timeline Status Styles --- */
+
+/* Marker colors */
+.history-status-approved .history-marker-loanDetailModal { border-color: #10b981; color: #10b981; }
+.history-status-waiting .history-marker-loanDetailModal { border-color: #3b82f6; color: #3b82f6; }
+.history-status-revision .history-marker-loanDetailModal { border-color: #f59e0b; color: #f59e0b; }
+.history-status-pending .history-marker-loanDetailModal { border-color: #4b5563; color: #4b5563; }
+.history-status-rejected .history-marker-loanDetailModal { border-color: #ef4444; color: #ef4444; }
+.history-status-completed .history-marker-loanDetailModal { border-color: #3b82f6; color: #3b82f6; }
+.history-status-payment .history-marker-loanDetailModal { border-color: #8b5cf6; color: #8b5cf6; }
+.history-status-default .history-marker-loanDetailModal { border-color: #6b7280; color: #6b7280; }
+
+/* Beefy, color-coded outlines for the content box */
+.history-status-approved .history-content-loanDetailModal { border-color: #A7F3D0; }
+.history-status-waiting .history-content-loanDetailModal { border-color: #BFDBFE; }
+.history-status-revision .history-content-loanDetailModal { border-color: #FDE68A; }
+.history-status-pending .history-content-loanDetailModal { border-color: #E5E7EB; }
+.history-status-rejected .history-content-loanDetailModal { border-color: #FECACA; }
+.history-status-completed .history-content-loanDetailModal { border-color: #BFDBFE; }
+.history-status-payment .history-content-loanDetailModal { border-color: #DDD6FE; }
+.history-status-default .history-content-loanDetailModal { border-color: #E5E7EB; }
+
+/* Color coding for the notes section */
+.history-status-approved .notes-loanDetailModal { background-color: #F0FDF4; border-color: #6EE7B7; color: #065F46; }
+.history-status-waiting .notes-loanDetailModal { background-color: #EFF6FF; border-color: #93C5FD; color: #1E40AF; }
+.history-status-revision .notes-loanDetailModal { background-color: #FFFBEB; border-color: #FCD34D; color: #92400E; }
+.history-status-pending .notes-loanDetailModal { background-color: #F3F4F6; border-color: #D1D5DB; color: #374151; }
+.history-status-rejected .notes-loanDetailModal { background-color: #FEF2F2; border-color: #FCA5A5; color: #991B1B; }
+.history-status-completed .notes-loanDetailModal { background-color: #EFF6FF; border-color: #93C5FD; color: #1E40AF; }
+.history-status-payment .notes-loanDetailModal { background-color: #F5F3FF; border-color: #C4B5FD; color: #5B21B6; }
+.history-status-default .notes-loanDetailModal { background-color: #F3F4F6; border-color: #D1D5DB; color: #374151; }
+
+.modal-actions-loanDetailModal {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background-color: #fff;
+  display: flex;
+  justify-content: space-between; /* Align items */
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.action-buttons-loanDetailModal {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
+.button-primary-loanDetailModal,
+.button-secondary-loanDetailModal,
+.button-success-loanDetailModal,
+.button-danger-loanDetailModal {
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.button-primary-loanDetailModal {
+  background-color: #3b82f6;
+  color: white;
+}
+.button-primary-loanDetailModal:hover { background-color: #2563eb; }
+
+.button-secondary-loanDetailModal {
+  background-color: white;
+  color: #4b5563;
+  border-color: #d1d5db;
+}
+.button-secondary-loanDetailModal:hover { background-color: #f3f4f6; }
+
+.button-success-loanDetailModal {
+  background-color: #10b981;
+  color: white;
+}
+.button-success-loanDetailModal:hover { background-color: #059669; }
+
+.button-danger-loanDetailModal {
+  background-color: #ef4444;
+  color: white;
+}
+.button-danger-loanDetailModal:hover { background-color: #dc2626; }
+
+.whatsapp-link-loanDetailModal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: #e6fffa;
+  color: #047857;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #a7f3d0;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.whatsapp-link-loanDetailModal:hover {
+  background-color: #d1fae5;
+  border-color: #6ee7b7;
+  color: #059669;
+}
+
+.whatsapp-link-loanDetailModal svg {
+  color: #10b981;
+}

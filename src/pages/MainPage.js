@@ -20,6 +20,7 @@ import {
 } from "../components";
 import TailwindTest from "../components/TailwindTest";
 import TabunganLogs from "../components/TabunganLogs";
+import VoucherKoperasiPageNew from "./VoucherKoperasiPageNew";
 
 const MainPage = () => {
   const { currentUser, userRole, hasAccess } = useAuth();
@@ -45,6 +46,8 @@ const MainPage = () => {
         setActiveComponent("TabunganLogs");
       } else if (hasAccess("SejarahBelanja")) {
         setActiveComponent("SejarahBelanja");
+      } else if (hasAccess("VoucherKoperasi")) {
+        setActiveComponent("VoucherKoperasi");
       } else if (hasAccess("AdminPanel")) {
         setActiveComponent("AdminPanel");
       } else if (hasAccess("MemberPage")) {
@@ -83,6 +86,8 @@ const MainPage = () => {
         return <AdminSettings />;
       case "TailwindTest":
         return <TailwindTest />;
+      case "VoucherKoperasi":
+        return <VoucherKoperasiPageNew />;
       case "MemberPage":
         return <MemberPage />;
       default:

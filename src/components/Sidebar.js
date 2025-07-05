@@ -11,6 +11,7 @@ import {
   FaUsersCog,
   FaCog,
   FaHistory,
+  FaTicketAlt,
 } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { useEnvironment } from "../context/EnvironmentContext";
@@ -25,6 +26,7 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
     { id: "SimpanPinjam", label: "Simpan-Pinjam", icon: <FaWallet /> },
     { id: "DaftarAnggotaBaru", label: "Anggota Baru", icon: <FaUserPlus /> },
     { id: "TabunganLogs", label: "Tabungan Logs", icon: <FaHistory /> },
+    { id: "VoucherKoperasi", label: "Voucher Koperasi", icon: <FaTicketAlt /> },
     { id: "Stocks", label: "Stocks", icon: <FaBoxOpen /> },
     {
       id: "SejarahBelanja",

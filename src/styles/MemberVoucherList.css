@@ -1,0 +1,254 @@
+/* MemberVoucherList.css - Neubrutalist Design */
+.member-voucher-list {
+  margin-bottom: 20px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--text-color, #000000);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.voucher-count {
+  font-size: 0.85rem;
+  color: var(--text-color, #000000);
+  font-weight: 700;
+  padding: 6px 12px;
+  background-color: var(--primary-bg, #ffd166);
+  border: 2px solid var(--border-color, #000000);
+  border-radius: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 2px 2px 0 var(--border-color, #000000);
+}
+
+.vouchers-container {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar for webkit browsers */
+.vouchers-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.vouchers-container::-webkit-scrollbar-track {
+  background: var(--secondary-bg, #e8e8e8);
+  border: 1px solid var(--border-color, #000000);
+}
+
+.vouchers-container::-webkit-scrollbar-thumb {
+  background: var(--text-color, #000000);
+  border: 1px solid var(--border-color, #000000);
+}
+
+.vouchers-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-bg, #ffd166);
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  background: var(--card-bg-color, #ffffff);
+  border: 3px solid var(--border-color, #000000);
+  border-radius: 0;
+  box-shadow: var(--shadow-offset, 6px) var(--shadow-offset, 6px) 0 var(--border-color, #000000);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 4px solid var(--secondary-bg, #e8e8e8);
+  border-top: 4px solid var(--accent-color, #06d6a0);
+  border-radius: 0;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-state p {
+  margin: 0;
+  color: var(--text-color, #000000);
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  background: var(--error-bg, #ffadad);
+  border: 3px solid var(--error-border, #a4161a);
+  border-radius: 0;
+  box-shadow: var(--shadow-offset, 6px) var(--shadow-offset, 6px) 0 var(--error-border, #a4161a);
+}
+
+.error-message {
+  color: var(--error-text, #a4161a);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.retry-button {
+  background-color: var(--error-border, #a4161a);
+  color: var(--card-bg-color, #ffffff);
+  border: 2px solid var(--error-border, #a4161a);
+  padding: 12px 20px;
+  border-radius: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 3px 3px 0 var(--border-color, #000000);
+}
+
+.retry-button:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 var(--border-color, #000000);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  background-color: var(--card-bg-color, #ffffff);
+  border: 3px solid var(--border-color, #000000);
+  border-radius: 0;
+  box-shadow: var(--shadow-offset, 6px) var(--shadow-offset, 6px) 0 var(--border-color, #000000);
+}
+
+.empty-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+
+.empty-state h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+  font-weight: 900;
+  color: var(--text-color, #000000);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--text-color, #000000);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  font-weight: 400;
+}
+
+/* Mobile responsive design */
+@media (max-width: 768px) {
+  .member-voucher-list {
+    margin-bottom: 16px;
+  }
+
+  .section-header {
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+  }
+
+  .voucher-count {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    box-shadow: 1px 1px 0 var(--border-color, #000000);
+  }
+
+  .vouchers-container {
+    gap: 10px;
+  }
+
+  .loading-state,
+  .error-state {
+    padding: 30px 16px;
+    box-shadow: 4px 4px 0 var(--border-color, #000000);
+  }
+
+  .empty-state {
+    padding: 40px 16px;
+    box-shadow: 4px 4px 0 var(--border-color, #000000);
+  }
+
+  .empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+  }
+
+  .empty-state h4 {
+    font-size: 1rem;
+  }
+
+  .empty-state p {
+    font-size: 0.85rem;
+  }
+
+  .retry-button {
+    box-shadow: 2px 2px 0 var(--border-color, #000000);
+  }
+
+  .retry-button:hover {
+    box-shadow: 3px 3px 0 var(--border-color, #000000);
+  }
+}
+
+@media (max-width: 480px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .voucher-count {
+    align-self: flex-end;
+  }
+
+  .vouchers-container {
+    gap: 8px;
+  }
+
+  .loading-state,
+  .error-state,
+  .empty-state {
+    padding: 24px 12px;
+  }
+}

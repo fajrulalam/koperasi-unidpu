@@ -1,0 +1,463 @@
+/* VoucherModalNew.css - Following LoanDetailModal pattern */
+
+.modal-overlay-voucherModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(17, 24, 39, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content-voucherModal {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.modal-header-voucherModal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.modal-header-voucherModal h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.modal-close-voucherModal {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #6b7280;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.modal-close-voucherModal:hover {
+  color: #1f2937;
+}
+
+.modal-close-voucherModal:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-body-voucherModal {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex-grow: 1;
+  background-color: #f9fafb;
+}
+
+.step-indicator-voucherModal {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+  position: relative;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.step-indicator-voucherModal::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 25%;
+  right: 25%;
+  height: 2px;
+  background: #e5e7eb;
+  z-index: 1;
+}
+
+.step-voucherModal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+}
+
+.step-number-voucherModal {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.step-voucherModal.active .step-number-voucherModal {
+  background: #3b82f6;
+  color: white;
+}
+
+.step-title-voucherModal {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-align: center;
+}
+
+.step-voucherModal.active .step-title-voucherModal {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.error-message-voucherModal {
+  background-color: #fee2e2;
+  color: #991b1b;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border: 1px solid #fecaca;
+  text-align: center;
+}
+
+.detail-section-voucherModal {
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+}
+
+.detail-section-voucherModal:last-child {
+  margin-bottom: 0;
+}
+
+.detail-section-voucherModal h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin-top: 0;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 0.75rem;
+}
+
+.detail-grid-voucherModal {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.detail-item-voucherModal {
+  font-size: 0.9rem;
+}
+
+.detail-item-voucherModal label {
+  display: block;
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.detail-item-voucherModal input,
+.detail-item-voucherModal select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.detail-item-voucherModal input:focus,
+.detail-item-voucherModal select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.checkbox-label-voucherModal {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem !important;
+  color: #374151 !important;
+  margin-bottom: 0 !important;
+  cursor: pointer;
+}
+
+.checkbox-label-voucherModal input[type="checkbox"] {
+  width: auto !important;
+  margin: 0;
+}
+
+.filter-select-voucherModal {
+  min-height: 100px;
+}
+
+.members-header-voucherModal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.members-header-voucherModal h4 {
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.members-stats-voucherModal {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.selected-count-voucherModal {
+  color: #3b82f6;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.loading-spinner-voucherModal {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  color: #6b7280;
+}
+
+.loading-spinner-voucherModal::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 2px solid #f3f4f6;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 12px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.members-table-voucherModal {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.members-table-voucherModal table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.members-table-voucherModal th,
+.members-table-voucherModal td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 0.85rem;
+}
+
+.members-table-voucherModal th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.members-table-voucherModal tr:hover {
+  background-color: #f9fafb;
+}
+
+.members-table-voucherModal tr:last-child td {
+  border-bottom: none;
+}
+
+.members-table-voucherModal input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.progress-section-voucherModal {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.progress-info-voucherModal p {
+  color: #6b7280;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.progress-bar-voucherModal {
+  width: 100%;
+  height: 8px;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.progress-fill-voucherModal {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.progress-text-voucherModal {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.success-message-voucherModal {
+  background-color: #d1fae5;
+  color: #065f46;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  border: 1px solid #a7f3d0;
+}
+
+.modal-actions-voucherModal {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  background-color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.action-buttons-voucherModal {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.button-primary-voucherModal,
+.button-secondary-voucherModal {
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.button-primary-voucherModal {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.button-primary-voucherModal:hover {
+  background-color: #2563eb;
+}
+
+.button-primary-voucherModal:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.button-secondary-voucherModal {
+  background-color: white;
+  color: #4b5563;
+  border-color: #d1d5db;
+}
+
+.button-secondary-voucherModal:hover {
+  background-color: #f3f4f6;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .modal-content-voucherModal {
+    width: 95%;
+    max-height: 95vh;
+  }
+  
+  .modal-header-voucherModal,
+  .modal-body-voucherModal,
+  .modal-actions-voucherModal {
+    padding: 1rem;
+  }
+  
+  .step-indicator-voucherModal {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .step-indicator-voucherModal::before {
+    display: none;
+  }
+  
+  .step-voucherModal {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+  
+  .detail-grid-voucherModal {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .members-table-voucherModal {
+    max-height: 200px;
+  }
+  
+  .members-table-voucherModal th,
+  .members-table-voucherModal td {
+    padding: 8px;
+    font-size: 0.8rem;
+  }
+  
+  .modal-actions-voucherModal {
+    flex-direction: column;
+  }
+  
+  .action-buttons-voucherModal {
+    width: 100%;
+    justify-content: stretch;
+  }
+  
+  .button-primary-voucherModal,
+  .button-secondary-voucherModal {
+    flex: 1;
+    padding: 12px;
+  }
+}
