@@ -7,6 +7,81 @@ import * as XLSX from "xlsx";
  * @param {Function} formatDate - Function to format date objects
  * @param {Function} calculateEndDate - Function to calculate end date based on approval date and tenor
  */
+/**
+ * Export member data to Excel file
+ * @param {Array} members - Array of member objects to export
+ * @param {Function} formatDate - Function to format date objects
+ * @param {Function} formatCurrency - Function to format currency values
+ */
+export const exportMembersToExcel = (members, formatDate, formatCurrency) => {
+  if (!members || members.length === 0) {
+    alert("Tidak ada data anggota untuk diekspor");
+    return;
+  }
+
+  try {
+    // Transform member data to the format needed for Excel
+    const excelData = members.map((member) => {
+      return {
+        "No. Anggota": member.nomorAnggota || (member.id ? member.id.split("_").pop() : "-"),
+        "Nama Lengkap": member.namaLengkap || "-",
+        "NIK": member.nik || "-",
+        "Email": member.email || "-",
+        "No. Telp": member.noTelp || "-",
+        "Satuan Kerja": member.satuanKerja || "-",
+        "Nominal Tabungan": member.nominalTabungan || 0,
+        "Status Pembayaran": member.paymentStatus || "-",
+        "Status Keanggotaan": member.membershipStatus || "-",
+        "Tanggal Bergabung": member.joinDate ? formatDate(member.joinDate) : "-",
+        "Alamat": member.alamat || "-",
+        "Bank": member.bankDetails?.bank || "-",
+        "Nomor Rekening": member.bankDetails?.nomorRekening || "-",
+        "Catatan": member.notes || "-"
+      };
+    });
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+    // Set column widths
+    const columnWidths = [
+      { wch: 15 }, // No. Anggota
+      { wch: 25 }, // Nama Lengkap
+      { wch: 20 }, // NIK
+      { wch: 25 }, // Email
+      { wch: 15 }, // No. Telp
+      { wch: 20 }, // Satuan Kerja
+      { wch: 15 }, // Nominal Tabungan
+      { wch: 20 }, // Status Pembayaran
+      { wch: 20 }, // Status Keanggotaan
+      { wch: 20 }, // Tanggal Bergabung
+      { wch: 30 }, // Alamat
+      { wch: 15 }, // Bank
+      { wch: 25 }, // Nomor Rekening
+      { wch: 30 }  // Catatan
+    ];
+    worksheet["!cols"] = columnWidths;
+
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data Anggota");
+
+    // Generate file name with current date
+    const now = new Date();
+    const dateStr = now.toISOString().split("T")[0];
+    const fileName = `Data_Anggota_${dateStr}.xlsx`;
+
+    // Export to file
+    XLSX.writeFile(workbook, fileName);
+
+    return true;
+  } catch (error) {
+    console.error("Error exporting to Excel:", error);
+    alert("Gagal mengekspor data: " + error.message);
+    return false;
+  }
+};
+
 export const exportLoansToExcel = (loans, formatDate, calculateEndDate) => {
   if (!loans || loans.length === 0) {
     alert("Tidak ada data pinjaman untuk diekspor");

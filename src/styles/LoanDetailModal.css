@@ -1,5 +1,77 @@
 /* styles/LoanDetailModal.css */
 
+/* Tooltip styling */
+.account-number-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip {
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #333;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  animation: tooltipFadeIn 0.2s, tooltipFadeOut 0.2s 1.8s;
+}
+
+.tooltip:after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; top: -20px; }
+  to { opacity: 1; top: -30px; }
+}
+
+@keyframes tooltipFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Account number container and copy button */
+.account-number-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copy-button {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.copy-button:hover {
+  color: #3b82f6;
+  background-color: #f3f4f6;
+}
+
+.copy-button:active {
+  transform: scale(0.95);
+}
+
 .modal-overlay-loanDetailModal {
   position: fixed;
   top: 0;

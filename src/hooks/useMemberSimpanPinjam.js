@@ -31,8 +31,29 @@ export const useMemberSimpanPinjam = () => {
     tenor: "3",
     tujuan: "",
     catatan: "",
+    bank: "",
+    nomorRekening: "",
   });
   const [showPinjamanModal, setShowPinjamanModal] = useState(false);
+  
+  // Custom setter for showPinjamanModal that prefills bank details
+  const handleTogglePinjamanModal = (isOpen) => {
+    // If isOpen is undefined or true, open the modal
+    if (isOpen === undefined || isOpen === true) {
+      // Prefill bank details from user data if available
+      if (userData?.bankDetails) {
+        setPinjamanForm(prev => ({
+          ...prev,
+          bank: userData.bankDetails.bank || "",
+          nomorRekening: userData.bankDetails.nomorRekening || ""
+        }));
+      }
+      setShowPinjamanModal(true);
+    } else {
+      // If isOpen is false, close the modal
+      setShowPinjamanModal(false);
+    }
+  };
   const [currentLoan, setCurrentLoan] = useState(null);
   const [loans, setLoans] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -293,6 +314,13 @@ export const useMemberSimpanPinjam = () => {
       if (![3, 6, 12].includes(tenor)) {
         throw new Error("Pilih tenor yang valid (3, 6, atau 12 bulan)");
       }
+      // Validate bank details
+      if (!pinjamanForm.bank) {
+        throw new Error("Silakan pilih bank untuk transfer");
+      }
+      if (!pinjamanForm.nomorRekening) {
+        throw new Error("Nomor rekening harus diisi");
+      }
 
       const loanData = {
         userId: userData.uid,
@@ -303,6 +331,10 @@ export const useMemberSimpanPinjam = () => {
         status: "Menunggu Persetujuan BAK",
         tanggalPengajuan: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        bankDetails: {
+          bank: pinjamanForm.bank,
+          nomorRekening: pinjamanForm.nomorRekening
+        },
         userData: {
           email: userData.email || "",
           namaLengkap: userData.nama || "",
@@ -326,6 +358,8 @@ export const useMemberSimpanPinjam = () => {
         tenor: "3",
         tujuan: "",
         catatan: "",
+        bank: "",
+        nomorRekening: "",
       });
       setShowPinjamanModal(false);
       alert("Pengajuan pinjaman berhasil dikirim!");
@@ -462,6 +496,7 @@ export const useMemberSimpanPinjam = () => {
     // State
     userData,
     loading,
+    userDocRef,
     activeTab,
     showPastLoans,
     showRegistrationModal,
@@ -483,7 +518,7 @@ export const useMemberSimpanPinjam = () => {
     setShowPastLoans,
     setShowRegistrationModal,
     setTermsAgreed,
-    setShowPinjamanModal,
+    setShowPinjamanModal: handleTogglePinjamanModal,
     setShowLoanHistoryModal,
     setSelectedLoanForHistory,
     setPinjamanForm,

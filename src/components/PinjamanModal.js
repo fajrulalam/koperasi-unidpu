@@ -12,6 +12,15 @@ const PinjamanModal = ({
   isSubmitting,
 }) => {
   if (!showPinjamanModal) return null;
+  
+  // Handle account number input to only accept numbers
+  const handleAccountNumberChange = (e) => {
+    const numericValue = e.target.value.replace(/[^0-9]/g, "");
+    setPinjamanForm({
+      ...pinjamanForm,
+      nomorRekening: numericValue
+    });
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -103,6 +112,44 @@ const PinjamanModal = ({
               <div className="character-count">
                 {pinjamanForm.catatan.length}/500 karakter
               </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="bank">Bank</label>
+              <select
+                id="bank"
+                name="bank"
+                value={pinjamanForm.bank || ""}
+                onChange={handlePinjamanChange}
+                className="form-input"
+                required
+                disabled={isSubmitting}
+              >
+                <option value="">Pilih Bank</option>
+                <option value="BSI">BSI</option>
+                <option value="BCA">BCA</option>
+                <option value="BRI">BRI</option>
+                <option value="Mandiri">Mandiri</option>
+                <option value="BNI">BNI</option>
+                <option value="Bank Jatim">Bank Jatim</option>
+                <option value="BTN">BTN</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="nomorRekening">Nomor Rekening</label>
+              <input
+                id="nomorRekening"
+                name="nomorRekening"
+                type="text"
+                inputMode="numeric"
+                value={pinjamanForm.nomorRekening || ""}
+                onChange={handleAccountNumberChange}
+                className="form-input"
+                required
+                placeholder="Masukkan nomor rekening (angka saja)"
+                disabled={isSubmitting}
+              />
             </div>
 
             <div className="form-actions">

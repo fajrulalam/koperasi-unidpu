@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import "../styles/LoanDetailModal.css";
 import {
   FaWhatsapp,
@@ -11,6 +11,7 @@ import {
   FaCheckCircle,
   FaLandmark,
   FaFileSignature,
+  FaCopy,
 } from "react-icons/fa";
 
 const LoanDetailModal = ({
@@ -25,6 +26,9 @@ const LoanDetailModal = ({
   actionLoading,
   userRole,
 }) => {
+  // Define useState hook at the top level of the component
+  const [showSnackbar, setShowSnackbar] = useState(false);
+
   if (!loan) return null;
 
   const formatDate = (timestamp) => {
@@ -159,6 +163,34 @@ const LoanDetailModal = ({
                     {loan.userData?.nomorWhatsapp || "N/A"} <FaWhatsapp />
                   </a>
                 </strong>
+              </div>
+              <div className="detail-item-loanDetailModal">
+                <span>Bank</span>
+                <strong>{loan.bankDetails?.bank || "N/A"}</strong>
+              </div>
+              <div className="detail-item-loanDetailModal">
+                <span>Nomor Rekening</span>
+                <div className="account-number-container">
+                  <div className="account-number-wrapper">
+                    <strong>{loan.bankDetails?.nomorRekening || "N/A"}</strong>
+                    {showSnackbar && (
+                      <div className="tooltip">Disalin!</div>
+                    )}
+                  </div>
+                  {loan.bankDetails?.nomorRekening && (
+                    <button 
+                      className="copy-button" 
+                      onClick={() => {
+                        navigator.clipboard.writeText(loan.bankDetails.nomorRekening);
+                        setShowSnackbar(true);
+                        setTimeout(() => setShowSnackbar(false), 2000);
+                      }}
+                      title="Salin nomor rekening"
+                    >
+                      <FaCopy />
+                    </button>
+                  )}
+                </div>
               </div>
               {/* <div className="detail-item-loanDetailModal"><span>Kantor</span><strong>{loan.userData?.kantor || "N/A"}</strong></div>
               {loan.userData?.kantor === 'Unipdu' && (

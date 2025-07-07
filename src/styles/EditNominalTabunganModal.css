@@ -1,0 +1,157 @@
+/* EditNominalTabunganModal.css */
+/* Using unique class names with editNominalTabungan_ prefix to avoid CSS conflicts */
+
+.editNominalTabungan_overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.editNominalTabungan_modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.editNominalTabungan_header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+}
+
+.editNominalTabungan_header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.editNominalTabungan_close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+
+.editNominalTabungan_close-btn:hover {
+  color: #333;
+}
+
+.editNominalTabungan_content {
+  padding: 20px;
+}
+
+.editNominalTabungan_member-info {
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+}
+
+.editNominalTabungan_member-info p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.editNominalTabungan_form-group {
+  margin-bottom: 20px;
+}
+
+.editNominalTabungan_form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.editNominalTabungan_input-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.editNominalTabungan_currency-prefix {
+  padding: 8px 12px;
+  background-color: #f0f0f0;
+  border-right: 1px solid #ccc;
+  color: #333;
+  font-weight: 500;
+}
+
+.editNominalTabungan_input {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  outline: none;
+  font-size: 16px;
+}
+
+.editNominalTabungan_input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.editNominalTabungan_error {
+  color: #dc3545;
+  margin-bottom: 15px;
+  font-size: 14px;
+  padding: 8px;
+  background-color: #f8d7da;
+  border-radius: 4px;
+}
+
+.editNominalTabungan_actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.editNominalTabungan_cancel-btn,
+.editNominalTabungan_save-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.editNominalTabungan_cancel-btn {
+  background-color: #f8f9fa;
+  border: 1px solid #ccc;
+  color: #333;
+}
+
+.editNominalTabungan_cancel-btn:hover {
+  background-color: #e9ecef;
+}
+
+.editNominalTabungan_save-btn {
+  background-color: #007bff;
+  border: 1px solid #007bff;
+  color: white;
+}
+
+.editNominalTabungan_save-btn:hover {
+  background-color: #0069d9;
+}
+
+.editNominalTabungan_save-btn:disabled,
+.editNominalTabungan_cancel-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

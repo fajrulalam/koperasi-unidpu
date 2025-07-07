@@ -19,6 +19,13 @@ const EditMemberModal = ({
     onInputChange({ target: { name, value: numericValue } });
   };
 
+  const handleAccountNumberChange = (e) => {
+    const { name, value } = e.target;
+    const numericValue = value.replace(/[^0-9]/g, "");
+    // Use custom name handling for nested object properties
+    onInputChange({ target: { name, value: numericValue } });
+  };
+
   return (
     <div className="modal-overlay-editMemberModal" onClick={onClose}>
       <div
@@ -126,6 +133,41 @@ const EditMemberModal = ({
               <option value="rejected">Rejected</option>
               <option value="removed">Removed</option>
             </select>
+          </div>
+
+          <div className="form-group-editMemberModal">
+            <label>Bank</label>
+            <select
+              name="bankDetails.bank"
+              value={editMemberData.bankDetails?.bank || ""}
+              onChange={onInputChange}
+              className="form-input-editMemberModal"
+            >
+              <option value="">Pilih Bank</option>
+              <option value="BSI">BSI</option>
+              <option value="BCA">BCA</option>
+              <option value="BRI">BRI</option>
+              <option value="Mandiri">Mandiri</option>
+              <option value="BNI">BNI</option>
+              <option value="Bank Jatim">Bank Jatim</option>
+              <option value="BTN">BTN</option>
+            </select>
+          </div>
+
+          <div className="form-group-editMemberModal">
+            <label>Nomor Rekening</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              name="bankDetails.nomorRekening"
+              value={editMemberData.bankDetails?.nomorRekening || ""}
+              onChange={(e) => {
+                const numericValue = e.target.value.replace(/[^0-9]/g, "");
+                onInputChange({target: {name: "bankDetails.nomorRekening", value: numericValue}});
+              }}
+              className="form-input-editMemberModal"
+              placeholder="Nomor rekening (angka saja)"
+            />
           </div>
         </div>
         <div className="modal-actions-editMemberModal">

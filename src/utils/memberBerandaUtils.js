@@ -348,20 +348,27 @@ export const hasUserPaidIuranPokok = (userData) => {
   );
 };
 
-// Get next payment amount and description
+// Get next payment amount, date, and description
 export const getNextPaymentInfo = (userData) => {
   const hasPaidIuranPokok = hasUserPaidIuranPokok(userData);
   const iuranPokok = userData?.iuranPokok || 250000;
   const iuranWajib = userData?.iuranWajib || 25000;
+  
+  // Get next payment date (5th of next month)
+  const next5th = getNext5thOfMonth();
+  const monthName = getIndonesianMonthName(next5th);
+  const paymentDate = `5 ${monthName}`;
 
   if (hasPaidIuranPokok) {
     return {
-      amount: iuranWajib,
+      amount: formatCurrency(iuranWajib),
+      date: paymentDate,
       description: "(iuran wajib)",
     };
   } else {
     return {
-      amount: iuranPokok + iuranWajib,
+      amount: formatCurrency(iuranPokok + iuranWajib),
+      date: paymentDate,
       description: "(iuran pokok dan iuran wajib)",
     };
   }
@@ -403,8 +410,8 @@ export const getBalanceDisplay = (isInactive, userData) => {
   return {
     currentBalance: formatCurrency(currentBalance),
     nextPayment: {
-      amount: formatCurrency(nextPaymentInfo.amount),
-      date: `5 ${monthName}`,
+      amount: nextPaymentInfo.amount, // Already formatted in getNextPaymentInfo
+      date: nextPaymentInfo.date,
       description: nextPaymentInfo.description,
     },
   };

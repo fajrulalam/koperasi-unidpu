@@ -221,6 +221,27 @@
   transition: background-color 0.15s ease;
 }
 
+.nominal-tabungan-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-nominal-tabungan-btn {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 14px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.edit-nominal-tabungan-btn:hover {
+  opacity: 1;
+}
+
 .nominal-tabungan-cell:hover {
   background-color: #f3f4f6;
 }
@@ -247,6 +268,24 @@
   margin-bottom: 1.5rem;
 }
 
+/* Success Message */
+.success-message {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 10px 15px;
+  margin: 10px 0;
+  border-radius: 4px;
+  border: 1px solid #c3e6cb;
+  text-align: center;
+  animation: fadeOut 3s forwards;
+  animation-delay: 2s;
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
 .header-buttons {
   display: flex;
   gap: 8px;
@@ -254,6 +293,7 @@
 
 .add-member-button,
 .import-csv-button,
+.export-excel-button,
 .delete-members-button,
 .tabungan-logs-button {
   padding: 0.5rem 1rem;
@@ -266,12 +306,14 @@
 }
 
 .add-member-button,
-.import-csv-button {
+.import-csv-button,
+.export-excel-button {
   background-color: #3b82f6;
 }
 
 .add-member-button:hover,
-.import-csv-button:hover {
+.import-csv-button:hover,
+.export-excel-button:hover {
   background-color: #2563eb;
 }
 

@@ -48,6 +48,10 @@ const useDaftarAnggota = (isProduction = true) => {
     iuranWajib: 25000,
     iuranWajibFormatted: "25.000",
     paymentStatus: "Payroll Deduction",
+    bankDetails: {
+      bank: "",
+      nomorRekening: ""
+    }
   });
 
   const statusOptions = [
@@ -158,6 +162,19 @@ const useDaftarAnggota = (isProduction = true) => {
       return; // Early return after handling currency
     }
     
+    // Handle nested properties (like bankDetails.bank)
+    if (name.includes(".")) {
+      const [parent, child] = name.split(".");
+      setNewMemberData((prev) => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent],
+          [child]: value
+        }
+      }));
+      return; // Early return after handling nested property
+    }
+    
     // Default handling for other fields
     setNewMemberData((prev) => ({
       ...prev,
@@ -231,6 +248,11 @@ const useDaftarAnggota = (isProduction = true) => {
         timestamp: timestamp,
         paymentStatus: newMemberData.paymentStatus,
         nomorAnggota, // Add the member number
+        // Add bank details if they exist
+        bankDetails: {
+          bank: newMemberData.bankDetails?.bank || "",
+          nomorRekening: newMemberData.bankDetails?.nomorRekening || ""
+        }
       });
 
       // Show success message
@@ -253,6 +275,10 @@ const useDaftarAnggota = (isProduction = true) => {
         iuranWajib: 25000,
         iuranWajibFormatted: "25.000",
         paymentStatus: "Payroll Deduction",
+        bankDetails: {
+          bank: "",
+          nomorRekening: ""
+        }
       });
       setShowAddModal(false);
     } catch (error) {
@@ -501,10 +527,24 @@ const useDaftarAnggota = (isProduction = true) => {
 
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
-    setEditMemberData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    
+    // Handle nested properties (like bankDetails.bank)
+    if (name.includes('.')) {
+      const [parent, child] = name.split('.');
+      setEditMemberData((prev) => ({
+        ...prev,
+        [parent]: {
+          ...prev[parent] || {},
+          [child]: value
+        }
+      }));
+    } else {
+      // Handle regular properties
+      setEditMemberData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
   };
 
   const saveEditedMember = async () => {
@@ -514,7 +554,9 @@ const useDaftarAnggota = (isProduction = true) => {
     try {
       // Update user in Firestore
       const userRef = doc(db, "users", selectedMember.id);
-      await updateDoc(userRef, {
+      
+      // Prepare update data
+      const updateData = {
         nama: editMemberData.nama,
         kantor: editMemberData.kantor,
         satuanKerja: editMemberData.satuanKerja || "",
@@ -522,7 +564,17 @@ const useDaftarAnggota = (isProduction = true) => {
         membershipStatus: editMemberData.membershipStatus,
         iuranPokok: Number(editMemberData.iuranPokok) || 0,
         iuranWajib: Number(editMemberData.iuranWajib) || 0,
-      });
+      };
+      
+      // Add bankDetails if they exist
+      if (editMemberData.bankDetails) {
+        updateData.bankDetails = {
+          bank: editMemberData.bankDetails.bank || "",
+          nomorRekening: editMemberData.bankDetails.nomorRekening || ""
+        };
+      }
+      
+      await updateDoc(userRef, updateData);
 
       // Update local state
       setMembers((prev) =>
@@ -847,7 +899,9 @@ const useDaftarAnggota = (isProduction = true) => {
     importMembers,
     toggleMemberSelection,
     toggleSelectAll,
-    bulkDeleteMembers
+    bulkDeleteMembers,
+    fetchMembers,
+    setMembers
   };
 };
 

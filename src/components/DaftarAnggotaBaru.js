@@ -8,12 +8,14 @@ import AddMemberModal from "./AddMemberModal";
 import EditMemberModal from "./EditMemberModal";
 import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import NominalTabunganTooltip from "./NominalTabunganTooltip";
+import EditNominalTabunganModal from "./EditNominalTabunganModal";
 import { updateAllUsersWithMemberNumbers } from "../utils/memberNumberUtils";
 import { 
   getNext5thOfMonth, 
   getIndonesianMonthName, 
   getNextPaymentInfo 
 } from "../utils/memberBerandaUtils";
+import { exportMembersToExcel } from "../utils/exportUtils";
 import { useAuth } from "../context/AuthContext";
 
 const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
@@ -22,7 +24,12 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
     position: { x: 0, y: 0 },
     member: null
   });
-  const { hasAccess } = useAuth();
+  const [editNominalTabunganModal, setEditNominalTabunganModal] = useState({
+    isOpen: false,
+    member: null
+  });
+  const [successMessage, setSuccessMessage] = useState("");
+  const { hasAccess, userRole } = useAuth();
 
   // Handle tooltip visibility
   const handleMouseEnter = (event, member) => {
@@ -121,6 +128,8 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
     toggleMemberSelection,
     toggleSelectAll,
     bulkDeleteMembers,
+    fetchMembers,
+    setMembers,
   } = useDaftarAnggota(isProduction);
 
   if (loading) {
@@ -141,6 +150,12 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
             onClick={() => setShowImportModal(true)}
           >
             Import CSV
+          </button>
+          <button
+            className="export-excel-button"
+            onClick={() => exportMembersToExcel(filteredMembers, formatDate, formatCurrency)}
+          >
+            Export Excel
           </button>
           <button
             className="add-member-button"
@@ -256,11 +271,37 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
                     className="nominal-tabungan-cell"
                     onMouseEnter={(e) => member.membershipStatus === "approved" ? handleMouseEnter(e, member) : null}
                     onMouseLeave={handleMouseLeave}
+                    onClick={() => {
+                      if (member.membershipStatus === "approved" && (userRole === "Wakil Rektor 2" || userRole === "Director")) {
+                        setEditNominalTabunganModal({
+                          isOpen: true,
+                          member: member
+                        });
+                      }
+                    }}
+                    style={{ cursor: member.membershipStatus === "approved" && (userRole === "Wakil Rektor 2" || userRole === "Director") ? "pointer" : "default" }}
                   >
                     {member.membershipStatus === "approved" ? (
-                      <span className="nominal-tabungan-amount">
-                        {formatCurrency(member.nominalTabungan || 0)}
-                      </span>
+                      <div className="nominal-tabungan-container">
+                        <span className="nominal-tabungan-amount">
+                          {formatCurrency(member.nominalTabungan || 0)}
+                        </span>
+                        {(userRole === "Wakil Rektor 2" || userRole === "Director") && (
+                          <button 
+                            className="edit-nominal-tabungan-btn" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditNominalTabunganModal({
+                                isOpen: true,
+                                member: member
+                              });
+                            }}
+                            title="Edit Nominal Tabungan"
+                          >
+                            <i className="fas fa-edit"></i>
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <span className="nominal-tabungan-inactive">-</span>
                     )}
@@ -358,13 +399,38 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
       />
 
       {/* Nominal Tabungan Tooltip */}
-      {tooltipState.member && (
+      {tooltipState.isVisible && tooltipState.member && (
         <NominalTabunganTooltip
-          isVisible={tooltipState.isVisible}
           position={tooltipState.position}
-          nextPaymentAmount={getTooltipPaymentInfo(tooltipState.member).amount}
-          nextPaymentDate={getTooltipPaymentInfo(tooltipState.member).date}
-          nextPaymentDescription={getTooltipPaymentInfo(tooltipState.member).description}
+          member={tooltipState.member}
+        />
+      )}
+      
+      {/* Success message */}
+      {successMessage && (
+        <div className="success-message">{successMessage}</div>
+      )}
+      
+      {/* Edit Nominal Tabungan Modal */}
+      {editNominalTabunganModal.isOpen && (
+        <EditNominalTabunganModal
+          member={editNominalTabunganModal.member}
+          onClose={() => setEditNominalTabunganModal({ isOpen: false, member: null })}
+          onSuccess={(newValue) => {
+            // Update the local state immediately
+            setMembers(prev => prev.map(member => 
+              member.id === editNominalTabunganModal.member.id 
+                ? { ...member, nominalTabungan: newValue }
+                : member
+            ));
+            
+            // Close the modal
+            setEditNominalTabunganModal({ isOpen: false, member: null });
+            
+            // Show success message
+            setSuccessMessage(`Nominal tabungan untuk ${editNominalTabunganModal.member.nama} berhasil diperbarui`);
+            setTimeout(() => setSuccessMessage(""), 3000);
+          }}
         />
       )}
     </div>

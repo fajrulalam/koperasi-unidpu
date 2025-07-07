@@ -1,14 +1,16 @@
 import React from "react";
 import "../styles/NominalTabunganTooltip.css";
+import { getNextPaymentInfo } from "../utils/memberBerandaUtils";
 
 const NominalTabunganTooltip = ({ 
-  isVisible, 
   position, 
-  nextPaymentAmount, 
-  nextPaymentDate, 
-  nextPaymentDescription 
+  member 
 }) => {
-  if (!isVisible) return null;
+  if (!member) return null;
+  
+  // Get payment info from member data
+  const { amount: nextPaymentAmount, date: nextPaymentDate, description: nextPaymentDescription } = 
+    getNextPaymentInfo(member);
 
   return (
     <div 
@@ -22,13 +24,13 @@ const NominalTabunganTooltip = ({
         <div className="tooltip-title">Pembayaran Berikutnya</div>
         <div className="tooltip-info">
           <div className="tooltip-amount">
-            +{nextPaymentAmount}
+            +{nextPaymentAmount || "Rp 0"}
           </div>
           <div className="tooltip-date">
-            pada tanggal {nextPaymentDate}
+            pada tanggal {nextPaymentDate || "-"}
           </div>
           <div className="tooltip-description">
-            {nextPaymentDescription}
+            {nextPaymentDescription || "Tidak ada pembayaran terjadwal"}
           </div>
         </div>
       </div>
