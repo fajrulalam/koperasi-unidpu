@@ -39,6 +39,8 @@ const SimpanPinjam = () => {
     handleMarkComplete,
     handleUploadPaymentProof,
     handleExportToExcel,
+    handleUpdateBankDetails,
+    handleUpdateUserData,
     formatDate,
     calculateEndDate,
     isLoanOverdue,
@@ -542,6 +544,9 @@ const SimpanPinjam = () => {
           onClose={() => setViewingLoan(null)}
           onMarkComplete={handleMarkComplete}
           onMakePayment={handleMakePayment}
+          onUpdateBankDetails={handleUpdateBankDetails}
+          onUpdateUserData={handleUpdateUserData}
+          userRole={userRole}
         />
       )}
 

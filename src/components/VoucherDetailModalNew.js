@@ -10,6 +10,8 @@ const VoucherDetailModalNew = ({ voucherGroup, onClose, onVoucherGroupUpdated })
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('vouchers');
   const [isEditing, setIsEditing] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   // Edit form state
   const [editData, setEditData] = useState({
@@ -54,6 +56,24 @@ const VoucherDetailModalNew = ({ voucherGroup, onClose, onVoucherGroupUpdated })
       }));
     }
   }, [voucherGroup, isProduction]);
+
+  const handleDeleteVoucherGroup = async () => {
+    try {
+      setDeleting(true);
+      setError(null);
+      await voucherService.deleteVoucherGroup(voucherGroup.id, isProduction);
+      
+      // Close modal and refresh the parent component
+      setShowDeleteConfirmation(false);
+      onVoucherGroupUpdated();
+      onClose();
+    } catch (error) {
+      console.error('Error deleting voucher group:', error);
+      setError('Gagal menghapus grup voucher');
+      setShowDeleteConfirmation(false);
+      setDeleting(false);
+    }
+  };
 
   const fetchVouchers = async () => {
     try {
@@ -218,15 +238,15 @@ const VoucherDetailModalNew = ({ voucherGroup, onClose, onVoucherGroupUpdated })
     const expireDate = voucher.expireDate?.toDate ? voucher.expireDate.toDate() : new Date(voucher.expireDate);
     
     if (voucher.isClaimed) {
-      return <span className="status-badge claimed">Sudah Digunakan</span>;
+      return <span className="status-badge claimed">CLAIMED</span>;
     } else if (!voucher.isActive) {
-      return <span className="status-badge inactive">Tidak Aktif</span>;
+      return <span className="status-badge inactive">TIDAK AKTIF</span>;
     } else if (now < activeDate) {
-      return <span className="status-badge pending">Belum Aktif</span>;
+      return <span className="status-badge pending">BELUM AKTIF</span>;
     } else if (now > expireDate) {
-      return <span className="status-badge expired">Kedaluwarsa</span>;
+      return <span className="status-badge expired">KEDALUWARSA</span>;
     } else {
-      return <span className="status-badge active">Aktif</span>;
+      return <span className="status-badge active">AKTIF</span>;
     }
   };
 
@@ -324,100 +344,117 @@ const VoucherDetailModalNew = ({ voucherGroup, onClose, onVoucherGroupUpdated })
   );
 
   const renderSettingsTab = () => (
-    <div className="detail-section-voucherDetailModal">
-      <div className="settings-actions-voucherDetailModal">
-        <h4>Pengaturan Voucher</h4>
-        <div className="action-buttons-voucherDetailModal">
+  <div className="detail-section-voucherDetailModal">
+    <div className="settings-actions-voucherDetailModal">
+      <h4>Pengaturan Voucher</h4>
+      <div className="action-buttons-voucherDetailModal">
+        <button 
+          className={`button-${isEditing ? 'secondary' : 'primary'}-voucherDetailModal`}
+          onClick={handleEditToggle}
+          disabled={loading || deleting}
+        >
+          {isEditing ? 'Batal' : 'Edit'}
+        </button>
+        
+        {isEditing && (
           <button 
-            className={`button-${isEditing ? 'secondary' : 'primary'}-voucherDetailModal`}
-            onClick={handleEditToggle}
-            disabled={loading}
+            className="button-success-voucherDetailModal"
+            onClick={handleSaveEdit}
+            disabled={loading || deleting}
           >
-            {isEditing ? 'Batal' : 'Edit'}
+            Simpan
           </button>
-          
-          {isEditing && (
-            <button 
-              className="button-success-voucherDetailModal"
-              onClick={handleSaveEdit}
-              disabled={loading}
-            >
-              Simpan
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="detail-grid-voucherDetailModal">
-        <div className="detail-item-voucherDetailModal">
-          <span>Nama Voucher</span>
-          {isEditing ? (
-            <input
-              type="text"
-              value={editData.voucherName}
-              onChange={(e) => handleEditDataChange('voucherName', e.target.value)}
-            />
-          ) : (
-            <strong>{voucherGroup.voucherName}</strong>
-          )}
-        </div>
-
-        <div className="detail-item-voucherDetailModal">
-          <span>Nilai Voucher</span>
-          {isEditing ? (
-            <input
-              type="text"
-              value={editData.value}
-              onChange={(e) => handleEditDataChange('value', e.target.value)}
-            />
-          ) : (
-            <strong>{voucherService.formatCurrency(voucherGroup.value)}</strong>
-          )}
-        </div>
-
-        <div className="detail-item-voucherDetailModal">
-          <span>Tanggal Aktif</span>
-          {isEditing ? (
-            <input
-              type="datetime-local"
-              value={editData.activeDate}
-              onChange={(e) => handleEditDataChange('activeDate', e.target.value)}
-            />
-          ) : (
-            <strong>{formatDate(voucherGroup.activeDate)}</strong>
-          )}
-        </div>
-
-        <div className="detail-item-voucherDetailModal">
-          <span>Tanggal Berakhir</span>
-          {isEditing ? (
-            <input
-              type="datetime-local"
-              value={editData.expireDate}
-              onChange={(e) => handleEditDataChange('expireDate', e.target.value)}
-            />
-          ) : (
-            <strong>{formatDate(voucherGroup.expireDate)}</strong>
-          )}
-        </div>
-
-        <div className="detail-item-voucherDetailModal">
-          <span>Status</span>
-          {isEditing ? (
-            <select
-              value={editData.isActive}
-              onChange={(e) => handleEditDataChange('isActive', e.target.value === 'true')}
-            >
-              <option value="true">Aktif</option>
-              <option value="false">Tidak Aktif</option>
-            </select>
-          ) : (
-            <strong>{voucherGroup.isActive ? 'Aktif' : 'Tidak Aktif'}</strong>
-          )}
-        </div>
+        )}
       </div>
     </div>
-  );
+
+    <div className="detail-grid-voucherDetailModal">
+      <div className="detail-item-voucherDetailModal">
+        <span>Nama Voucher</span>
+        {isEditing ? (
+          <input
+            type="text"
+            value={editData.voucherName}
+            onChange={(e) => handleEditDataChange('voucherName', e.target.value)}
+          />
+        ) : (
+          <strong>{voucherGroup.voucherName}</strong>
+        )}
+      </div>
+
+      <div className="detail-item-voucherDetailModal">
+        <span>Nilai Voucher</span>
+        {isEditing ? (
+          <input
+            type="text"
+            value={editData.value}
+            onChange={(e) => handleEditDataChange('value', e.target.value)}
+          />
+        ) : (
+          <strong>{voucherService.formatCurrency(voucherGroup.value)}</strong>
+        )}
+      </div>
+
+      <div className="detail-item-voucherDetailModal">
+        <span>Tanggal Aktif</span>
+        {isEditing ? (
+          <input
+            type="datetime-local"
+            value={editData.activeDate}
+            onChange={(e) => handleEditDataChange('activeDate', e.target.value)}
+          />
+        ) : (
+          <strong>{formatDate(voucherGroup.activeDate)}</strong>
+        )}
+      </div>
+
+      <div className="detail-item-voucherDetailModal">
+        <span>Tanggal Berakhir</span>
+        {isEditing ? (
+          <input
+            type="datetime-local"
+            value={editData.expireDate}
+            onChange={(e) => handleEditDataChange('expireDate', e.target.value)}
+          />
+        ) : (
+          <strong>{formatDate(voucherGroup.expireDate)}</strong>
+        )}
+      </div>
+
+      <div className="detail-item-voucherDetailModal">
+        <span>Status</span>
+        {isEditing ? (
+          <select
+            value={editData.isActive}
+            onChange={(e) => handleEditDataChange('isActive', e.target.value === 'true')}
+          >
+            <option value="true">Aktif</option>
+            <option value="false">Tidak Aktif</option>
+          </select>
+        ) : (
+          <strong>{voucherGroup.isActive ? 'Aktif' : 'Tidak Aktif'}</strong>
+        )}
+      </div>
+    </div>
+    
+    {/* Danger Zone Section */}
+    <div className="danger-zone-section">
+      <h4>Zona Berbahaya</h4>
+      <div className="danger-zone-warning">
+        <p>Tindakan di bawah ini tidak dapat dibatalkan. Harap berhati-hati!</p>
+      </div>
+      <div className="danger-zone-actions">
+        <button 
+          className="button-danger-voucherDetailModal"
+          onClick={() => setShowDeleteConfirmation(true)}
+          disabled={loading || deleting || isEditing}
+        >
+          Hapus Grup Voucher
+        </button>
+      </div>
+    </div>
+  </div>
+);  
 
   return (
     <div className="modal-overlay-voucherDetailModal" onClick={onClose}>
@@ -437,6 +474,17 @@ const VoucherDetailModalNew = ({ voucherGroup, onClose, onVoucherGroupUpdated })
               <div className="detail-item-voucherDetailModal">
                 <span>Total Voucher</span>
                 <strong>{vouchers.length}</strong>
+              </div>
+              <div className="detail-item-voucherDetailModal">
+                <span>Terklaim</span>
+                <strong>{vouchers.filter(v => v.isClaimed).length}</strong>
+              </div>
+              <div className="detail-item-voucherDetailModal">
+                <span>Aktif/Kadaluarsa</span>
+                <strong>
+                  {vouchers.filter(v => !v.isClaimed && v.expireDate.toDate() > new Date()).length} / 
+                  {vouchers.filter(v => !v.isClaimed && v.expireDate.toDate() <= new Date()).length}
+                </strong>
               </div>
               <div className="detail-item-voucherDetailModal">
                 <span>Nilai</span>
@@ -478,8 +526,40 @@ const VoucherDetailModalNew = ({ voucherGroup, onClose, onVoucherGroupUpdated })
           </div>
         </div>
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div className="confirmation-modal-overlay">
+          <div className="confirmation-modal">
+            <div className="confirmation-modal-header">
+              <h4>Konfirmasi Hapus</h4>
+            </div>
+            <div className="confirmation-modal-body">
+              <p>Anda yakin ingin menghapus grup voucher <strong>{voucherGroup.voucherName}</strong>?</p>
+              <p>Semua voucher yang terkait juga akan dihapus. Tindakan ini tidak dapat dibatalkan.</p>
+            </div>
+            <div className="confirmation-modal-footer">
+              <button 
+                className="button-secondary-voucherDetailModal"
+                onClick={() => setShowDeleteConfirmation(false)}
+                disabled={deleting}
+              >
+                Batal
+              </button>
+              <button 
+                className="button-danger-voucherDetailModal"
+                onClick={handleDeleteVoucherGroup}
+                disabled={deleting}
+              >
+                {deleting ? 'Menghapus...' : 'Hapus Permanen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 export default VoucherDetailModalNew;

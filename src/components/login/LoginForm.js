@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 export const LoginForm = ({ 
   email, 
@@ -12,6 +12,7 @@ export const LoginForm = ({
   setError,
   setSuccess
 }) => {
+  const [showPassword, setShowPassword] = useState(false);
   return (
     <>
       <div className="card-header">
@@ -38,15 +39,35 @@ export const LoginForm = ({
           <label htmlFor="password" className="form-label">
             Password
           </label>
-          <input
-            type="password"
-            id="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="Masukkan password anda"
-            className="brutal-input"
-          />
+          <div className="password-input-container" style={{ position: 'relative' }}>
+            <input
+              type={showPassword ? "text" : "password"}
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Masukkan password anda"
+              className="brutal-input"
+              style={{ width: '100%' }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="password-toggle-button"
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '5px',
+              }}
+            >
+              {showPassword ? "Sembunyikan" : "Tampilkan"}
+            </button>
+          </div>
         </div>
 
         <div className="forgot-password">

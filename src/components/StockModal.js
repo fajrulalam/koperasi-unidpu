@@ -139,7 +139,7 @@ function StockModal({
     }
     
     if (type === "tambah" || type === "tetapkan") {
-      if (!localState.tempAmount) errors.tempAmount = "Jumlah wajib diisi";
+      if (localState.tempAmount === "" || localState.tempAmount == null) errors.tempAmount = "Jumlah wajib diisi";
       if (!localState.tempSatuan) errors.tempSatuan = "Satuan wajib dipilih";
     }
     

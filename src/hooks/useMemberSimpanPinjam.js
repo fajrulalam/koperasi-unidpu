@@ -35,17 +35,17 @@ export const useMemberSimpanPinjam = () => {
     nomorRekening: "",
   });
   const [showPinjamanModal, setShowPinjamanModal] = useState(false);
-  
+
   // Custom setter for showPinjamanModal that prefills bank details
   const handleTogglePinjamanModal = (isOpen) => {
     // If isOpen is undefined or true, open the modal
     if (isOpen === undefined || isOpen === true) {
       // Prefill bank details from user data if available
       if (userData?.bankDetails) {
-        setPinjamanForm(prev => ({
+        setPinjamanForm((prev) => ({
           ...prev,
           bank: userData.bankDetails.bank || "",
-          nomorRekening: userData.bankDetails.nomorRekening || ""
+          nomorRekening: userData.bankDetails.nomorRekening || "",
         }));
       }
       setShowPinjamanModal(true);
@@ -85,8 +85,12 @@ export const useMemberSimpanPinjam = () => {
   const pastLoans = loans
     .filter((loan) => pastLoanStatuses.includes(loan.status))
     .sort((a, b) => {
-      const aTime = a.updatedAt?.toDate ? a.updatedAt.toDate() : new Date(a.updatedAt);
-      const bTime = b.updatedAt?.toDate ? b.updatedAt.toDate() : new Date(b.updatedAt);
+      const aTime = a.updatedAt?.toDate
+        ? a.updatedAt.toDate()
+        : new Date(a.updatedAt);
+      const bTime = b.updatedAt?.toDate
+        ? b.updatedAt.toDate()
+        : new Date(b.updatedAt);
       return bTime - aTime;
     });
 
@@ -224,7 +228,7 @@ export const useMemberSimpanPinjam = () => {
           ? timestamp.toDate()
           : new Date(timestamp);
 
-      const wibDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
+      const wibDate = new Date(date.getTime() + 7 * 60 * 60 * 1000);
 
       const dateStr = date.toLocaleDateString("id-ID", {
         day: "numeric",
@@ -236,7 +240,7 @@ export const useMemberSimpanPinjam = () => {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false,
-        timeZone: "UTC"
+        timeZone: "UTC",
       });
 
       return `${dateStr}, ${timeStr} WIB`;
@@ -333,13 +337,16 @@ export const useMemberSimpanPinjam = () => {
         updatedAt: serverTimestamp(),
         bankDetails: {
           bank: pinjamanForm.bank,
-          nomorRekening: pinjamanForm.nomorRekening
+          nomorRekening: pinjamanForm.nomorRekening,
         },
         userData: {
           email: userData.email || "",
           namaLengkap: userData.nama || "",
           nik: userData.nik || "",
           nomorWhatsapp: userData.nomorWhatsapp || "",
+          kantor: userData.kantor || "",
+          satuanKerja: userData.satuanKerja || "",
+          nomorAnggota: userData.nomorAnggota || "",
         },
         history: [
           {
@@ -512,7 +519,7 @@ export const useMemberSimpanPinjam = () => {
     selectedLoanForHistory,
     activeLoans,
     pastLoans,
-    
+
     // Setters
     setActiveTab,
     setShowPastLoans,
@@ -522,7 +529,7 @@ export const useMemberSimpanPinjam = () => {
     setShowLoanHistoryModal,
     setSelectedLoanForHistory,
     setPinjamanForm,
-    
+
     // Handlers
     handleSimpananChange,
     handlePinjamanChange,
@@ -532,7 +539,7 @@ export const useMemberSimpanPinjam = () => {
     handleTerimaRevisi,
     handleTolakRevisi,
     handleCancelLoan,
-    
+
     // Utilities
     formatCurrency,
     formatDate,

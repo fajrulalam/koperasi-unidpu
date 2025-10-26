@@ -319,17 +319,28 @@
 
 /* Status badges */
 .status-badge {
-  padding: 4px 12px;
-  border-radius: 9999px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
   display: inline-block;
-  white-space: nowrap;
+  text-align: center;
+  min-width: 80px;
 }
 
 .status-badge.active {
   background-color: #d1fae5;
   color: #065f46;
+}
+
+.status-badge.claimed {
+  background-color: #e0f2fe;
+  color: #0369a1;
+}
+
+.status-badge.inactive {
+  background-color: #f3f4f6;
+  color: #4b5563;
 }
 
 .status-badge.pending {
@@ -339,17 +350,96 @@
 
 .status-badge.expired {
   background-color: #fee2e2;
-  color: #991b1b;
+  color: #b91c1c;
 }
 
-.status-badge.inactive {
-  background-color: #f3f4f6;
-  color: #6b7280;
+/* Confirmation Modal Styles */
+.confirmation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(17, 24, 39, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
 }
 
-.status-badge.claimed {
-  background-color: #dbeafe;
-  color: #1e40af;
+.confirmation-modal {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.confirmation-modal-header {
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 16px 24px;
+}
+
+.confirmation-modal-header h4 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.confirmation-modal-body {
+  padding: 24px;
+}
+
+.confirmation-modal-body p {
+  margin: 0 0 16px;
+  color: #4b5563;
+}
+
+.confirmation-modal-body p:last-child {
+  margin-bottom: 0;
+}
+
+.confirmation-modal-footer {
+  padding: 16px 24px;
+  background-color: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Danger zone section styles */
+.danger-zone-section {
+  margin-top: 24px;
+  border-top: 1px solid #fee2e2;
+  padding-top: 16px;
+}
+
+.danger-zone-section h4 {
+  color: #b91c1c;
+  margin-bottom: 12px;
+}
+
+.danger-zone-warning {
+  background-color: #fee2e2;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.danger-zone-warning p {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+.danger-zone-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* Settings Tab */

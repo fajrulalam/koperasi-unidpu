@@ -186,7 +186,7 @@ const PaymentModal = ({
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     const numericAmountPaid = parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
     const discountedTotal = calculateDiscountedTotal();
     const totalNumeric =
@@ -197,6 +197,19 @@ const PaymentModal = ({
     if (numericAmountPaid < totalNumeric) {
       setError("Uang yang diterima kurang dari harga pembelian");
       return;
+    }
+
+    // Mark voucher as claimed if one was applied
+    if (appliedVoucher) {
+      try {
+        await firestore.updateDoc("vouchers", appliedVoucher.id, {
+          isClaimed: true
+        });
+      } catch (error) {
+        console.error("Error updating voucher claim status:", error);
+        setError("Gagal mengupdate status voucher");
+        return;
+      }
     }
 
     onPaymentComplete({

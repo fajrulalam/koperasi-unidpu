@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { auth } from "../firebase";
 import LoanHistoryModal from "../components/LoanHistoryModal";
 import MemberVoucherList from "../components/MemberVoucherList";
+import BarcodeExpandedView from "../components/BarcodeExpandedView";
 import {
   setupUserDataListener,
   setupActiveLoansListener,
@@ -29,6 +30,8 @@ const MemberBeranda = ({ setActivePage }) => {
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [userDocRef, setUserDocRef] = useState(null);
+  const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [showBarcodeExpanded, setShowBarcodeExpanded] = useState(false);
 
   // Setup user data listener
   useEffect(() => {
@@ -75,6 +78,12 @@ const MemberBeranda = ({ setActivePage }) => {
     const loanMember = activeLoans.find((l) => l.id === loan.id);
     setSelectedLoanForHistory(loanMember);
     setShowLoanHistoryModal(true);
+  };
+  
+  // Handle voucher click for expanded barcode view
+  const handleVoucherClick = (voucher) => {
+    setSelectedVoucher(voucher);
+    setShowBarcodeExpanded(true);
   };
 
   if (loading) {
@@ -132,7 +141,7 @@ const MemberBeranda = ({ setActivePage }) => {
         </div>
       </div>
 
-      {isApproved && <MemberVoucherList />}
+      {isApproved && <MemberVoucherList onVoucherClick={handleVoucherClick} />}
 
       <div className="info-card">
         <h3 className="section-title">Informasi Anggota</h3>
@@ -404,6 +413,13 @@ const MemberBeranda = ({ setActivePage }) => {
         isOpen={showLoanHistoryModal}
         onClose={() => setShowLoanHistoryModal(false)}
         selectedLoan={selectedLoanForHistory}
+      />
+      
+      {/* Expanded Barcode View */}
+      <BarcodeExpandedView
+        isOpen={showBarcodeExpanded}
+        onClose={() => setShowBarcodeExpanded(false)}
+        voucher={selectedVoucher}
       />
     </div>
   );

@@ -18,6 +18,7 @@ import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
 import StockModal from "./StockModal";
 import StockDiscrepancyModal from "./StockDiscrepancies/StockDiscrepancyModal";
+import BulkPurchaseModal from "./BulkPurchaseModal";
 
 // Helper function for currency formatting
 function formatRupiah(value) {
@@ -101,13 +102,8 @@ const SummaryCard = ({ title, value, color }) => (
 // Main Stocks Component
 export default function Stocks() {
   const { currentUser } = useAuth();
-  const {
-    createDoc,
-    readDoc,
-    updateDoc,
-    deleteDoc,
-    queryCollection,
-  } = useFirestore();
+  const { createDoc, readDoc, updateDoc, deleteDoc, queryCollection } =
+    useFirestore();
   const { isProduction } = useEnvironment();
 
   // State variables
@@ -127,28 +123,31 @@ export default function Stocks() {
   const [selectedItems, setSelectedItems] = useState({});
   const [showDropdown, setShowDropdown] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
-  
+
   // Sorting states
   const [sortConfig, setSortConfig] = useState({
     key: "name",
     direction: "asc",
   });
-  
+
   // Dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState("");
   const [selectedProductId, setSelectedProductId] = useState(null);
-  
+
   // Date picker and snapshot related states
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
   const [snapshotExists, setSnapshotExists] = useState(false);
   const [snapshotData, setSnapshotData] = useState(null);
-  
+
   // Stock discrepancy modal state
   const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
-  
+
+  // Bulk purchase modal state
+  const [showBulkPurchaseModal, setShowBulkPurchaseModal] = useState(false);
+
   // Form related states
   const [tempAmount, setTempAmount] = useState("");
   const [tempSatuan, setTempSatuan] = useState("");
@@ -163,7 +162,7 @@ export default function Stocks() {
   const [piecesPerBox, setPiecesPerBox] = useState("");
   const [tempDocId, setTempDocId] = useState("");
   const [tempItemId, setTempItemId] = useState("");
-  
+
   // Refs
   const dropdownRef = useRef(null);
   const tableHeaderRef = useRef(null);
@@ -180,10 +179,10 @@ export default function Stocks() {
   };
 
   // ***** UTILITY FUNCTIONS *****
-  
+
   // Add this utility function for unit conversions
   function convertToSmallestUnit(quantity, unit, product) {
-    if (!quantity || !unit || !product.smallestUnit) {
+    if (quantity == null || !unit || !product.smallestUnit) {
       throw new Error("Missing required parameters for conversion");
     }
 
@@ -229,15 +228,18 @@ export default function Stocks() {
   }
 
   function computeProfitMargin(prod) {
-    const p = prod.pricePerUnit[prod.smallestUnit] - Math.round(prod.stockValue / prod.stock);
+    const p =
+      prod.pricePerUnit[prod.smallestUnit] -
+      Math.round(prod.stockValue / prod.stock);
     return formatRupiah(p);
   }
 
   function computeHargaFormatted(prod) {
     if (!prod.smallestUnit || !prod.pricePerUnit[prod.smallestUnit]) return "0";
-    const p = typeof prod.pricePerUnit[prod.smallestUnit] === "number"
-      ? prod.pricePerUnit[prod.smallestUnit]
-      : parseRupiah(prod.pricePerUnit[prod.smallestUnit]);
+    const p =
+      typeof prod.pricePerUnit[prod.smallestUnit] === "number"
+        ? prod.pricePerUnit[prod.smallestUnit]
+        : parseRupiah(prod.pricePerUnit[prod.smallestUnit]);
     return formatRupiah(p);
   }
 
@@ -251,7 +253,7 @@ export default function Stocks() {
   };
 
   // ***** EVENT HANDLERS *****
-  
+
   function handleAmountChange(e) {
     // Allow only numeric input
     const numericValue = e.target.value.replace(/\D/g, "");
@@ -943,7 +945,7 @@ export default function Stocks() {
   };
 
   // ***** SAVE/SUBMIT FUNCTIONS *****
-  
+
   async function handleSave(type) {
     // Use the passed type parameter or fallback to dialogType
     const currentDialogType = type || dialogType;
@@ -1145,7 +1147,7 @@ export default function Stocks() {
           transactionVia: "stockSetTo",
           quantity: absQty,
           cost: absCost,
-          originalQuantity, 
+          originalQuantity,
           originalUnit,
           unit: prod.smallestUnit,
         };
@@ -1257,9 +1259,7 @@ export default function Stocks() {
             transactionVia: "stockDeletion",
             stockWorth: product.stockValue || 0,
             note: "Stock dihapus dari sistem",
-            createdBy: currentUser
-              ? currentUser.email
-              : "unknown",
+            createdBy: currentUser ? currentUser.email : "unknown",
           },
           txId
         );
@@ -1473,7 +1473,14 @@ export default function Stocks() {
             className="stock-discrepancy-btn"
             onClick={() => setShowDiscrepancyModal(true)}
           >
-            <FaExclamationTriangle style={{ marginRight: "5px" }} /> Cek Ketidaksesuaian Stok
+            <FaExclamationTriangle style={{ marginRight: "5px" }} /> Cek
+            Ketidaksesuaian Stok
+          </button>
+          <button
+            className="stock-bulk-btn"
+            onClick={() => setShowBulkPurchaseModal(true)}
+          >
+            Bulk Purchase
           </button>
           <button
             className="stock-add-btn"
@@ -1687,7 +1694,10 @@ export default function Stocks() {
                   <FaEllipsisV />
                 </div>
                 {showDropdown === prod.id && (
-                  <div className="stock-dropdown stock-dropdown-open" ref={dropdownRef}>
+                  <div
+                    className="stock-dropdown stock-dropdown-open"
+                    ref={dropdownRef}
+                  >
                     <div
                       className="stock-dropdown-item"
                       onClick={() => openDialog("tambah", prod.id)}
@@ -1719,7 +1729,7 @@ export default function Stocks() {
           ))}
         </tbody>
       </table>
-      
+
       {/* Snapshot Dialog */}
       {snapshotDialogOpen && (
         <div className="stock-modal-overlay">
@@ -1779,35 +1789,76 @@ export default function Stocks() {
             tempCost,
             piecesPerBox,
             tempDocId,
-            originalSmallestUnit
+            originalSmallestUnit,
           }}
           setTempState={(newState) => {
             // Update state based on the changes
-            if ('tempName' in newState) setTempName(newState.tempName);
-            if ('tempItemId' in newState) setTempItemId(newState.tempItemId);
-            if ('tempKategori' in newState) setTempKategori(newState.tempKategori);
-            if ('tempSubKategori' in newState) setTempSubKategori(newState.tempSubKategori);
-            if ('tempTipeStock' in newState) setTempTipeStock(newState.tempTipeStock);
-            if ('tempDefaultSatuan' in newState) setTempDefaultSatuan(newState.tempDefaultSatuan);
-            if ('tempAltSatuan' in newState) setTempAltSatuan(newState.tempAltSatuan);
-            if ('tempPricePerUnit' in newState) setTempPricePerUnit(newState.tempPricePerUnit);
-            if ('tempAmount' in newState) setTempAmount(newState.tempAmount);
-            if ('tempSatuan' in newState) setTempSatuan(newState.tempSatuan);
-            if ('tempCost' in newState) setTempCost(newState.tempCost);
-            if ('piecesPerBox' in newState) setPiecesPerBox(newState.piecesPerBox);
-            if ('tempDocId' in newState) setTempDocId(newState.tempDocId);
+            if ("tempName" in newState) setTempName(newState.tempName);
+            if ("tempItemId" in newState) setTempItemId(newState.tempItemId);
+            if ("tempKategori" in newState)
+              setTempKategori(newState.tempKategori);
+            if ("tempSubKategori" in newState)
+              setTempSubKategori(newState.tempSubKategori);
+            if ("tempTipeStock" in newState)
+              setTempTipeStock(newState.tempTipeStock);
+            if ("tempDefaultSatuan" in newState)
+              setTempDefaultSatuan(newState.tempDefaultSatuan);
+            if ("tempAltSatuan" in newState)
+              setTempAltSatuan(newState.tempAltSatuan);
+            if ("tempPricePerUnit" in newState)
+              setTempPricePerUnit(newState.tempPricePerUnit);
+            if ("tempAmount" in newState) setTempAmount(newState.tempAmount);
+            if ("tempSatuan" in newState) setTempSatuan(newState.tempSatuan);
+            if ("tempCost" in newState) setTempCost(newState.tempCost);
+            if ("piecesPerBox" in newState)
+              setPiecesPerBox(newState.piecesPerBox);
+            if ("tempDocId" in newState) setTempDocId(newState.tempDocId);
           }}
           convertToSmallestUnit={convertToSmallestUnit}
         />
       )}
-      
+
       {/* Snackbar for notifications */}
-      {snackbar.open && <div className="stock-snackbar">{snackbar.message}</div>}
-      
+      {snackbar.open && (
+        <div className="stock-snackbar">{snackbar.message}</div>
+      )}
+
       {/* Stock Discrepancy Modal */}
-      <StockDiscrepancyModal 
+      <StockDiscrepancyModal
         isOpen={showDiscrepancyModal}
         onRequestClose={() => setShowDiscrepancyModal(false)}
+      />
+
+      {/* Bulk Purchase Modal */}
+      <BulkPurchaseModal
+        isOpen={showBulkPurchaseModal}
+        onClose={() => setShowBulkPurchaseModal(false)}
+        onSave={async (action, data, id, collectionName) => {
+          if (action === "createTransaction") {
+            await createDoc("stockTransactions", data, id);
+          } else if (action === "updateStock") {
+            await updateDoc("stocks", data.id, {
+              stock: data.stock,
+              stockValue: data.stockValue,
+            });
+            // Update local state
+            setProducts((prev) => ({
+              ...prev,
+              [data.id]: {
+                ...prev[data.id],
+                stock: data.stock,
+                stockValue: data.stockValue,
+              },
+            }));
+          } else if (action === "createNotaBelanja") {
+            await createDoc(collectionName || "notaBelanja", data, id);
+          }
+        }}
+        products={products}
+        currentUser={currentUser}
+        collectionPrefix="stocks"
+        transactionCollection="stockTransactions"
+        isWarehouse={false}
       />
     </div>
   );

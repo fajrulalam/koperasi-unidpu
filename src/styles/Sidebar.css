@@ -301,3 +301,79 @@
 .kop-sidebar.kop-collapsed .kop-toggle-btn span {
   display: none; /* Hide text */
 }
+
+/* --- Nested Menu Styles --- */
+
+/* Parent menu item styles */
+.kop-menu-parent {
+  list-style: none;
+  margin: 0;
+}
+
+.kop-menu-header {
+  font-weight: 600;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+}
+
+.kop-menu-header:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.kop-menu-arrow {
+  margin-left: auto;
+  transition: transform 0.2s ease;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.kop-menu-header:hover .kop-menu-arrow {
+  color: #ffffff;
+}
+
+/* Submenu styles */
+.kop-submenu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  margin-left: 10px;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+.kop-submenu-item {
+  padding: 10px 20px 10px 30px;
+  font-size: 14px;
+  background-color: transparent;
+  margin: 0;
+  border-radius: 0;
+  border-left: 2px solid transparent;
+}
+
+.kop-submenu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  transform: translateX(1px);
+  border-left-color: rgba(255, 255, 255, 0.3);
+}
+
+.kop-submenu-item.kop-active {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-left-color: #ffffff;
+  font-weight: 500;
+}
+
+.kop-submenu-item.kop-active::before {
+  display: none;
+}
+
+/* Collapsed state for nested menus */
+.kop-sidebar.kop-collapsed .kop-submenu {
+  display: none;
+}
+
+.kop-sidebar.kop-collapsed .kop-menu-arrow {
+  display: none;
+}

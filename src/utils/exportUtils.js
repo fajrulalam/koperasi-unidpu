@@ -23,20 +23,23 @@ export const exportMembersToExcel = (members, formatDate, formatCurrency) => {
     // Transform member data to the format needed for Excel
     const excelData = members.map((member) => {
       return {
-        "No. Anggota": member.nomorAnggota || (member.id ? member.id.split("_").pop() : "-"),
-        "Nama Lengkap": member.namaLengkap || "-",
-        "NIK": member.nik || "-",
-        "Email": member.email || "-",
-        "No. Telp": member.noTelp || "-",
+        "No. Anggota":
+          member.nomorAnggota || (member.id ? member.id.split("_").pop() : "-"),
+        "Nama Lengkap": member.nama || "-",
+        NIK: member.nik || "-",
+        Email: member.email || "-",
+        "No. Telp": member.nomorWhatsapp || "-",
         "Satuan Kerja": member.satuanKerja || "-",
         "Nominal Tabungan": member.nominalTabungan || 0,
         "Status Pembayaran": member.paymentStatus || "-",
         "Status Keanggotaan": member.membershipStatus || "-",
-        "Tanggal Bergabung": member.joinDate ? formatDate(member.joinDate) : "-",
-        "Alamat": member.alamat || "-",
-        "Bank": member.bankDetails?.bank || "-",
+        "Tanggal Bergabung": member.joinDate
+          ? formatDate(member.joinDate)
+          : "-",
+        Alamat: member.alamat || "-",
+        Bank: member.bankDetails?.bank || "-",
         "Nomor Rekening": member.bankDetails?.nomorRekening || "-",
-        "Catatan": member.notes || "-"
+        Catatan: member.notes || "-",
       };
     });
 
@@ -58,7 +61,7 @@ export const exportMembersToExcel = (members, formatDate, formatCurrency) => {
       { wch: 30 }, // Alamat
       { wch: 15 }, // Bank
       { wch: 25 }, // Nomor Rekening
-      { wch: 30 }  // Catatan
+      { wch: 30 }, // Catatan
     ];
     worksheet["!cols"] = columnWidths;
 

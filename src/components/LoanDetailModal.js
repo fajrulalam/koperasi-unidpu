@@ -12,7 +12,12 @@ import {
   FaLandmark,
   FaFileSignature,
   FaCopy,
+  FaFileExport,
+  FaPencilAlt,
+  FaSave,
+  FaTimes,
 } from "react-icons/fa";
+import { useLoanHistoryExtract } from "../hooks/useLoanHistoryExtract";
 
 const LoanDetailModal = ({
   loan,
@@ -23,13 +28,90 @@ const LoanDetailModal = ({
   onUploadProof,
   onMarkComplete,
   onMakePayment,
+  onUpdateBankDetails,
+  onUpdateUserData,
   actionLoading,
   userRole,
 }) => {
+  // Use the loan history extract hook
+  const { extracting, downloadCSV } = useLoanHistoryExtract();
   // Define useState hook at the top level of the component
   const [showSnackbar, setShowSnackbar] = useState(false);
 
+  // State for editable fields
+  const [editing, setEditing] = useState({
+    bank: false,
+    nomorRekening: false,
+    kantor: false,
+    satuanKerja: false,
+    nomorAnggota: false,
+  });
+
+  const [editValues, setEditValues] = useState({
+    bank: "",
+    nomorRekening: "",
+    kantor: "",
+    satuanKerja: "",
+    nomorAnggota: "",
+  });
+
   if (!loan) return null;
+
+  // Handle start editing for a field
+  const startEditing = (field) => {
+    // For bank and nomorRekening, only allow editing if they're empty or N/A
+    if (
+      (field === "bank" || field === "nomorRekening") &&
+      loan.bankDetails?.[field] &&
+      loan.bankDetails[field] !== "N/A"
+    ) {
+      return;
+    }
+
+    setEditValues((prev) => ({
+      ...prev,
+      [field]:
+        field === "bank" || field === "nomorRekening"
+          ? loan.bankDetails?.[field] || ""
+          : loan.userData?.[field] || "",
+    }));
+
+    setEditing((prev) => ({ ...prev, [field]: true }));
+  };
+
+  // Handle saving edits
+  const saveEdit = (field) => {
+    // Update data in database based on field type
+    if (field === "bank" || field === "nomorRekening") {
+      if (onUpdateBankDetails) {
+        // Create a new bankDetails object with updated field
+        const updatedBankDetails = {
+          ...(loan.bankDetails || {}),
+          [field]: editValues[field],
+        };
+
+        onUpdateBankDetails(loan.id, updatedBankDetails);
+      }
+    } else {
+      if (onUpdateUserData) {
+        // Create an object with just the updated field
+        const updatedData = {
+          [field]: editValues[field],
+        };
+
+        // Use loan.id to update userData within the loan document
+        onUpdateUserData(loan.id, updatedData);
+      }
+    }
+
+    // Close the edit mode
+    setEditing((prev) => ({ ...prev, [field]: false }));
+  };
+
+  // Handle cancel editing
+  const cancelEdit = (field) => {
+    setEditing((prev) => ({ ...prev, [field]: false }));
+  };
 
   const formatDate = (timestamp) => {
     if (!timestamp) return "N/A";
@@ -166,36 +248,242 @@ const LoanDetailModal = ({
               </div>
               <div className="detail-item-loanDetailModal">
                 <span>Bank</span>
-                <strong>{loan.bankDetails?.bank || "N/A"}</strong>
-              </div>
-              <div className="detail-item-loanDetailModal">
-                <span>Nomor Rekening</span>
-                <div className="account-number-container">
-                  <div className="account-number-wrapper">
-                    <strong>{loan.bankDetails?.nomorRekening || "N/A"}</strong>
-                    {showSnackbar && (
-                      <div className="tooltip">Disalin!</div>
+                {editing.bank ? (
+                  <div className="edit-field-container">
+                    <input
+                      type="text"
+                      value={editValues.bank}
+                      onChange={(e) =>
+                        setEditValues((prev) => ({
+                          ...prev,
+                          bank: e.target.value,
+                        }))
+                      }
+                      className="edit-input"
+                    />
+                    <div className="edit-actions">
+                      <button onClick={() => saveEdit("bank")} title="Simpan">
+                        <FaSave />
+                      </button>
+                      <button onClick={() => cancelEdit("bank")} title="Batal">
+                        <FaTimes />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="field-with-edit">
+                    <strong>{loan.bankDetails?.bank || "N/A"}</strong>
+                    {(!loan.bankDetails?.bank ||
+                      loan.bankDetails?.bank === "N/A") && (
+                      <button
+                        className="edit-button"
+                        onClick={() => startEditing("bank")}
+                        title="Edit bank"
+                      >
+                        <FaPencilAlt />
+                      </button>
                     )}
                   </div>
-                  {loan.bankDetails?.nomorRekening && (
-                    <button 
-                      className="copy-button" 
-                      onClick={() => {
-                        navigator.clipboard.writeText(loan.bankDetails.nomorRekening);
-                        setShowSnackbar(true);
-                        setTimeout(() => setShowSnackbar(false), 2000);
-                      }}
-                      title="Salin nomor rekening"
-                    >
-                      <FaCopy />
-                    </button>
-                  )}
-                </div>
+                )}
               </div>
-              {/* <div className="detail-item-loanDetailModal"><span>Kantor</span><strong>{loan.userData?.kantor || "N/A"}</strong></div>
-              {loan.userData?.kantor === 'Unipdu' && (
-                <div className="detail-item-loanDetailModal"><span>Satuan Kerja</span><strong>{loan.userData?.satuanKerja || "N/A"}</strong></div>
-              )} */}
+
+              <div className="detail-item-loanDetailModal">
+                <span>Nomor Rekening</span>
+                {editing.nomorRekening ? (
+                  <div className="edit-field-container">
+                    <input
+                      type="text"
+                      value={editValues.nomorRekening}
+                      onChange={(e) =>
+                        setEditValues((prev) => ({
+                          ...prev,
+                          nomorRekening: e.target.value,
+                        }))
+                      }
+                      className="edit-input"
+                    />
+                    <div className="edit-actions">
+                      <button
+                        onClick={() => saveEdit("nomorRekening")}
+                        title="Simpan"
+                      >
+                        <FaSave />
+                      </button>
+                      <button
+                        onClick={() => cancelEdit("nomorRekening")}
+                        title="Batal"
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="account-number-container">
+                    <div className="account-number-wrapper">
+                      <strong>
+                        {loan.bankDetails?.nomorRekening || "N/A"}
+                      </strong>
+                      {showSnackbar && <div className="tooltip">Disalin!</div>}
+                    </div>
+                    <div className="account-actions">
+                      {loan.bankDetails?.nomorRekening && (
+                        <button
+                          className="copy-button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(
+                              loan.bankDetails.nomorRekening
+                            );
+                            setShowSnackbar(true);
+                            setTimeout(() => setShowSnackbar(false), 2000);
+                          }}
+                          title="Salin nomor rekening"
+                        >
+                          <FaCopy />
+                        </button>
+                      )}
+                      {(!loan.bankDetails?.nomorRekening ||
+                        loan.bankDetails?.nomorRekening === "N/A") && (
+                        <button
+                          className="edit-button"
+                          onClick={() => startEditing("nomorRekening")}
+                          title="Edit nomor rekening"
+                        >
+                          <FaPencilAlt />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="detail-item-loanDetailModal">
+                <span>Kantor</span>
+                {editing.kantor ? (
+                  <div className="edit-field-container">
+                    <input
+                      type="text"
+                      value={editValues.kantor}
+                      onChange={(e) =>
+                        setEditValues((prev) => ({
+                          ...prev,
+                          kantor: e.target.value,
+                        }))
+                      }
+                      className="edit-input"
+                    />
+                    <div className="edit-actions">
+                      <button onClick={() => saveEdit("kantor")} title="Simpan">
+                        <FaSave />
+                      </button>
+                      <button
+                        onClick={() => cancelEdit("kantor")}
+                        title="Batal"
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="field-with-edit">
+                    <strong>{loan.userData?.kantor || "N/A"}</strong>
+                    <button
+                      className="edit-button"
+                      onClick={() => startEditing("kantor")}
+                      title="Edit kantor"
+                    >
+                      <FaPencilAlt />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="detail-item-loanDetailModal">
+                <span>Satuan Kerja</span>
+                {editing.satuanKerja ? (
+                  <div className="edit-field-container">
+                    <input
+                      type="text"
+                      value={editValues.satuanKerja}
+                      onChange={(e) =>
+                        setEditValues((prev) => ({
+                          ...prev,
+                          satuanKerja: e.target.value,
+                        }))
+                      }
+                      className="edit-input"
+                    />
+                    <div className="edit-actions">
+                      <button
+                        onClick={() => saveEdit("satuanKerja")}
+                        title="Simpan"
+                      >
+                        <FaSave />
+                      </button>
+                      <button
+                        onClick={() => cancelEdit("satuanKerja")}
+                        title="Batal"
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="field-with-edit">
+                    <strong>{loan.userData?.satuanKerja || "N/A"}</strong>
+                    <button
+                      className="edit-button"
+                      onClick={() => startEditing("satuanKerja")}
+                      title="Edit satuan kerja"
+                    >
+                      <FaPencilAlt />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="detail-item-loanDetailModal">
+                <span>Nomor Anggota</span>
+                {editing.nomorAnggota ? (
+                  <div className="edit-field-container">
+                    <input
+                      type="text"
+                      value={editValues.nomorAnggota}
+                      onChange={(e) =>
+                        setEditValues((prev) => ({
+                          ...prev,
+                          nomorAnggota: e.target.value,
+                        }))
+                      }
+                      className="edit-input"
+                    />
+                    <div className="edit-actions">
+                      <button
+                        onClick={() => saveEdit("nomorAnggota")}
+                        title="Simpan"
+                      >
+                        <FaSave />
+                      </button>
+                      <button
+                        onClick={() => cancelEdit("nomorAnggota")}
+                        title="Batal"
+                      >
+                        <FaTimes />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="field-with-edit">
+                    <strong>{loan.userData?.nomorAnggota || "N/A"}</strong>
+                    <button
+                      className="edit-button"
+                      onClick={() => startEditing("nomorAnggota")}
+                      title="Edit nomor anggota"
+                    >
+                      <FaPencilAlt />
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -368,6 +656,16 @@ const LoanDetailModal = ({
                 disabled={actionLoading}
               >
                 Tandai Lunas
+              </button>
+            )}
+            {loan.status === "Disetujui dan Aktif" && (
+              <button
+                className="button-info-loanDetailModal"
+                onClick={() => downloadCSV(loan)}
+                disabled={extracting || actionLoading}
+              >
+                <FaFileExport />{" "}
+                {extracting ? "Mengekstrak..." : "Ekstrak Excel"}
               </button>
             )}
           </div>

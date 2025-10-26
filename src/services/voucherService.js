@@ -58,6 +58,22 @@ export const voucherService = {
     }
   },
 
+  async getClaimedVoucherCount(voucherGroupId, isProduction = true) {
+    try {
+      const vouchersRef = getEnvironmentCollection("vouchers", isProduction);
+      const q = query(
+        vouchersRef,
+        where("voucherGroupId", "==", voucherGroupId),
+        where("isClaimed", "==", true)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.size;
+    } catch (error) {
+      console.error("Error fetching claimed voucher count:", error);
+      throw error;
+    }
+  },
+
   async getMembers(isProduction = true) {
     try {
       const usersRef = getEnvironmentCollection("users", isProduction);

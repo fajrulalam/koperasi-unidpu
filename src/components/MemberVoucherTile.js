@@ -1,8 +1,8 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
 import '../styles/MemberVoucherTile.css';
 
-const MemberVoucherTile = ({ voucher }) => {
+const MemberVoucherTile = ({ voucher, onClick }) => {
   const barcodeRef = useRef(null);
 
   useEffect(() => {
@@ -10,11 +10,11 @@ const MemberVoucherTile = ({ voucher }) => {
       try {
         JsBarcode(barcodeRef.current, voucher.id, {
           format: "CODE128",
-          width: 1.5,
-          height: 50,
+          width: 2.5,
+          height: 80,
           displayValue: true,
-          fontSize: 12,
-          margin: 0,
+          fontSize: 16,
+          margin: 10,
           background: "transparent",
           textAlign: "center",
           textPosition: "bottom",
@@ -75,7 +75,11 @@ const MemberVoucherTile = ({ voucher }) => {
   const status = getStatusText();
 
   return (
-    <div className="member-voucher-tile">
+    <div 
+      className="member-voucher-tile" 
+      onClick={() => onClick && onClick(voucher)}
+      style={{ cursor: 'pointer' }}
+    >
       <div className="voucher-header">
         <div className="voucher-name-section">
           <h4 className="voucher-name">{voucher.voucherName}</h4>

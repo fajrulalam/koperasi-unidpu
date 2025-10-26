@@ -8,15 +8,20 @@ import { useAuth } from "../context/AuthContext";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { useDatabase } from "../context/DatabaseContext";
 import MemberPage from "./MemberPage"; // Import the dedicated MemberPage component
-import { 
+import {
   TransaksiWithEnv as Transaksi,
   SimpanPinjamWithEnv as SimpanPinjam,
   DaftarAnggotaBaruWithEnv as DaftarAnggotaBaru,
   StocksWithEnv as Stocks,
+  WarehouseStockWithEnv as WarehouseStock,
   SejarahBelanjaWithEnv as SejarahBelanja,
+  SejarahBelanjaWarehouseWithEnv as SejarahBelanjaWarehouse,
+  WarehouseExitWithEnv as WarehouseExit,
   SejarahTransaksiWithEnv as SejarahTransaksi,
+  SejarahTransaksiWarehouseWithEnv as SejarahTransaksiWarehouse,
+  NotaBelanjaB2BWithEnv as NotaBelanjaB2B,
   AdminPanelWithEnv as AdminPanel,
-  AdminSettings
+  AdminSettings,
 } from "../components";
 import TailwindTest from "../components/TailwindTest";
 import TabunganLogs from "../components/TabunganLogs";
@@ -38,6 +43,8 @@ const MainPage = () => {
         setActiveComponent("DaftarAnggotaBaru");
       } else if (hasAccess("Stocks")) {
         setActiveComponent("Stocks");
+      } else if (hasAccess("WarehouseStock")) {
+        setActiveComponent("WarehouseStock");
       } else if (hasAccess("SimpanPinjam")) {
         setActiveComponent("SimpanPinjam");
       } else if (hasAccess("SejarahTransaksi")) {
@@ -46,6 +53,14 @@ const MainPage = () => {
         setActiveComponent("TabunganLogs");
       } else if (hasAccess("SejarahBelanja")) {
         setActiveComponent("SejarahBelanja");
+      } else if (hasAccess("WarehouseExit")) {
+        setActiveComponent("WarehouseExit");
+      } else if (hasAccess("SejarahBelanjaWarehouse")) {
+        setActiveComponent("SejarahBelanjaWarehouse");
+      } else if (hasAccess("SejarahTransaksiWarehouse")) {
+        setActiveComponent("SejarahTransaksiWarehouse");
+      } else if (hasAccess("NotaBelanjaB2B")) {
+        setActiveComponent("NotaBelanjaB2B");
       } else if (hasAccess("VoucherKoperasi")) {
         setActiveComponent("VoucherKoperasi");
       } else if (hasAccess("AdminPanel")) {
@@ -59,10 +74,12 @@ const MainPage = () => {
   const renderContent = () => {
     // Check if user has access to this component
     if (currentUser && !hasAccess(activeComponent)) {
-      return <div className="access-denied">
-        <h2>Akses Terbatas</h2>
-        <p>Maaf, Anda tidak memiliki akses ke halaman ini.</p>
-      </div>;
+      return (
+        <div className="access-denied">
+          <h2>Akses Terbatas</h2>
+          <p>Maaf, Anda tidak memiliki akses ke halaman ini.</p>
+        </div>
+      );
     }
 
     switch (activeComponent) {
@@ -76,8 +93,18 @@ const MainPage = () => {
         return <TabunganLogs />;
       case "Stocks":
         return <Stocks />;
+      case "WarehouseStock":
+        return <WarehouseStock />;
       case "SejarahBelanja":
         return <SejarahBelanja />;
+      case "SejarahBelanjaWarehouse":
+        return <SejarahBelanjaWarehouse />;
+      case "SejarahTransaksiWarehouse":
+        return <SejarahTransaksiWarehouse />;
+      case "WarehouseExit":
+        return <WarehouseExit />;
+      case "NotaBelanjaB2B":
+        return <NotaBelanjaB2B />;
       case "SejarahTransaksi":
         return <SejarahTransaksi />;
       case "AdminPanel":
@@ -113,39 +140,45 @@ const MainPage = () => {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
       {/* Header with user menu */}
-      <header style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "10px 20px",
-        backgroundColor: "#fff",
-        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-        position: "relative",
-        zIndex: 10
-      }}>
-        <h1 style={{ margin: 0, fontSize: "1.2rem" }}>Koperasi Unipdu</h1>
-        <div style={{ 
-          marginLeft: "auto", 
-          marginRight: "20px",
+      <header
+        style={{
           display: "flex",
-          alignItems: "center" 
-        }}>
+          alignItems: "center",
+          padding: "10px 20px",
+          backgroundColor: "#fff",
+          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+          position: "relative",
+          zIndex: 10,
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: "1.2rem" }}>Koperasi Unipdu</h1>
+        <div
+          style={{
+            marginLeft: "auto",
+            marginRight: "20px",
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
           {!isProduction && (
-            <div style={{
-              backgroundColor: "#ff9800",
-              color: "white",
-              padding: "4px 8px",
-              borderRadius: "4px",
-              fontSize: "0.7rem",
-              fontWeight: "bold",
-              marginRight: "15px"
-            }}>
+            <div
+              style={{
+                backgroundColor: "#ff9800",
+                color: "white",
+                padding: "4px 8px",
+                borderRadius: "4px",
+                fontSize: "0.7rem",
+                fontWeight: "bold",
+                marginRight: "15px",
+              }}
+            >
               TESTING MODE
             </div>
           )}
         </div>
         <UserMenu />
       </header>
-      
+
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <Sidebar
           onSelect={setActiveComponent}
@@ -161,7 +194,7 @@ const MainPage = () => {
             width: "calc(100% - 70px)",
             maxWidth: isCollapsed ? "calc(100% - 70px)" : "calc(100% - 250px)",
             transition: "all 0.3s ease",
-            overflow: "auto"
+            overflow: "auto",
           }}
         >
           {renderContent()}

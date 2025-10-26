@@ -6,7 +6,7 @@ import { doc, getDoc, query, collection, where, getDocs } from "firebase/firesto
 import MemberVoucherTile from './MemberVoucherTile';
 import '../styles/MemberVoucherList.css';
 
-const MemberVoucherList = () => {
+const MemberVoucherList = ({ onVoucherClick }) => {
   const { isProduction } = useEnvironment();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -139,7 +139,11 @@ const MemberVoucherList = () => {
       ) : (
         <div className="vouchers-container">
           {vouchers.map((voucher) => (
-            <MemberVoucherTile key={voucher.id} voucher={voucher} />
+            <MemberVoucherTile 
+              key={voucher.id} 
+              voucher={voucher} 
+              onClick={onVoucherClick}
+            />
           ))}
         </div>
       )}

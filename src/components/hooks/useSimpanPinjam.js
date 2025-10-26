@@ -757,6 +757,82 @@ const useSimpanPinjam = () => {
     }, 3000);
   };
 
+  // Handle updating bank details for a loan
+  const handleUpdateBankDetails = async (loanId, bankDetails) => {
+    try {
+      const loanRef = doc(db, "simpanPinjam", loanId);
+      
+      // Update just the bankDetails field
+      await updateDoc(loanRef, {
+        bankDetails: bankDetails,
+        updatedAt: serverTimestamp()
+      });
+      
+      setSuccess("Detail bank berhasil diperbarui");
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
+      
+      return true;
+    } catch (error) {
+      console.error("Error updating bank details:", error);
+      setError("Gagal memperbarui detail bank: " + error.message);
+      
+      // Clear error message after 3 seconds
+      setTimeout(() => {
+        setError("");
+      }, 3000);
+      
+      return false;
+    }
+  };
+  
+  // Handle updating user data in the loan document (not in users collection)
+  const handleUpdateUserData = async (loanId, userData) => {
+    try {
+      // Get the loan document
+      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanDoc = await getDoc(loanRef);
+      
+      if (!loanDoc.exists()) {
+        throw new Error("Dokumen pinjaman tidak ditemukan");
+      }
+      
+      // Get the current userData from the loan
+      const currentUserData = loanDoc.data().userData || {};
+      
+      // Update the userData field in the loan document
+      await updateDoc(loanRef, {
+        userData: {
+          ...currentUserData,
+          ...userData,
+        },
+        updatedAt: serverTimestamp()
+      });
+      
+      setSuccess("Data anggota berhasil diperbarui");
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
+      
+      return true;
+    } catch (error) {
+      console.error("Error updating user data:", error);
+      setError("Gagal memperbarui data anggota: " + error.message);
+      
+      // Clear error message after 3 seconds
+      setTimeout(() => {
+        setError("");
+      }, 3000);
+      
+      return false;
+    }
+  };
+
   return {
     loans,
     filteredLoans,
@@ -789,6 +865,8 @@ const useSimpanPinjam = () => {
     handleMarkComplete,
     handleUploadPaymentProof,
     handleExportToExcel,
+    handleUpdateBankDetails,
+    handleUpdateUserData,
     formatDate,
     calculateEndDate,
     isLoanOverdue,

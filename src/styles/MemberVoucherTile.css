@@ -101,17 +101,18 @@
   justify-content: center;
   align-items: center;
   margin: 20px 0;
-  padding: 12px;
+  padding: 16px;
   background-color: var(--secondary-bg, #e8e8e8);
   border: 2px solid var(--border-color, #000000);
   border-radius: 0;
-  min-height: 80px;
+  min-height: 120px;
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
 }
 
 .voucher-barcode {
   max-width: 100%;
   height: auto;
+  margin: 5px 0;
 }
 
 .voucher-footer {
@@ -183,9 +184,9 @@
   }
 
   .voucher-barcode-section {
-    margin: 8px 0;
-    padding: 6px;
-    min-height: 50px;
+    margin: 10px 0;
+    padding: 8px;
+    min-height: 90px;
   }
 
   .voucher-footer {

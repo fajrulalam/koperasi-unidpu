@@ -122,7 +122,8 @@
 .stock-add-btn,
 .stock-tag-btn,
 .stock-export-btn,
-.stock-snapshot-btn {
+.stock-snapshot-btn,
+.stock-bulk-btn {
   border: none;
   border-radius: var(--stock-border-radius-md);
   padding: 0.75rem 1.25rem; /* Larger padding */
@@ -142,6 +143,7 @@
 .stock-tag-btn:hover,
 .stock-export-btn:hover,
 .stock-snapshot-btn:hover,
+.stock-bulk-btn:hover,
 .stock-discrepancy-btn:hover {
   transform: translateY(-2px); /* Lift on hover */
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); /* Larger shadow on hover */
@@ -150,6 +152,7 @@
 .stock-tag-btn:active,
 .stock-export-btn:active,
 .stock-snapshot-btn:active,
+.stock-bulk-btn:active,
 .stock-discrepancy-btn:active {
   transform: translateY(0px); /* Press down effect */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -165,6 +168,15 @@
   background: linear-gradient(135deg, #e66a6a 20%, #d35454 100%);
 }
 
+/* Bulk Purchase Button */
+.stock-bulk-btn {
+  background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+  color: var(--stock-background-white);
+}
+.stock-bulk-btn:hover {
+  background: linear-gradient(135deg, #2980b9 0%, #1f5f8b 100%);
+}
+
 /* Tag Button ("Generate Price Tag") */
 .stock-tag-btn {
   background: var(--stock-accent-orange);
@@ -176,7 +188,11 @@
 
 /* Discrepancy Button */
 .stock-discrepancy-btn {
-  background: linear-gradient(135deg, var(--stock-warning-color) 0%, #e6b800 100%);
+  background: linear-gradient(
+    135deg,
+    var(--stock-warning-color) 0%,
+    #e6b800 100%
+  );
   color: #333; /* Dark text for better contrast with yellow */
   font-weight: 600;
   border: none;
@@ -185,13 +201,17 @@
   z-index: 1;
 }
 .stock-discrepancy-btn:before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #e6b800 0%, var(--stock-warning-color) 100%);
+  background: linear-gradient(
+    135deg,
+    #e6b800 0%,
+    var(--stock-warning-color) 100%
+  );
   opacity: 0;
   z-index: -1;
   transition: opacity 0.3s ease;

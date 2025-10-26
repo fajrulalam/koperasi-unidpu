@@ -13,6 +13,7 @@ const VoucherKoperasiPageNew = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedVoucherGroup, setSelectedVoucherGroup] = useState(null);
   const [error, setError] = useState(null);
+  const [claimedCounts, setClaimedCounts] = useState({});
 
   useEffect(() => {
     fetchVoucherGroups();
@@ -24,6 +25,14 @@ const VoucherKoperasiPageNew = () => {
       setError(null);
       const groups = await voucherService.getVoucherGroups(isProduction);
       setVoucherGroups(groups);
+
+      // Fetch claimed counts for each group
+      const counts = {};
+      for (const group of groups) {
+        const claimed = await voucherService.getClaimedVoucherCount(group.id, isProduction);
+        counts[group.id] = claimed;
+      }
+      setClaimedCounts(counts);
     } catch (error) {
       console.error('Error fetching voucher groups:', error);
       setError('Gagal memuat data voucher');
@@ -148,8 +157,10 @@ const VoucherKoperasiPageNew = () => {
                       <span className="voucher-info-value">{voucherService.formatCurrency(group.value)}</span>
                     </div>
                     <div className="voucher-info-item">
-                      <span className="voucher-info-label">Total Voucher:</span>
-                      <span className="voucher-info-value">{group.totalVouchers}</span>
+                      <span className="voucher-info-label">Voucher:</span>
+                      <span className="voucher-info-value">
+                        {claimedCounts[group.id] !== undefined ? `${claimedCounts[group.id]} / ${group.totalVouchers}` : '... / ...'}
+                      </span>
                     </div>
                     <div className="voucher-info-item">
                       <span className="voucher-info-label">Aktif:</span>

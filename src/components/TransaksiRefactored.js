@@ -3,16 +3,19 @@ import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
-import { 
-  formatCurrency, 
-  getInitialQuantity, 
+import {
+  formatCurrency,
+  getInitialQuantity,
   getIncrement,
   getBarcodeIncrement,
   convertToSmallestUnit,
   convertFromSmallestUnit,
-  CONVERSION_TABLE
+  CONVERSION_TABLE,
 } from "../utils/transaksiUtils";
-import { processTransaction, setLocalPrintServer } from "../services/transactionService";
+import {
+  processTransaction,
+  setLocalPrintServer,
+} from "../services/transactionService";
 import PaymentModal from "./PaymentModal";
 import SnackbarManager from "./SnackbarManager";
 import ProductSuggestions from "./ProductSuggestions";
@@ -21,7 +24,16 @@ import "../styles/TransaksiRefactored.css";
 
 const TransaksiRefactored = () => {
   const { currentUser } = useAuth();
-  const { getCollection, getDocRef, createDoc, readDoc, updateDoc, deleteDoc, serverTimestamp, queryCollection } = useFirestore();
+  const {
+    getCollection,
+    getDocRef,
+    createDoc,
+    readDoc,
+    updateDoc,
+    deleteDoc,
+    serverTimestamp,
+    queryCollection,
+  } = useFirestore();
   const { isProduction } = useEnvironment();
 
   // Product and cart state
@@ -56,12 +68,17 @@ const TransaksiRefactored = () => {
     const fetchProducts = async () => {
       const stocksData = await queryCollection("stocks");
       const products = {};
-      
+
       stocksData.forEach((data) => {
         products[data.id] = data;
       });
-      
-      console.log(`Fetched products from ${isProduction ? 'production' : 'testing'} environment:`, products);
+
+      console.log(
+        `Fetched products from ${
+          isProduction ? "production" : "testing"
+        } environment:`,
+        products
+      );
       setProductData(products);
     };
     fetchProducts();
@@ -137,11 +154,14 @@ const TransaksiRefactored = () => {
   const addProductToCart = (id, satuan, quantity) => {
     const product = productData[id];
     if (!product) {
-      setSnackbars(prev => [...prev, {
-        id: Date.now(),
-        message: "Product not found!",
-        severity: "error"
-      }]);
+      setSnackbars((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: "Product not found!",
+          severity: "error",
+        },
+      ]);
       return;
     }
 
@@ -150,25 +170,29 @@ const TransaksiRefactored = () => {
     if (existingProduct) {
       if (useScanner) {
         if (existingProduct.satuan !== satuan) {
-          setSnackbars(prev => [...prev, {
-            id: Date.now(),
-            message: `Beda satuan (${existingProduct.satuan} dan ${satuan})`,
-            severity: "error"
-          }]);
+          setSnackbars((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              message: `Beda satuan (${existingProduct.satuan} dan ${satuan})`,
+              severity: "error",
+            },
+          ]);
           return;
         }
-        
+
         const increment = getBarcodeIncrement(satuan);
-        const displayedQuantity = quantityInputs[existingProduct.id] !== undefined
-          ? parseFloat(quantityInputs[existingProduct.id].replace(',', '.'))
-          : existingProduct.quantity;
-          
+        const displayedQuantity =
+          quantityInputs[existingProduct.id] !== undefined
+            ? parseFloat(quantityInputs[existingProduct.id].replace(",", "."))
+            : existingProduct.quantity;
+
         const newQuantity = displayedQuantity + increment;
-        
+
         updateQuantity(existingProduct.id, newQuantity);
-        setQuantityInputs(prev => ({
+        setQuantityInputs((prev) => ({
           ...prev,
-          [existingProduct.id]: newQuantity.toString()
+          [existingProduct.id]: newQuantity.toString(),
         }));
       } else {
         const convertedQty = convertToSmallestUnit(quantity, satuan, {
@@ -217,19 +241,19 @@ const TransaksiRefactored = () => {
         return p;
       })
       .filter((p) => p.quantity > 0);
-    
+
     setProducts(updatedProducts);
-    
-    setQuantityInputs(prev => {
+
+    setQuantityInputs((prev) => {
       const updatedInputs = { ...prev };
-      if (!updatedProducts.some(p => p.id === id)) {
+      if (!updatedProducts.some((p) => p.id === id)) {
         delete updatedInputs[id];
       } else {
         updatedInputs[id] = quantity.toString();
       }
       return updatedInputs;
     });
-    
+
     recalculateTotal(updatedProducts);
   };
 
@@ -299,11 +323,14 @@ const TransaksiRefactored = () => {
   const addProduct = () => {
     const product = productData[productId];
     if (!product) {
-      setSnackbars(prev => [...prev, {
-        id: Date.now(),
-        message: "Product not found!",
-        severity: "error"
-      }]);
+      setSnackbars((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: "Product not found!",
+          severity: "error",
+        },
+      ]);
       setProductId("");
       return;
     }
@@ -436,11 +463,14 @@ const TransaksiRefactored = () => {
 
   const openPaymentModal = () => {
     if (products.length === 0) {
-      setSnackbars(prev => [...prev, {
-        id: Date.now(),
-        message: "No products in the cart!",
-        severity: "warning"
-      }]);
+      setSnackbars((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: "No products in the cart!",
+          severity: "warning",
+        },
+      ]);
       return;
     }
     setShowPaymentModal(true);
@@ -452,7 +482,7 @@ const TransaksiRefactored = () => {
 
   const handlePaymentComplete = async (paymentData) => {
     setIsProcessing(true);
-    
+
     try {
       const result = await processTransaction(
         products,
@@ -465,7 +495,7 @@ const TransaksiRefactored = () => {
           updateDoc,
           serverTimestamp,
           currentUser,
-          setSnackbars
+          setSnackbars,
         }
       );
 
@@ -473,13 +503,12 @@ const TransaksiRefactored = () => {
       setProducts([]);
       setTotal(0);
       setQuantityInputs({});
-      
+
       // Close modal after a short delay
       setTimeout(() => {
         setIsProcessing(false);
         closePaymentModal();
       }, 1000);
-      
     } catch (error) {
       setIsProcessing(false);
     }
@@ -502,7 +531,7 @@ const TransaksiRefactored = () => {
 
   return (
     <div className="transaksi-container">
-      <h1>Transaksi - Point of Sales</h1>
+      <h1>Transaksi - Unimart</h1>
 
       <div className="product-input" ref={containerRef}>
         <div className="scanner-toggle">
@@ -515,7 +544,7 @@ const TransaksiRefactored = () => {
             Use Barcode Scanner
           </label>
         </div>
-        
+
         <div className="input-section">
           <input
             ref={inputRef}
@@ -574,10 +603,7 @@ const TransaksiRefactored = () => {
         isProcessing={isProcessing}
       />
 
-      <SnackbarManager 
-        snackbars={snackbars} 
-        setSnackbars={setSnackbars} 
-      />
+      <SnackbarManager snackbars={snackbars} setSnackbars={setSnackbars} />
     </div>
   );
 };
