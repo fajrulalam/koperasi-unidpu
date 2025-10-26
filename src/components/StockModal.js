@@ -22,40 +22,59 @@ const KATEGORI_CHOICES = [
   "Minuman",
   "Sembako",
   "ATK",
-  "Kewanitaan",
-  "Obat-Obatan",
+  "Perawatan Diri",
+  "Kesehatan",
   "Lainnya",
 ];
 
 const SUBKATEGORI_MAKANAN = [
-  "Makanan ringan",
-  "Makanan berat",
-  "Gorengan",
+  "Makanan Ringan",
+  "Makanan Siap Saji",
+  "Bumbu",
   "Makanan Manis",
+    "Roti & Kue",
   "Lainnya",
+];
+
+const SUBKATEGORI_PERAWATAN_DIRI = [
+    "Kebersihan Tubuh",
+    "Perawatan Rambut",
+    "Mulut & Gigi",
+    "Kewanitaan",
+    "Lainnya",
 ];
 
 const SUBKATEGORI_MINUMAN = [
   "Susu",
   "Soda",
   "Jus/Sari Buah",
-  "Mineral",
+  "Air Mineral",
   "Teh",
   "Kopi",
+    "Saset/Serbuk",
   "Lainnya",
 ];
 
-const SUBKATEGORI_OBAT = [
-  "Suplemen/Vitamin",
-  "Obat Batuk",
-  "Obat Sakit Kepala",
-  "Obat demam",
-  "Obat Flu",
-  "Obat Luka",
+const SUBKATEGORI_KESEHATAN = [
+  "Obat-Obatan",
+  "Suplemen",
+  "Alat Kesehatan",
+  "Antiseptik",
   "Lainnya",
 ];
 
-const TIPE_STOCK_CHOICES = ["Produksi sendiri", "Kulak", "Titipan", "Lainnya"];
+const SUBKATEGORI_ATK = [
+    "Pulpen",
+    "Pensil",
+    "Buku",
+    "Stipo",
+    "Penghapus",
+    "Kertas",
+    "Lainnya",
+];
+
+const TIPE_STOCK_CHOICES = ["Produksi Sendiri", "Kulak", "Titipan", "Supplier/Sales", "Lainnya"];
+const NAMA_PEMASOK_CHOICES = ["Nabati", "Mayorca", "Pocari", "Fruitea (Sosro)", "Kulkul", "Yarno Mineral", "Nestle", "Gerry", "Lainnya"];
 const SMALLEST_UNITS = ["pcs", "gram", "ons", "kg"];
 const ALT_UNITS = ["box", "kg", "kwintal", "ton", "ons"];
 
@@ -77,6 +96,7 @@ function StockModal({
     tempKategori: externalTempState.tempKategori || "",
     tempSubKategori: externalTempState.tempSubKategori || "",
     tempTipeStock: externalTempState.tempTipeStock || "",
+      tempNamaPemasok: externalTempState.tempNamaPemasok || "",
     tempDefaultSatuan: externalTempState.tempDefaultSatuan || "",
     tempAltSatuan: [...(externalTempState.tempAltSatuan || [])],
     tempPricePerUnit: { ...(externalTempState.tempPricePerUnit || {}) },
@@ -96,6 +116,7 @@ function StockModal({
       tempKategori: externalTempState.tempKategori || "",
       tempSubKategori: externalTempState.tempSubKategori || "",
       tempTipeStock: externalTempState.tempTipeStock || "",
+        tempNamaPemasok: externalTempState.tempNamaPemasok || "",
       tempDefaultSatuan: externalTempState.tempDefaultSatuan || "",
       tempAltSatuan: [...(externalTempState.tempAltSatuan || [])],
       tempPricePerUnit: { ...(externalTempState.tempPricePerUnit || {}) },
@@ -256,7 +277,7 @@ function StockModal({
     if (
       kategori !== "Makanan" &&
       kategori !== "Minuman" &&
-      kategori !== "Obat-Obatan"
+      kategori !== "Kesehatan"
     ) {
       subKategori = kategori;
     } else {
@@ -276,8 +297,12 @@ function StockModal({
     subKategoriChoices = SUBKATEGORI_MAKANAN;
   } else if (localState.tempKategori === "Minuman") {
     subKategoriChoices = SUBKATEGORI_MINUMAN;
-  } else if (localState.tempKategori === "Obat-Obatan") {
-    subKategoriChoices = SUBKATEGORI_OBAT;
+  } else if (localState.tempKategori === "Kesehatan") {
+    subKategoriChoices = SUBKATEGORI_KESEHATAN;
+  } else if (localState.tempKategori === "Perawatan Diri") {
+      subKategoriChoices = SUBKATEGORI_PERAWATAN_DIRI;
+  } else if (localState.tempKategori === "ATK") {
+      subKategoriChoices = SUBKATEGORI_ATK;
   }
 
   // Delete Confirmation Dialog
@@ -348,7 +373,9 @@ function StockModal({
             </div>
             {localState.tempKategori === "Makanan" ||
             localState.tempKategori === "Minuman" ||
-            localState.tempKategori === "Obat-Obatan" ? (
+            localState.tempKategori === "Perawatan Diri" ||
+            localState.tempKategori === "ATK" ||
+            localState.tempKategori === "Kesehatan" ? (
               <div className="form-group">
                 <label>Sub Kategori</label>
                 <select
@@ -373,7 +400,7 @@ function StockModal({
               </div>
             )}
             <div className="form-group">
-              <label>Tipe Stock</label>
+              <label>Sumber Pasokan</label>
               <select
                 value={localState.tempTipeStock}
                 onChange={(e) => setLocalState(prev => ({
@@ -383,7 +410,7 @@ function StockModal({
                 className={formErrors.tempTipeStock ? "error" : ""}
               >
                 {formErrors.tempTipeStock && <div className="error-message">{formErrors.tempTipeStock}</div>}
-                <option value="">-- Pilih Tipe --</option>
+                <option value="">-- Pilih Sumber Pemasok --</option>
                 {TIPE_STOCK_CHOICES.map((tipe) => (
                   <option key={tipe} value={tipe}>
                     {tipe}
@@ -391,6 +418,25 @@ function StockModal({
                 ))}
               </select>
             </div>
+              <div className="form-group">
+                  <label>Nama Pemasok</label>
+                  <select
+                      value={localState.tempNamaPemasok}
+                      onChange={(e) => setLocalState(prev => ({
+                          ...prev,
+                          tempNamaPemasok: e.target.value
+                      }))}
+                      className={formErrors.tempNamaPemasok ? "error" : ""}
+                  >
+                      {formErrors.tempNamaPemasok && <div className="error-message">{formErrors.tempTipeStock}</div>}
+                      <option value="">-- Pilih Nama Pemasok --</option>
+                      {NAMA_PEMASOK_CHOICES.map((tipe) => (
+                          <option key={tipe} value={tipe}>
+                              {tipe}
+                          </option>
+                      ))}
+                  </select>
+              </div>
             <div className="form-group">
               <label>Unit Terkecil (Wajib)</label>
               <select
@@ -531,7 +577,9 @@ function StockModal({
             </div>
             {localState.tempKategori === "Makanan" ||
             localState.tempKategori === "Minuman" ||
-            localState.tempKategori === "Obat-Obatan" ? (
+            localState.tempKategori === "Perawatan Diri" ||
+            localState.tempKategori === "ATK" ||
+            localState.tempKategori === "Kesehatan" ? (
               <div className="form-group">
                 <label>Sub Kategori</label>
                 <select
@@ -554,7 +602,7 @@ function StockModal({
               </div>
             )}
             <div className="form-group">
-              <label>Tipe Stock</label>
+              <label>Sumber Pasokan</label>
               <select
                 value={localState.tempTipeStock}
                 onChange={(e) => setLocalState(prev => ({
@@ -570,6 +618,25 @@ function StockModal({
                 ))}
               </select>
             </div>
+              <div className="form-group">
+                  <label>Nama Pemasok</label>
+                  <select
+                      value={localState.tempNamaPemasok}
+                      onChange={(e) => setLocalState(prev => ({
+                          ...prev,
+                          tempNamaPemasok: e.target.value
+                      }))}
+                      className={formErrors.tempNamaPemasok ? "error" : ""}
+                  >
+                      {formErrors.tempNamaPemasok && <div className="error-message">{formErrors.tempTipeStock}</div>}
+                      <option value="">-- Pilih Nama Pemasok --</option>
+                      {NAMA_PEMASOK_CHOICES.map((tipe) => (
+                          <option key={tipe} value={tipe}>
+                              {tipe}
+                          </option>
+                      ))}
+                  </select>
+              </div>
             <div className="form-group">
               <label>Satuan Terkecil (Wajib)</label>
               <select
