@@ -1,0 +1,1865 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  FaEllipsisV,
+  FaCalendarAlt,
+  FaTag,
+  FaSortUp,
+  FaSortDown,
+  FaSort,
+  FaExclamationTriangle,
+} from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { v4 as uuidv4 } from "uuid";
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
+import "../styles/Stocks.css";
+import { useAuth } from "../context/AuthContext";
+import { useFirestore } from "../context/FirestoreContext";
+import { useEnvironment } from "../context/EnvironmentContext";
+import StockModal from "./StockModal";
+import StockDiscrepancyModal from "./StockDiscrepancies/StockDiscrepancyModal";
+import BulkPurchaseModal from "./BulkPurchaseModal";
+
+// Helper function for currency formatting
+function formatRupiah(value) {
+  if (!value) return "";
+  const numeric = value.toString().replace(/\D/g, "");
+  if (!numeric) return "";
+  return numeric.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+function parseRupiah(value) {
+  if (!value) return 0;
+  const numeric = value.toString().replace(/\D/g, "");
+  return parseInt(numeric, 10) || 0;
+}
+
+function getTimestampString() {
+  const now = new Date();
+  const yyyy = String(now.getFullYear());
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  return `${yyyy}${mm}${dd}${hh}${min}${ss}`;
+}
+
+// Constants
+const KATEGORI_CHOICES = [
+  "Makanan",
+  "Minuman",
+  "Sembako",
+  "ATK",
+  "Kewanitaan",
+  "Obat-Obatan",
+  "Lainnya",
+];
+
+const SUBKATEGORI_MAKANAN = [
+  "Makanan ringan",
+  "Makanan berat",
+  "Gorengan",
+  "Makanan Manis",
+  "Lainnya",
+];
+
+const SUBKATEGORI_MINUMAN = [
+  "Susu",
+  "Soda",
+  "Jus/Sari Buah",
+  "Mineral",
+  "Teh",
+  "Kopi",
+  "Lainnya",
+];
+
+const SUBKATEGORI_OBAT = [
+  "Suplemen/Vitamin",
+  "Obat Batuk",
+  "Obat Sakit Kepala",
+  "Obat demam",
+  "Obat Flu",
+  "Obat Luka",
+  "Lainnya",
+];
+
+const TIPE_STOCK_CHOICES = ["Produksi sendiri", "Kulak", "Titipan", "Lainnya"];
+const SMALLEST_UNITS = ["pcs", "gram", "ons", "kg"];
+const ALT_UNITS = ["box", "kg", "kwintal", "ton", "ons"];
+const initialProductData = {};
+
+// Summary Card Component
+const SummaryCard = ({ title, value, color }) => (
+  <div className="stock-summary-card">
+    <div className="stock-card-title">{title}</div>
+    <div className="stock-card-value" style={{ color }}>
+      Rp{formatRupiah(Math.round(value))}
+    </div>
+  </div>
+);
+
+// Main Warehouse Stock Component
+export default function WarehouseStock() {
+  const { currentUser } = useAuth();
+  const { createDoc, readDoc, updateDoc, deleteDoc, queryCollection } =
+    useFirestore();
+  const { isProduction } = useEnvironment();
+
+  // State variables
+  const [summaryData, setSummaryData] = useState({
+    monthlyPurchase: 0,
+    monthlySales: 0,
+    missingStock: 0,
+    currentStockWorth: 0,
+  });
+
+  const [originalSmallestUnit, setOriginalSmallestUnit] = useState("");
+  const [products, setProducts] = useState(initialProductData);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredProducts, setFilteredProducts] = useState(
+    Object.values(products)
+  );
+  const [selectedItems, setSelectedItems] = useState({});
+  const [showDropdown, setShowDropdown] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: "" });
+
+  // Sorting states
+  const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "asc",
+  });
+
+  // Dialog states
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogType, setDialogType] = useState("");
+  const [selectedProductId, setSelectedProductId] = useState(null);
+
+  // Date picker and snapshot related states
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [snapshotDialogOpen, setSnapshotDialogOpen] = useState(false);
+  const [snapshotExists, setSnapshotExists] = useState(false);
+  const [snapshotData, setSnapshotData] = useState(null);
+
+  // Stock discrepancy modal state
+  const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
+
+  // Bulk purchase modal state
+  const [showBulkPurchaseModal, setShowBulkPurchaseModal] = useState(false);
+
+  // Form related states
+  const [tempAmount, setTempAmount] = useState("");
+  const [tempSatuan, setTempSatuan] = useState("");
+  const [tempCost, setTempCost] = useState("");
+  const [tempName, setTempName] = useState("");
+  const [tempDefaultSatuan, setTempDefaultSatuan] = useState("");
+  const [tempAltSatuan, setTempAltSatuan] = useState([]);
+  const [tempPricePerUnit, setTempPricePerUnit] = useState({});
+  const [tempKategori, setTempKategori] = useState("");
+  const [tempSubKategori, setTempSubKategori] = useState("");
+  const [tempTipeStock, setTempTipeStock] = useState("");
+  const [piecesPerBox, setPiecesPerBox] = useState("");
+  const [tempDocId, setTempDocId] = useState("");
+  const [tempItemId, setTempItemId] = useState("");
+
+  // Refs
+  const dropdownRef = useRef(null);
+  const tableHeaderRef = useRef(null);
+  const firstFieldRef = useRef(null);
+
+  // Constants
+  const CONVERSION_TABLE = {
+    kwintal: 100000, // 1 kwintal = 100 kg = 100,000 grams
+    ton: 1000000, // 1 ton = 1000 kg = 1,000,000 grams
+    kg: 1000, // 1 kg = 1000 grams
+    ons: 100, // 1 ons = 100 grams
+    gram: 1,
+    pcs: 1,
+  };
+
+  // ***** UTILITY FUNCTIONS *****
+
+  // Add this utility function for unit conversions
+  function convertToSmallestUnit(quantity, unit, product) {
+    if (quantity == null || !unit || !product.smallestUnit) {
+      throw new Error("Missing required parameters for conversion");
+    }
+
+    // Handle box conversion first
+    if (unit === "box") {
+      if (!product.piecesPerBox) {
+        throw new Error("Pieces per box not defined for this product");
+      }
+      return quantity * product.piecesPerBox;
+    }
+
+    // For weight-based conversions
+    const weightConversions = {
+      ton: 1000000, // 1 ton = 1,000,000 grams
+      kwintal: 100000, // 1 kwintal = 100,000 grams
+      kg: 1000, // 1 kg = 1,000 grams
+      ons: 100, // 1 ons = 100 grams
+      gram: 1, // base unit
+      pcs: 1, // for piece-based items
+    };
+
+    // If the unit or product's smallest unit isn't in our conversion table
+    if (!weightConversions[unit] || !weightConversions[product.smallestUnit]) {
+      throw new Error("Invalid unit for conversion");
+    }
+
+    // Convert to grams first, then to target unit
+    const valueInGrams = quantity * weightConversions[unit];
+    const result = valueInGrams / weightConversions[product.smallestUnit];
+
+    return result;
+  }
+
+  function computeNilaiFormatted(prod) {
+    if (!prod.smallestUnit || !prod.pricePerUnit[prod.smallestUnit]) return "0";
+    return formatRupiah(Math.round(prod.stockValue));
+  }
+
+  function computeAverageKulakPrice(prod) {
+    if (!prod.stock || prod.stock === 0 || !prod.stockValue) return "0";
+    const avgKulakPrice = Math.round(prod.stockValue / prod.stock);
+    return formatRupiah(avgKulakPrice);
+  }
+
+  function computeProfitMargin(prod) {
+    const p =
+      prod.pricePerUnit[prod.smallestUnit] -
+      Math.round(prod.stockValue / prod.stock);
+    return formatRupiah(p);
+  }
+
+  function computeHargaFormatted(prod) {
+    if (!prod.smallestUnit || !prod.pricePerUnit[prod.smallestUnit]) return "0";
+    const p =
+      typeof prod.pricePerUnit[prod.smallestUnit] === "number"
+        ? prod.pricePerUnit[prod.smallestUnit]
+        : parseRupiah(prod.pricePerUnit[prod.smallestUnit]);
+    return formatRupiah(p);
+  }
+
+  // Function to properly capitalize for display
+  const capitalizeForDisplay = (str) => {
+    if (!str) return "";
+    return str
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
+  // ***** EVENT HANDLERS *****
+
+  function handleAmountChange(e) {
+    // Allow only numeric input
+    const numericValue = e.target.value.replace(/\D/g, "");
+    setTempAmount(numericValue);
+  }
+
+  function handleCostChange(e) {
+    setTempCost(formatRupiah(e.target.value));
+  }
+
+  function handlePiecesPerBoxChange(e) {
+    const numeric = e.target.value.replace(/\D/g, "");
+    setPiecesPerBox(numeric);
+  }
+
+  function handleActionClick(productId) {
+    setShowDropdown((prev) => (prev === productId ? null : productId));
+  }
+
+  function openDialog(type, productId) {
+    // Check if product exists for relevant dialogs
+    if (type !== "addNew" && !products[productId]) {
+      alert("Product not found!");
+      return;
+    }
+    setDialogType(type);
+    setSelectedProductId(productId);
+    if (type === "tambah" || type === "tetapkan") {
+      const prod = productId ? products[productId] : null;
+      setTempAmount("");
+      // Use optional chaining and default to empty array
+      setTempSatuan(prod?.smallestUnit || prod?.satuan?.[0] || "");
+      setTempCost("");
+      setPiecesPerBox(prod?.piecesPerBox ? String(prod.piecesPerBox) : "");
+      setTempKategori(prod?.kategori || "");
+      setTempSubKategori(prod?.subKategori || "");
+      setTempTipeStock(prod?.tipeStock || "");
+      setTempDocId("");
+    } else if (type === "edit" && productId) {
+      const prod = products[productId];
+      setTempName(prod.name);
+      setTempItemId(prod.itemId || "");
+      setTempKategori(prod.kategori || "");
+      setTempSubKategori(prod.subKategori || "");
+      setTempTipeStock(prod.tipeStock || "");
+      setOriginalSmallestUnit(prod.smallestUnit);
+      setTempName(prod.name);
+      // Ensure satuan is an array
+      const satuan = prod.satuan || [];
+      setTempDefaultSatuan(prod.smallestUnit || satuan[0]);
+      const alt = satuan.filter((u) => u !== prod.smallestUnit);
+      setTempAltSatuan(alt);
+      setTempPricePerUnit(
+        Object.keys(prod.pricePerUnit || {}).reduce((acc, key) => {
+          acc[key] = formatRupiah(prod.pricePerUnit[key]);
+          return acc;
+        }, {})
+      );
+    } else if (type === "addNew") {
+      setTempName("");
+      setTempDefaultSatuan("");
+      setTempAltSatuan([]);
+      setTempPricePerUnit({});
+      setTempAmount("");
+      setTempSatuan("");
+      setTempCost("");
+      setTempKategori("");
+      setTempSubKategori("");
+      setTempTipeStock("");
+      setPiecesPerBox("");
+      setTempDocId("");
+    }
+    setDialogOpen(true);
+    setShowDropdown(null);
+  }
+
+  function closeDialog() {
+    setTempName("");
+    setTempKategori("");
+    setTempSubKategori("");
+    setTempTipeStock("");
+    setTempDefaultSatuan("");
+    setTempAltSatuan([]);
+    setTempPricePerUnit({});
+    setTempAmount("");
+    setTempSatuan("");
+    setTempCost("");
+    setPiecesPerBox("");
+    setTempDocId("");
+    setTempItemId("");
+
+    setDialogOpen(false);
+    setDialogType("");
+    setSelectedProductId(null);
+  }
+
+  const showSuccessMessage = (message) => {
+    setSnackbar({ open: true, message });
+    setTimeout(() => setSnackbar((o) => ({ ...o, open: false })), 3000);
+  };
+
+  const handleSelectAll = (e) => {
+    const isChecked = e.target.checked;
+
+    if (isChecked) {
+      // Select all filtered products
+      const newSelectedItems = {};
+      filteredProducts.forEach((prod) => {
+        newSelectedItems[prod.id] = true;
+      });
+      setSelectedItems(newSelectedItems);
+    } else {
+      // Deselect all
+      setSelectedItems({});
+    }
+  };
+
+  const toggleItemSelection = (productId) => {
+    setSelectedItems((prev) => ({
+      ...prev,
+      [productId]: !prev[productId],
+    }));
+  };
+
+  function handleToggleAltSatuan(unit) {
+    if (unit === tempDefaultSatuan) return; // Prevent adding default satuan
+    setTempAltSatuan((prev) => {
+      if (prev.includes(unit)) {
+        return prev.filter((u) => u !== unit);
+      }
+      return [...prev, unit];
+    });
+  }
+
+  function handlePriceChange(unit, val) {
+    const formatted = formatRupiah(val);
+    setTempPricePerUnit((prev) => ({ ...prev, [unit]: formatted }));
+  }
+
+  // Function to handle click on sortable column headers
+  const requestSort = (key) => {
+    let direction = "asc";
+
+    if (sortConfig.key === key) {
+      direction = sortConfig.direction === "asc" ? "desc" : "asc";
+    }
+
+    setSortConfig({ key, direction });
+    sortProductsBy(filteredProducts, key, direction);
+  };
+
+  // ***** DATA-FETCHING & DATA-PROCESSING FUNCTIONS *****
+
+  const fetchSummaryData = async () => {
+    try {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      // Fetch transactions
+      const transactions = await queryCollection("stockTransactions_b2b");
+
+      // Fetch stocks
+      const stocks = await queryCollection("stocks_b2b");
+
+      let monthlyPurchase = 0;
+      let monthlySales = 0;
+      let missingStock = 0;
+      let currentStockWorth = 0;
+
+      // Calculate stock worth
+      stocks.forEach((item) => {
+        currentStockWorth += item.stockValue || 0;
+      });
+
+      // Process transactions
+      transactions.forEach((item) => {
+        const txDate = item.timestampInMillisEpoch?.toDate();
+
+        if (txDate && txDate >= firstDay && txDate <= lastDay) {
+          switch (item.transactionType) {
+            case "pengadaan":
+              monthlyPurchase += item.cost || 0;
+              break;
+            case "penjualan":
+              monthlySales += item.price || 0;
+              break;
+            case "pengurangan":
+              missingStock += item.cost || 0;
+              break;
+            default:
+              break;
+          }
+        }
+      });
+
+      setSummaryData({
+        monthlyPurchase,
+        monthlySales,
+        missingStock,
+        currentStockWorth,
+      });
+
+      console.log(
+        `Fetching summary data from ${
+          isProduction ? "production" : "testing"
+        } environment`
+      );
+    } catch (error) {
+      console.error("Error fetching summary data:", error);
+    }
+  };
+
+  async function fetchAllStocks() {
+    try {
+      // Use the queryCollection function to get stocks with environment awareness
+      const stocksData = await queryCollection("stocks_b2b");
+      const freshData = {};
+
+      stocksData.forEach((item) => {
+        if (!item.isDeleted) {
+          // Exclude deleted products
+          // Capitalize product name properly
+          let capitalizedName = "";
+          if (item.name) {
+            capitalizedName = item.name
+              .split(" ")
+              .map(
+                (word) =>
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+              )
+              .join(" ");
+          }
+
+          freshData[item.id] = {
+            ...item,
+            name: capitalizedName || item.name, // Use capitalized name or fallback to original
+            satuan: item.satuan || [], // Ensure satuan defaults to array
+          };
+        }
+      });
+
+      setProducts(freshData);
+      const productsArray = Object.values(freshData);
+
+      // Sort by name initially
+      sortProductsBy(productsArray, "name", "asc");
+
+      // Log the collection path to verify it's using the correct environment
+      console.log(
+        `Fetching stocks from ${
+          isProduction ? "production" : "testing"
+        } environment`
+      );
+    } catch (error) {
+      console.error("Error fetching stocks:", error);
+    }
+  }
+
+  // Function to handle sorting logic
+  const sortProductsBy = (productsArray, key, direction) => {
+    let sortedProducts = [...productsArray];
+
+    sortedProducts.sort((a, b) => {
+      let aValue, bValue;
+
+      // Special handling for derived fields
+      if (key === "profitMargin") {
+        // Calculate profit margin for both products
+        const aMargin =
+          a.pricePerUnit &&
+          a.pricePerUnit[a.smallestUnit] &&
+          a.stock &&
+          a.stockValue
+            ? a.pricePerUnit[a.smallestUnit] -
+              Math.round(a.stockValue / a.stock)
+            : 0;
+
+        const bMargin =
+          b.pricePerUnit &&
+          b.pricePerUnit[b.smallestUnit] &&
+          b.stock &&
+          b.stockValue
+            ? b.pricePerUnit[b.smallestUnit] -
+              Math.round(b.stockValue / b.stock)
+            : 0;
+
+        aValue = aMargin;
+        bValue = bMargin;
+      } else if (key === "pricePerUnit") {
+        // Sort by price in the smallest unit
+        aValue =
+          a.pricePerUnit && a.pricePerUnit[a.smallestUnit]
+            ? a.pricePerUnit[a.smallestUnit]
+            : 0;
+        bValue =
+          b.pricePerUnit && b.pricePerUnit[b.smallestUnit]
+            ? b.pricePerUnit[b.smallestUnit]
+            : 0;
+      } else if (key === "averageKulak") {
+        // Sort by average kulak price
+        aValue =
+          a.stock && a.stock > 0 && a.stockValue
+            ? Math.round(a.stockValue / a.stock)
+            : 0;
+        bValue =
+          b.stock && b.stock > 0 && b.stockValue
+            ? Math.round(b.stockValue / b.stock)
+            : 0;
+      } else {
+        // Standard property sorting
+        aValue = a[key];
+        bValue = b[key];
+      }
+
+      // Handle string comparison case-insensitive
+      if (typeof aValue === "string" && typeof bValue === "string") {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) {
+        return direction === "asc" ? -1 : 1;
+      }
+      if (aValue > bValue) {
+        return direction === "asc" ? 1 : -1;
+      }
+      return 0;
+    });
+
+    setFilteredProducts(sortedProducts);
+  };
+
+  // ***** EXPORT FUNCTIONS *****
+
+  const exportToExcel = () => {
+    // Get current date for the filename
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const year = now.getFullYear();
+    const formattedDate = `${day}-${month}-${year}`;
+
+    // Add metadata with the date at the top of the sheet
+    const metadata = [
+      { A: `Data Stock Tanggal: ${formattedDate}` },
+      { A: "" }, // Empty row as separator
+    ];
+
+    // Create the data for the Excel sheet
+    const data = filteredProducts.map((p) => ({
+      Nama: p.name,
+      Kategori: p.kategori,
+      SubKategori: p.subKategori,
+      Tipe: p.tipeStock,
+      Stock: `${p.stock} ${p.smallestUnit}`,
+      Satuan: p.smallestUnit,
+      "Harga Jual": `Rp ${computeHargaFormatted(p)}/${p.smallestUnit}`,
+      "Harga Kulak (avg)": `Rp ${computeAverageKulakPrice(p)}/${
+        p.smallestUnit
+      }`,
+      "Nilai Total Stock": `Rp ${computeNilaiFormatted(p)}`,
+    }));
+
+    // Create the worksheet
+    const worksheet = XLSX.utils.json_to_sheet([]);
+
+    // Add date metadata at the top
+    XLSX.utils.sheet_add_json(worksheet, metadata, {
+      skipHeader: true,
+      origin: "A1",
+    });
+
+    // Add the product data starting from row 3
+    XLSX.utils.sheet_add_json(worksheet, data, {
+      origin: "A3",
+      skipHeader: false,
+    });
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stocks");
+    XLSX.writeFile(workbook, `stock_data_${formattedDate}.xlsx`);
+  };
+
+  // Function to check if a snapshot exists for a specific date
+  const checkSnapshotExists = async (date) => {
+    try {
+      // Use the environment-aware getDocRef function
+      const snapshotDoc = await readDoc("stockSnapshots_b2b", date);
+
+      if (snapshotDoc) {
+        setSnapshotExists(true);
+        setSnapshotData(snapshotDoc);
+      } else {
+        setSnapshotExists(false);
+        setSnapshotData(null);
+      }
+
+      setSnapshotDialogOpen(true);
+    } catch (error) {
+      console.error("Error checking snapshot:", error);
+      setSnackbar({
+        open: true,
+        message: "Error checking snapshot: " + error.message,
+      });
+    }
+  };
+
+  // Function to export snapshot data to Excel
+  const exportSnapshotToExcel = () => {
+    if (!snapshotData || !selectedDate) return;
+
+    // Format the date for display (yyyy-mm-dd to dd-mm-yyyy)
+    const [year, month, day] = selectedDate.split("-");
+    const formattedDate = `${day}-${month}-${year}`;
+
+    // Add metadata with the date at the top of the sheet
+    const metadata = [
+      { A: `Data Stock Snapshot Tanggal: ${formattedDate}` },
+      { A: "" }, // Empty row as separator
+    ];
+
+    // Create the data for the Excel sheet
+    const stockItems = snapshotData.stocks || [];
+
+    const data = stockItems.map((p) => ({
+      Nama: p.name,
+      Kategori: p.kategori || "",
+      SubKategori: p.subKategori || "",
+      Tipe: p.tipeStock || "",
+      Stock: `${p.stock || 0} ${p.smallestUnit || ""}`,
+      Satuan: p.smallestUnit || "",
+      "Harga Jual":
+        p.pricePerUnit && p.smallestUnit && p.pricePerUnit[p.smallestUnit]
+          ? `Rp ${formatRupiah(p.pricePerUnit[p.smallestUnit])}/${
+              p.smallestUnit
+            }`
+          : "Rp 0",
+      "Harga Kulak (avg)":
+        p.stock && p.stock > 0 && p.stockValue
+          ? `Rp ${formatRupiah(Math.round(p.stockValue / p.stock))}/${
+              p.smallestUnit
+            }`
+          : "Rp 0",
+      "Nilai Total Stock": p.stockValue
+        ? `Rp ${formatRupiah(Math.round(p.stockValue))}`
+        : "Rp 0",
+    }));
+
+    // Create the worksheet
+    const worksheet = XLSX.utils.json_to_sheet([]);
+
+    // Add date metadata at the top
+    XLSX.utils.sheet_add_json(worksheet, metadata, {
+      skipHeader: true,
+      origin: "A1",
+    });
+
+    // Add the product data starting from row 3
+    XLSX.utils.sheet_add_json(worksheet, data, {
+      origin: "A3",
+      skipHeader: false,
+    });
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Snapshot");
+    XLSX.writeFile(workbook, `stock_snapshot_${formattedDate}.xlsx`);
+
+    // Close the dialog
+    setSnapshotDialogOpen(false);
+  };
+
+  const generatePriceTags = (productsToUse) => {
+    // Ensure jsPDF is loaded
+    if (typeof jsPDF === "undefined") {
+      console.error("jsPDF library is not loaded.");
+      return;
+    }
+
+    // --- Configuration ---
+    const doc = new jsPDF("portrait", "mm", "a4"); // Use jsPDF constructor
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 10; // Page margin in mm
+    const usableWidth = pageWidth - margin * 2;
+    const usableHeight = pageHeight - margin * 2;
+
+    // Layout: Adjust columns and rows for rectangular tags and more density
+    const columns = 3; // Fewer columns for wider tags
+    const rows = 8; // More rows per page
+    const horizontalSpacing = 5; // Horizontal space between tags in mm
+    const verticalSpacing = 5; // Vertical space between tags in mm
+
+    // Calculate tag dimensions considering spacing
+    const totalHorizontalSpacing = (columns - 1) * horizontalSpacing;
+    const totalVerticalSpacing = (rows - 1) * verticalSpacing;
+    const priceTagWidth = (usableWidth - totalHorizontalSpacing) / columns;
+    const priceTagHeight = (usableHeight - totalVerticalSpacing) / rows;
+
+    // Styling
+    const currency = "Rp";
+    const priceFontSize = 16; // Font size for the price number
+    const currencyFontSize = 10; // Font size for "Rp"
+    const nameFontSize = 8; // Font size for the product name
+    const tagPadding = 3; // Internal padding within the tag in mm
+    const blackColor = "#000000"; // Black color for text
+    const uniMartPinkColor = "#f77b7b"; // Specific pink color rgb(247, 123, 123)
+
+    // Stripe configuration
+    const stripeHeight = 0.6; // Approximate 3px in mm
+    const stripeSpacing = 0.25; // Approximate 1px in mm
+
+    // UniMart Text configuration
+    const uniMartText = "UniMart";
+    const uniMartFontSize = 9; // Increased font size from 6 to 9
+    const uniMartPadding = 1.5; // Increased padding for larger text
+    const uniMartBottomMargin = 1; // Space between UniMart box and stripes
+
+    // --- PDF Generation ---
+
+    // Add title (optional, can be removed if not needed)
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(blackColor); // Set title color to black
+    doc.text("Price Tags", pageWidth / 2, margin / 2 + 2, { align: "center" });
+
+    // Start position for the first tag
+    let currentX = margin;
+    let currentY = margin;
+    let itemCount = 0;
+    const itemsPerPage = columns * rows;
+
+    // Iterate through products
+    productsToUse.forEach((product, index) => {
+      // Add a new page if the current one is full
+      if (itemCount > 0 && itemCount % itemsPerPage === 0) {
+        doc.addPage();
+        currentX = margin; // Reset X position for new page
+        currentY = margin; // Reset Y position for new page
+      }
+
+      // --- Calculate Tag Content ---
+      // Get price value (handle potential missing price)
+      const priceValue =
+        product.pricePerUnit && product.pricePerUnit[product.smallestUnit]
+          ? formatRupiah(product.pricePerUnit[product.smallestUnit]) // Assumes formatRupiah returns a string like "7.500"
+          : "0";
+      // Get and format product name
+      const productName = product.name ? product.name.toUpperCase() : "N/A";
+
+      // --- Draw Tag Border ---
+      doc.setDrawColor(150, 150, 150); // Light gray border
+      doc.setLineWidth(0.2);
+      doc.rect(currentX, currentY, priceTagWidth, priceTagHeight, "S"); // 'S' for stroke
+
+      // --- Add Price ---
+      // Set text color to black for price elements
+      doc.setTextColor(blackColor); // << CHANGED: Set text color to black
+
+      // Currency ("Rp") - Left aligned
+      doc.setFontSize(currencyFontSize);
+      doc.setFont("helvetica", "normal");
+      // Simple vertical centering without getLineHeightRatio
+      const currencyYAdjust = currencyFontSize * 0.35; // Simplified adjustment factor
+      doc.text(
+        currency,
+        currentX + tagPadding,
+        currentY + tagPadding + currencyYAdjust
+      );
+
+      // Price Value - Right aligned
+      doc.setFontSize(priceFontSize);
+      doc.setFont("helvetica", "bold");
+      const priceValueWidth = doc.getTextWidth(priceValue);
+      const priceYAdjust = priceFontSize * 0.35; // Simplified adjustment factor
+      doc.text(
+        priceValue,
+        currentX + priceTagWidth - tagPadding - priceValueWidth,
+        currentY + tagPadding + priceYAdjust
+      );
+
+      // --- Add Product Name ---
+      doc.setTextColor(blackColor); // << CHANGED: Set text color to black
+      doc.setFontSize(nameFontSize);
+      doc.setFont("helvetica", "normal");
+      // Position below the baseline of the price line
+      const nameYPos = currentY + tagPadding + priceYAdjust + 5; // Add space below price
+      const maxNameWidth = priceTagWidth - tagPadding * 2;
+
+      // Handle potential text wrapping for long names
+      const nameLines = doc.splitTextToSize(productName, maxNameWidth);
+      const maxLines = 2; // Limit name to a maximum of 2 lines
+      const linesToDisplay = nameLines.slice(0, maxLines);
+
+      doc.text(linesToDisplay, currentX + tagPadding, nameYPos);
+
+      // --- Calculate Stripe Start Position ---
+      const totalStripeHeight = 3 * stripeHeight + 2 * stripeSpacing;
+      const stripeStartY =
+        currentY + priceTagHeight - totalStripeHeight - tagPadding; // Align bottom of stripes with bottom padding
+
+      // --- Add UniMart Text with Background (Draw *before* stripes but position above them) ---
+      doc.setFontSize(uniMartFontSize);
+      doc.setFont("helvetica", "bold"); // Changed from italic to bold
+      const uniMartWidth = doc.getTextWidth(uniMartText);
+      const uniMartLineHeight = uniMartFontSize * 0.35; // Simplified height factor
+
+      // Background calculations
+      const uniMartBgWidth = uniMartWidth + 2 * uniMartPadding;
+      const uniMartBgHeight = uniMartLineHeight + 2 * uniMartPadding;
+      const uniMartBgX = currentX + priceTagWidth - tagPadding - uniMartBgWidth; // Align right edge
+      const uniMartBgY = stripeStartY - uniMartBottomMargin - uniMartBgHeight; // Position above stripes
+
+      // Text calculations
+      const uniMartTextX = uniMartBgX + uniMartPadding;
+      const uniMartTextY = uniMartBgY + uniMartPadding + uniMartLineHeight; // Align text baseline within background
+
+      // Draw white background for the UniMart text box
+      doc.setFillColor(255, 255, 255); // White color
+      doc.rect(uniMartBgX, uniMartBgY, uniMartBgWidth, uniMartBgHeight, "F"); // 'F' for fill
+
+      // Draw 'UniMart' text with the specified pink color
+      doc.setTextColor(uniMartPinkColor); // << CHANGED: Set text color to UniMart pink
+      doc.text(uniMartText, uniMartTextX, uniMartTextY);
+
+      // --- Add Bottom Stripes with varying opacity (Draw *after* UniMart text) ---
+
+      // Bottom stripe (100% opacity) - third/bottom stripe
+      doc.setFillColor(uniMartPinkColor); // Full opacity pink
+      doc.rect(
+        currentX + tagPadding,
+        stripeStartY + 2 * (stripeHeight + stripeSpacing),
+        priceTagWidth - tagPadding * 2,
+        stripeHeight,
+        "F"
+      );
+
+      // Middle stripe (75% opacity) - second/middle stripe
+      // Convert RGB string to RGB values for opacity manipulation
+      const pinkRGB = [247, 123, 123]; // Extracted from the color #f77b7b
+      // Create color with 75% opacity
+      doc.setFillColor(pinkRGB[0], pinkRGB[1], pinkRGB[2]);
+      // The second parameter is the opacity/alpha (0.75 = 75%)
+      doc.setGState(new doc.GState({ opacity: 0.75 }));
+      doc.rect(
+        currentX + tagPadding,
+        stripeStartY + stripeHeight + stripeSpacing,
+        priceTagWidth - tagPadding * 2,
+        stripeHeight,
+        "F"
+      );
+
+      // Top stripe (50% opacity) - first/top stripe
+      // Create color with 50% opacity
+      doc.setFillColor(pinkRGB[0], pinkRGB[1], pinkRGB[2]);
+      doc.setGState(new doc.GState({ opacity: 0.5 }));
+      doc.rect(
+        currentX + tagPadding,
+        stripeStartY,
+        priceTagWidth - tagPadding * 2,
+        stripeHeight,
+        "F"
+      );
+
+      // Reset opacity to 100% for subsequent elements
+      doc.setGState(new doc.GState({ opacity: 1.0 }));
+
+      // --- Update Position for Next Tag ---
+      currentX += priceTagWidth + horizontalSpacing;
+      itemCount++;
+
+      // Move to the next row if the current row is full
+      if (itemCount % columns === 0) {
+        currentX = margin; // Reset X to the left margin
+        currentY += priceTagHeight + verticalSpacing; // Move Y down to the next row
+      }
+    });
+
+    // --- Finalize and Save ---
+    try {
+      doc.save("price_tags_redesigned.pdf");
+      // Show success message
+      showSuccessMessage(
+        `Price tags generated for ${productsToUse.length} products.`
+      );
+    } catch (error) {
+      console.error("Error saving PDF:", error);
+    }
+  };
+
+  // ***** SAVE/SUBMIT FUNCTIONS *****
+
+  async function handleSave(type) {
+    // Use the passed type parameter or fallback to dialogType
+    const currentDialogType = type || dialogType;
+
+    const getFormattedTimestamp = () => {
+      const date = new Date();
+      const options = {
+        timeZone: "Asia/Jakarta",
+        weekday: "long",
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+      };
+
+      const formatter = new Intl.DateTimeFormat("id-ID", options);
+      const [
+        { value: day },
+        { value: dayNum },
+        { value: month },
+        { value: year },
+        { value: hour },
+        { value: minute },
+      ] = formatter.formatToParts(date);
+
+      return `${day}, ${dayNum} ${month} ${year} ${hour}:${minute} WIB`;
+    };
+
+    const amountValue = parseRupiah(tempAmount);
+    const costValue = parseRupiah(tempCost);
+    const boxIsSelected =
+      tempDefaultSatuan === "box" || tempAltSatuan.includes("box");
+
+    const createBaseTransactionDoc = (prod) => ({
+      itemId: prod.itemId,
+      itemName: prod.name,
+      kategori: prod.kategori,
+      subKategori: prod.subKategori,
+      unit: tempSatuan,
+      cost: costValue,
+      isDeleted: false,
+      createdBy: currentUser ? currentUser.email : "unknown",
+    });
+
+    if (currentDialogType === "addNew") {
+      if (
+        !tempName.trim() ||
+        !tempKategori ||
+        !tempTipeStock ||
+        !tempDefaultSatuan ||
+        (tempKategori === "Makanan" ||
+        tempKategori === "Minuman" ||
+        tempKategori === "Obat-Obatan"
+          ? !tempSubKategori
+          : false)
+      ) {
+        alert("All mandatory fields must be filled!");
+        return;
+      }
+      if (boxIsSelected && !piecesPerBox) {
+        alert("Pieces per Box is required when 'box' is selected!");
+        return;
+      }
+      let docBase = tempDocId.trim();
+      if (!docBase) {
+        docBase = getTimestampString();
+      }
+      const finalDocId = `${tempName}_${docBase}`.replace(/\s+/g, "_");
+      const newDoc = {
+        itemId: docBase,
+        name: tempName.trim(),
+        kategori: tempKategori,
+        subKategori: tempSubKategori || tempKategori,
+        tipeStock: tempTipeStock,
+        satuan: Array.from(
+          new Set([tempDefaultSatuan, ...tempAltSatuan].filter(Boolean))
+        ),
+        pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, key) => {
+          acc[key] = parseRupiah(tempPricePerUnit[key]);
+          return acc;
+        }, {}),
+        piecesPerBox: tempAltSatuan.includes("box")
+          ? parseInt(piecesPerBox, 10)
+          : null,
+        stock: 0,
+        smallestUnit: tempDefaultSatuan,
+        stockValue: 0,
+        isDeleted: false,
+      };
+      await createDoc("stocks_b2b", newDoc, finalDocId);
+      setProducts((prev) => {
+        const clone = { ...prev };
+        clone[finalDocId] = {
+          id: finalDocId,
+          ...newDoc,
+        };
+        return clone;
+      });
+      showSuccessMessage("Barang baru berhasil ditambahkan!");
+      closeDialog();
+    } else if (currentDialogType === "tambah" && selectedProductId) {
+      if (!tempAmount || !tempSatuan) {
+        alert("Please fill the amount and unit.");
+        return;
+      }
+      const prod = products[selectedProductId];
+
+      try {
+        // Parse the numeric value from the formatted input
+        const rawAmount = parseFloat(tempAmount.replace(/\D/g, ""));
+        if (isNaN(rawAmount)) {
+          throw new Error("Invalid amount");
+        }
+
+        // Convert to smallest unit
+        const quantityInSmallestUnit = convertToSmallestUnit(
+          rawAmount,
+          tempSatuan,
+          prod
+        );
+
+        const txDoc = {
+          ...createBaseTransactionDoc(prod),
+          transactionType: "pengadaan",
+          transactionVia: "stockAddition",
+          quantity: quantityInSmallestUnit,
+          originalQuantity: rawAmount,
+          originalUnit: tempSatuan,
+        };
+
+        // Update database
+        const txId = uuidv4();
+        await createDoc("stockTransactions_b2b", txDoc, txId);
+
+        const newStock = (prod.stock || 0) + quantityInSmallestUnit;
+        await updateDoc("stocks_b2b", selectedProductId, {
+          stock: newStock,
+          stockValue: (prod.stockValue || 0) + costValue,
+        });
+
+        // Update local state
+        setProducts((prev) => ({
+          ...prev,
+          [selectedProductId]: {
+            ...prev[selectedProductId],
+            stock: newStock,
+            stockValue: (prev[selectedProductId].stockValue || 0) + costValue,
+          },
+        }));
+
+        showSuccessMessage("Stock updated (Tambah)!");
+        closeDialog();
+      } catch (error) {
+        alert(error.message);
+        return;
+      }
+    } else if (currentDialogType === "tetapkan" && selectedProductId) {
+      const prod = products[selectedProductId];
+      // Allow 0 values but don't allow empty values
+      if (tempAmount === "" || !tempSatuan) {
+        alert("Please fill amount and unit.");
+        return;
+      }
+
+      try {
+        const oldStock = prod.stock || 0;
+        const oldVal = prod.stockValue || 0;
+
+        // Parse original values before conversion
+        const originalQuantity = parseRupiah(tempAmount);
+        const originalUnit = tempSatuan;
+
+        // Convert to smallest unit
+        const newStock = convertToSmallestUnit(
+          originalQuantity,
+          originalUnit,
+          prod
+        );
+        const newVal = parseRupiah(tempCost) || 0;
+
+        const deltaStock = newStock - oldStock;
+        const deltaValue = newVal - oldVal;
+
+        if (deltaStock === 0 && deltaValue === 0) {
+          alert("No change in stock or value; nothing to update.");
+          return;
+        }
+
+        const transactionType = deltaStock >= 0 ? "pengadaan" : "pengurangan";
+        const absQty = Math.abs(deltaStock);
+        const absCost = Math.abs(deltaValue);
+
+        // Updated transaction document with standardized fields
+        const txDoc = {
+          ...createBaseTransactionDoc(prod),
+          transactionType,
+          transactionVia: "stockSetTo",
+          quantity: absQty,
+          cost: absCost,
+          originalQuantity,
+          originalUnit,
+          unit: prod.smallestUnit,
+        };
+
+        const txId = uuidv4();
+        await createDoc("stockTransactions_b2b", txDoc, txId);
+
+        await updateDoc("stocks_b2b", selectedProductId, {
+          stock: newStock,
+          stockValue: newVal,
+        });
+
+        setProducts((prev) => ({
+          ...prev,
+          [selectedProductId]: {
+            ...prev[selectedProductId],
+            stock: newStock,
+            stockValue: newVal,
+          },
+        }));
+
+        showSuccessMessage("Stock updated (Tetapkan)!");
+        closeDialog();
+      } catch (error) {
+        alert(error.message);
+      }
+    } else if (currentDialogType === "edit" && selectedProductId) {
+      const prod = products[selectedProductId];
+
+      try {
+        // Validate mandatory fields
+        if (
+          !tempName.trim() ||
+          !tempKategori ||
+          !tempTipeStock ||
+          !tempDefaultSatuan
+        ) {
+          throw new Error("All mandatory fields must be filled!");
+        }
+
+        // Prepare updated product data
+        const updatedProduct = {
+          ...prod,
+          name: tempName.trim(),
+          itemId: tempItemId,
+          kategori: tempKategori,
+          subKategori: tempSubKategori,
+          tipeStock: tempTipeStock,
+          satuan: Array.from(new Set([tempDefaultSatuan, ...tempAltSatuan])),
+          pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, unit) => {
+            acc[unit] = parseRupiah(tempPricePerUnit[unit]);
+            return acc;
+          }, {}),
+          piecesPerBox: tempAltSatuan.includes("box")
+            ? parseInt(piecesPerBox, 10)
+            : null,
+          smallestUnit: tempDefaultSatuan,
+        };
+
+        // Convert stock if smallest unit changed
+        if (tempDefaultSatuan !== originalSmallestUnit) {
+          updatedProduct.stock = convertToSmallestUnit(
+            prod.stock,
+            originalSmallestUnit,
+            updatedProduct
+          );
+        }
+
+        // Update stock value based on new prices
+        if (updatedProduct.pricePerUnit[tempDefaultSatuan]) {
+          updatedProduct.stockValue = prod.stockValue;
+        }
+
+        // Update database
+        await updateDoc("stocks_b2b", selectedProductId, updatedProduct);
+
+        // Update local state
+        setProducts((prev) => ({
+          ...prev,
+          [selectedProductId]: updatedProduct,
+        }));
+
+        showSuccessMessage("Produk berhasil diperbarui!");
+        closeDialog();
+      } catch (error) {
+        alert(error.message);
+      }
+    } else if (currentDialogType === "delete" && selectedProductId) {
+      try {
+        const product = products[selectedProductId];
+
+        // Log the deletion in stockTransactions
+        const txId = uuidv4();
+        await createDoc(
+          "stockTransactions_b2b",
+          {
+            itemId: product.itemId || "",
+            itemName: product.name,
+            kategori: product.kategori || "",
+            subKategori: product.subKategori || "",
+            quantity: product.stock || 0,
+            unit: product.smallestUnit || "",
+            cost: product.stockValue || 0,
+            price: 0,
+            originalQuantity: product.stock || 0,
+            originalUnit: product.smallestUnit || "",
+            isDeleted: false,
+            transactionType: "pengurangan",
+            transactionVia: "stockDeletion",
+            stockWorth: product.stockValue || 0,
+            note: "Stock dihapus dari sistem",
+            createdBy: currentUser ? currentUser.email : "unknown",
+          },
+          txId
+        );
+
+        // Delete the product from Firestore
+        await deleteDoc("stocks_b2b", selectedProductId);
+
+        // Update local state
+        setProducts((prev) => {
+          const newProducts = { ...prev };
+          delete newProducts[selectedProductId];
+          return newProducts;
+        });
+
+        setFilteredProducts((prev) =>
+          prev.filter((p) => p.id !== selectedProductId)
+        );
+
+        showSuccessMessage("Stock berhasil dihapus!");
+        closeDialog();
+      } catch (error) {
+        alert("Error deleting stock: " + error.message);
+      }
+    }
+  }
+
+  // ***** LIFECYCLE EFFECTS *****
+
+  // Initial data fetching
+  useEffect(() => {
+    fetchAllStocks();
+    fetchSummaryData();
+  }, []);
+
+  // Apply sorting when search results change
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      sortProductsBy(
+        Object.values(products),
+        sortConfig.key,
+        sortConfig.direction
+      );
+    } else {
+      sortProductsBy(filteredProducts, sortConfig.key, sortConfig.direction);
+    }
+  }, [searchTerm, products]);
+
+  // Handle search term changes
+  useEffect(() => {
+    const input = searchTerm.trim();
+    if (!input) {
+      setFilteredProducts(Object.values(products));
+      return;
+    }
+    const numericRegex = /^[0-9]+$/;
+    if (numericRegex.test(input)) {
+      const exactMatch = Object.values(products).find(
+        (p) => p.itemId && p.itemId.toString() === input
+      );
+      setFilteredProducts(exactMatch ? [exactMatch] : []);
+    } else {
+      const words = input.toLowerCase().split(/\s+/);
+      const newList = Object.values(products).filter((prod) => {
+        const name = prod.name.toLowerCase();
+        return words.every((w) => name.includes(w));
+      });
+      setFilteredProducts(newList);
+
+      // Maintain current sort order with new filtered results
+      sortProductsBy(newList, sortConfig.key, sortConfig.direction);
+    }
+  }, [searchTerm, products]);
+
+  // Handle click outside dropdown
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (
+        showDropdown &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target)
+      ) {
+        setShowDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showDropdown]);
+
+  // Handle escape key for dialog
+  useEffect(() => {
+    function handleEsc(e) {
+      if (dialogOpen && e.key === "Escape") {
+        closeDialog();
+      }
+    }
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [dialogOpen]);
+
+  // Focus first field when dialog opens
+  useEffect(() => {
+    if (dialogOpen && firstFieldRef.current) {
+      setTimeout(() => {
+        if (firstFieldRef.current) {
+          firstFieldRef.current.focus();
+        }
+      }, 0);
+    }
+  }, [dialogOpen, dialogType]);
+
+  // Determine subcategory choices based on selected category
+  let subKategoriChoices = [];
+  if (tempKategori === "Makanan") {
+    subKategoriChoices = SUBKATEGORI_MAKANAN;
+  } else if (tempKategori === "Minuman") {
+    subKategoriChoices = SUBKATEGORI_MINUMAN;
+  } else if (tempKategori === "Obat-Obatan") {
+    subKategoriChoices = SUBKATEGORI_OBAT;
+  }
+
+  // Calculate if box is selected
+  const boxIsSelected =
+    tempDefaultSatuan === "box" || tempAltSatuan.includes("box");
+
+  // ***** COMPONENT RENDERING *****
+  return (
+    <div className="stock-container">
+      <h1>Kulakan Warehouse</h1>
+
+      {/* Summary Cards Section */}
+      <div className="stock-summary-cards">
+        <SummaryCard
+          title="Belanja Bulan Ini"
+          value={summaryData.monthlyPurchase}
+          color="#2196F3"
+        />
+        {/* <SummaryCard
+          title="Penjualan Bulan Ini"
+          value={summaryData.monthlySales}
+          color="#4CAF50"
+        /> */}
+        <SummaryCard
+          title="Stock Hilang"
+          value={summaryData.missingStock}
+          color="#F44336"
+        />
+        <SummaryCard
+          title="Stock Worth Saat Ini"
+          value={summaryData.currentStockWorth}
+          color="#000000"
+        />
+      </div>
+
+      <div className="stock-controls">
+        <input
+          className="stock-search"
+          type="text"
+          placeholder="Cari produk atau ID..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <div className="stock-controls-right">
+          <div className="stock-date-picker-container">
+            <button
+              className="stock-snapshot-btn"
+              onClick={() => setShowDatePicker(!showDatePicker)}
+            >
+              <FaCalendarAlt /> Lihat Snapshot
+            </button>
+            {showDatePicker && (
+              <div className="stock-date-picker-popup stock-datepicker-open">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
+                <button
+                  onClick={() => {
+                    if (selectedDate) {
+                      checkSnapshotExists(selectedDate);
+                      setShowDatePicker(false);
+                    } else {
+                      setSnackbar({
+                        open: true,
+                        message: "Pilih tanggal terlebih dahulu",
+                      });
+                    }
+                  }}
+                >
+                  Cek Snapshot
+                </button>
+              </div>
+            )}
+          </div>
+          <button className="stock-export-btn" onClick={exportToExcel}>
+            Export ke Excel
+          </button>
+          {/* <button
+            className="stock-tag-btn"
+            onClick={() =>
+              generatePriceTags(
+                Object.values(selectedItems).some((item) => item)
+                  ? filteredProducts.filter((p) => selectedItems[p.id])
+                  : filteredProducts
+              )
+            }
+          >
+            <FaTag style={{ marginRight: "5px" }} /> Generate Price Tags
+          </button> */}
+          {/* <button
+            className="stock-discrepancy-btn"
+            onClick={() => setShowDiscrepancyModal(true)}
+          >
+            <FaExclamationTriangle style={{ marginRight: "5px" }} /> Cek
+            Ketidaksesuaian Stok
+          </button> */}
+          <button
+            className="stock-bulk-btn"
+            onClick={() => setShowBulkPurchaseModal(true)}
+          >
+            Bulk Purchase
+          </button>
+          <button
+            className="stock-add-btn"
+            onClick={() => openDialog("addNew", null)}
+          >
+            Tambah Barang Baru
+          </button>
+        </div>
+      </div>
+      <table className="stock-table">
+        <thead ref={tableHeaderRef}>
+          <tr>
+            <th style={{ width: "30px" }}>
+              <input
+                type="checkbox"
+                onChange={handleSelectAll}
+                checked={
+                  filteredProducts.length > 0 &&
+                  filteredProducts.every((prod) => selectedItems[prod.id])
+                }
+              />
+            </th>
+            {/* <th>ID</th> */}
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("name")}
+              >
+                Nama Barang
+                {sortConfig.key === "name" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("kategori")}
+              >
+                Kategori
+                {sortConfig.key === "kategori" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("subKategori")}
+              >
+                SubKategori
+                {sortConfig.key === "subKategori" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("tipeStock")}
+              >
+                Tipe
+                {sortConfig.key === "tipeStock" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("stock")}
+              >
+                Jumlah Stock
+                {sortConfig.key === "stock" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("pricePerUnit")}
+              >
+                Harga Jual
+                {sortConfig.key === "pricePerUnit" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("averageKulak")}
+              >
+                Harga Kulak (avg)
+                {sortConfig.key === "averageKulak" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("profitMargin")}
+              >
+                Profit Margin
+                {sortConfig.key === "profitMargin" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("stockValue")}
+              >
+                Nilai Total Stock
+                {sortConfig.key === "stockValue" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredProducts.map((prod) => (
+            <tr key={prod.id}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={!!selectedItems[prod.id]}
+                  onChange={() => toggleItemSelection(prod.id)}
+                />
+              </td>
+              {/* <td>{prod.id}</td> */}
+              <td>{prod.name}</td>
+              <td>{prod.kategori}</td>
+              <td>{prod.subKategori}</td>
+              <td>{prod.tipeStock}</td>
+              <td>
+                {prod.stock} {prod.smallestUnit}
+              </td>
+              <td>
+                Rp {computeHargaFormatted(prod)}/{prod.smallestUnit}
+              </td>
+              <td>
+                Rp {computeAverageKulakPrice(prod)}/{prod.smallestUnit}
+              </td>
+              <td>Rp {computeProfitMargin(prod)}</td>
+              <td>Rp {computeNilaiFormatted(prod)}</td>
+              <td style={{ position: "relative" }}>
+                <div
+                  style={{ cursor: "pointer", display: "inline-block" }}
+                  onClick={() => handleActionClick(prod.id)}
+                >
+                  <FaEllipsisV />
+                </div>
+                {showDropdown === prod.id && (
+                  <div
+                    className="stock-dropdown stock-dropdown-open"
+                    ref={dropdownRef}
+                  >
+                    <div
+                      className="stock-dropdown-item"
+                      onClick={() => openDialog("tambah", prod.id)}
+                    >
+                      Tambah
+                    </div>
+                    <div
+                      className="stock-dropdown-item"
+                      onClick={() => openDialog("tetapkan", prod.id)}
+                    >
+                      Tetapkan
+                    </div>
+                    <div
+                      className="stock-dropdown-item"
+                      onClick={() => openDialog("edit", prod.id)}
+                    >
+                      Edit Stock
+                    </div>
+                    <div
+                      className="stock-dropdown-item"
+                      onClick={() => openDialog("delete", prod.id)}
+                    >
+                      Delete Stock
+                    </div>
+                  </div>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Snapshot Dialog */}
+      {snapshotDialogOpen && (
+        <div className="stock-modal-overlay">
+          <div className="stock-modal-content stock-snapshot-dialog">
+            {snapshotExists ? (
+              <>
+                <h2>Stock Snapshot</h2>
+                <p>
+                  Download snapshot stock tanggal{" "}
+                  {selectedDate.split("-").reverse().join("-")}?
+                </p>
+                <div className="stock-dialog-buttons">
+                  <button onClick={() => setSnapshotDialogOpen(false)}>
+                    No
+                  </button>
+                  <button onClick={exportSnapshotToExcel}>Yes</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2>Stock Snapshot</h2>
+                <p>
+                  Tidak ada stockSnapshot untuk tanggal{" "}
+                  {selectedDate.split("-").reverse().join("-")}
+                </p>
+                <div className="stock-dialog-buttons">
+                  <button onClick={() => setSnapshotDialogOpen(false)}>
+                    Okay
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Stock Modal Component */}
+      {dialogOpen && (
+        <StockModal
+          dialogOpen={dialogOpen}
+          dialogType={dialogType}
+          selectedProductId={selectedProductId}
+          products={products}
+          onClose={closeDialog}
+          onSave={handleSave}
+          tempState={{
+            tempName,
+            tempItemId,
+            tempKategori,
+            tempSubKategori,
+            tempTipeStock,
+            tempDefaultSatuan,
+            tempAltSatuan,
+            tempPricePerUnit,
+            tempAmount,
+            tempSatuan,
+            tempCost,
+            piecesPerBox,
+            tempDocId,
+            originalSmallestUnit,
+          }}
+          setTempState={(newState) => {
+            // Update state based on the changes
+            if ("tempName" in newState) setTempName(newState.tempName);
+            if ("tempItemId" in newState) setTempItemId(newState.tempItemId);
+            if ("tempKategori" in newState)
+              setTempKategori(newState.tempKategori);
+            if ("tempSubKategori" in newState)
+              setTempSubKategori(newState.tempSubKategori);
+            if ("tempTipeStock" in newState)
+              setTempTipeStock(newState.tempTipeStock);
+            if ("tempDefaultSatuan" in newState)
+              setTempDefaultSatuan(newState.tempDefaultSatuan);
+            if ("tempAltSatuan" in newState)
+              setTempAltSatuan(newState.tempAltSatuan);
+            if ("tempPricePerUnit" in newState)
+              setTempPricePerUnit(newState.tempPricePerUnit);
+            if ("tempAmount" in newState) setTempAmount(newState.tempAmount);
+            if ("tempSatuan" in newState) setTempSatuan(newState.tempSatuan);
+            if ("tempCost" in newState) setTempCost(newState.tempCost);
+            if ("piecesPerBox" in newState)
+              setPiecesPerBox(newState.piecesPerBox);
+            if ("tempDocId" in newState) setTempDocId(newState.tempDocId);
+          }}
+          convertToSmallestUnit={convertToSmallestUnit}
+        />
+      )}
+
+      {/* Snackbar for notifications */}
+      {snackbar.open && (
+        <div className="stock-snackbar">{snackbar.message}</div>
+      )}
+
+      {/* Stock Discrepancy Modal */}
+      <StockDiscrepancyModal
+        isOpen={showDiscrepancyModal}
+        onRequestClose={() => setShowDiscrepancyModal(false)}
+      />
+
+      {/* Bulk Purchase Modal */}
+      <BulkPurchaseModal
+        isOpen={showBulkPurchaseModal}
+        onClose={() => setShowBulkPurchaseModal(false)}
+        onSave={async (action, data, id, collectionName) => {
+          if (action === "createTransaction") {
+            await createDoc("stockTransactions_b2b", data, id);
+          } else if (action === "updateStock") {
+            await updateDoc("stocks_b2b", data.id, {
+              stock: data.stock,
+              stockValue: data.stockValue,
+            });
+            // Update local state
+            setProducts((prev) => ({
+              ...prev,
+              [data.id]: {
+                ...prev[data.id],
+                stock: data.stock,
+                stockValue: data.stockValue,
+              },
+            }));
+          } else if (action === "createNotaBelanja") {
+            await createDoc(collectionName || "notaBelanja_b2b", data, id);
+          }
+        }}
+        products={products}
+        currentUser={currentUser}
+        collectionPrefix="stocks_b2b"
+        transactionCollection="stockTransactions_b2b"
+        isWarehouse={true}
+      />
+    </div>
+  );
+}

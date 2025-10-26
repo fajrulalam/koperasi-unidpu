@@ -1,0 +1,639 @@
+/* Bulk Purchase Modal Styles */
+.bulk-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.bulk-modal-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 90%;
+  max-width: 1200px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bulk-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+}
+
+.bulk-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.bulk-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #666;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.bulk-modal-close:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.bulk-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* Nota Upload Section */
+.nota-upload-section {
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.nota-upload-header h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+  color: #2c3e50;
+}
+
+.nota-upload-header p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #6c757d;
+}
+
+.nota-upload-container {
+  margin-top: 12px;
+}
+
+/* Supplier Input */
+.supplier-input-container {
+  margin: 12px 0;
+}
+
+.supplier-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #2c3e50;
+  margin-bottom: 6px;
+}
+
+.supplier-label .required {
+  color: #dc3545;
+}
+
+.supplier-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease;
+}
+
+.supplier-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.supplier-input::placeholder {
+  color: #6c757d;
+}
+
+.nota-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.nota-upload-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.nota-upload-btn:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.nota-uploaded {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border: 1px solid #28a745;
+  border-radius: 6px;
+}
+
+.nota-file-icon {
+  font-size: 1.5rem;
+  color: #28a745;
+}
+
+.nota-file-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nota-file-name {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.nota-supplier-name {
+  font-size: 0.85rem;
+  color: #007bff;
+  font-weight: 500;
+}
+
+.nota-file-id {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-family: "Courier New", monospace;
+}
+
+.nota-view-btn {
+  padding: 6px 12px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.2s ease;
+}
+
+.nota-view-btn:hover {
+  background: #1e7e34;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.bulk-table-container {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.bulk-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bulk-table thead {
+  background-color: #f8f9fa;
+}
+
+.bulk-table th {
+  padding: 16px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bulk-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+
+.bulk-row {
+  transition: all 0.2s ease;
+}
+
+.bulk-row:hover {
+  background-color: #f8f9fa;
+}
+
+.bulk-row-error {
+  background-color: #fff5f5 !important;
+  border-left: 4px solid #e53e3e;
+}
+
+.bulk-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.bulk-input:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.bulk-input:read-only {
+  background-color: #f8f9fa;
+  color: #666;
+  cursor: not-allowed;
+}
+
+/* Dropdown Styles */
+.bulk-dropdown-container {
+  position: relative;
+  width: 100%;
+}
+
+.bulk-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.bulk-dropdown-item {
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.bulk-dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.bulk-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.bulk-dropdown-empty {
+  color: #666;
+  font-style: italic;
+  cursor: default;
+}
+
+.bulk-dropdown-empty:hover {
+  background-color: transparent;
+}
+
+/* Error Styles */
+.bulk-error-text {
+  color: #e53e3e;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Action Buttons */
+.bulk-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.bulk-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.bulk-add-btn:hover {
+  background-color: #357abd;
+  transform: translateY(-1px);
+}
+
+.bulk-remove-btn {
+  background: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bulk-remove-btn:hover {
+  background-color: #c53030;
+  transform: scale(1.05);
+}
+
+/* Modal Footer */
+.bulk-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+}
+
+.bulk-cancel-btn {
+  padding: 12px 24px;
+  background-color: #f8f9fa;
+  color: #666;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.bulk-cancel-btn:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.bulk-submit-btn {
+  padding: 12px 24px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.bulk-submit-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+.bulk-submit-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .bulk-modal-content {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .bulk-table th,
+  .bulk-table td {
+    padding: 8px 6px;
+    font-size: 0.8rem;
+  }
+
+  .bulk-input {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+
+  .bulk-modal-header {
+    padding: 16px 20px;
+  }
+
+  .bulk-modal-body {
+    padding: 20px;
+  }
+
+  .bulk-modal-footer {
+    padding: 16px 20px;
+  }
+}
+
+/* Animation for modal appearance */
+.bulk-modal-content {
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Admin Fee and Summary Section */
+.bulk-summary-section {
+  margin-top: 20px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.admin-fee-container {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-fee-label {
+  font-weight: 600;
+  color: #495057;
+  min-width: 140px;
+}
+
+.admin-fee-input {
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  width: 150px;
+  background-color: white;
+  transition: border-color 0.2s ease;
+}
+
+.admin-fee-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.total-calculation {
+  background-color: white;
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.total-row:last-child {
+  border-bottom: none;
+}
+
+.admin-fee-row {
+  color: #dc3545;
+}
+
+.final-total {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 2px solid #dee2e6;
+  font-size: 1.1rem;
+  color: #28a745;
+}
+
+.final-total span {
+  font-weight: 600;
+}
+
+/* Responsive adjustments for summary section */
+@media (max-width: 768px) {
+  .admin-fee-container {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .admin-fee-label {
+    min-width: auto;
+  }
+  
+  .admin-fee-input {
+    width: 100%;
+  }
+  
+  .total-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+/* Upload Status and Warning Styles */
+.supplier-warning {
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  color: #856404;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.nota-upload-status {
+  color: #28a745;
+  font-weight: 600;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nota-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.nota-remove-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.nota-remove-btn:hover {
+  background-color: #c82333;
+  transform: scale(1.05);
+}
+
+.required {
+  color: #dc3545;
+  font-weight: bold;
+}

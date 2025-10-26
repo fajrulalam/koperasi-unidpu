@@ -1,0 +1,402 @@
+/* Warehouse Exit Modal Styles */
+.warehouse-exit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.warehouse-exit-modal-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 95%;
+  max-width: 1400px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.warehouse-exit-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+}
+
+.warehouse-exit-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.warehouse-exit-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #666;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.warehouse-exit-modal-close:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.warehouse-exit-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* Customer Details Section */
+.customer-details-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.customer-details-section h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.customer-details-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.form-input {
+  padding: 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.form-input.error {
+  border-color: #e53e3e;
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
+}
+
+.error-text {
+  color: #e53e3e;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Table Styles */
+.warehouse-exit-table-container {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.warehouse-exit-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.warehouse-exit-table thead {
+  background-color: #f8f9fa;
+}
+
+.warehouse-exit-table th {
+  padding: 16px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.warehouse-exit-table td {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+
+.warehouse-exit-row {
+  transition: all 0.2s ease;
+}
+
+.warehouse-exit-row:hover {
+  background-color: #f8f9fa;
+}
+
+.warehouse-exit-row-error {
+  background-color: #fff5f5 !important;
+  border-left: 4px solid #e53e3e;
+}
+
+.warehouse-exit-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  background: white;
+}
+
+.warehouse-exit-input:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.warehouse-exit-input:read-only {
+  background-color: #f8f9fa;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.warehouse-exit-input:not(:read-only) {
+  background-color: white;
+}
+
+/* Dropdown Styles */
+.warehouse-exit-dropdown-container {
+  position: relative;
+  width: 100%;
+  z-index: 2147483646;
+}
+
+.warehouse-exit-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #d0d0d0;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1001;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.warehouse-exit-dropdown-item {
+  padding: 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.warehouse-exit-dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.warehouse-exit-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.warehouse-exit-dropdown-empty {
+  color: #666;
+  font-style: italic;
+  cursor: default;
+}
+
+.warehouse-exit-dropdown-empty:hover {
+  background-color: transparent;
+}
+
+/* Error Styles */
+.warehouse-exit-error-text {
+  color: #e53e3e;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Action Buttons */
+.warehouse-exit-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 20px;
+}
+
+.warehouse-exit-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.warehouse-exit-add-btn:hover {
+  background-color: #357abd;
+  transform: translateY(-1px);
+}
+
+.warehouse-exit-remove-btn {
+  background: #e53e3e;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.warehouse-exit-remove-btn:hover {
+  background-color: #c53030;
+  transform: scale(1.05);
+}
+
+/* Modal Footer */
+.warehouse-exit-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #e0e0e0;
+  background-color: #f8f9fa;
+}
+
+.warehouse-exit-cancel-btn {
+  padding: 12px 24px;
+  background-color: #f8f9fa;
+  color: #666;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.warehouse-exit-cancel-btn:hover {
+  background-color: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.warehouse-exit-submit-btn {
+  padding: 12px 24px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.warehouse-exit-submit-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+.warehouse-exit-submit-btn:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .warehouse-exit-modal-content {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .customer-details-form {
+    grid-template-columns: 1fr;
+  }
+
+  .warehouse-exit-table th,
+  .warehouse-exit-table td {
+    padding: 8px 6px;
+    font-size: 0.8rem;
+  }
+
+  .warehouse-exit-input {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+
+  .warehouse-exit-modal-header {
+    padding: 16px 20px;
+  }
+
+  .warehouse-exit-modal-body {
+    padding: 20px;
+  }
+
+  .warehouse-exit-modal-footer {
+    padding: 16px 20px;
+  }
+}
+
+/* Animation for modal appearance */
+.warehouse-exit-modal-content {
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

@@ -1,0 +1,424 @@
+/* NotaBelanjaB2B.css */
+.nota-belanja-b2b-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.nota-belanja-b2b-header {
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nota-belanja-b2b-header h1 {
+  color: #333;
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.nota-belanja-b2b-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+.nota-belanja-b2b-empty {
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #dee2e6;
+}
+
+.nota-belanja-b2b-empty p {
+  margin: 0 0 20px 0;
+  color: #6c757d;
+  font-size: 1.1rem;
+}
+
+.nota-belanja-b2b-records {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.nota-belanja-b2b-record-tile {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.nota-belanja-b2b-record-tile:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.record-main-info {
+  flex: 1;
+}
+
+.record-title-row {
+  margin-bottom: 8px;
+}
+
+.supplier-name {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #2c3e50;
+  line-height: 1.3;
+}
+
+.record-metadata {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.record-date {
+  color: #6c757d;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.record-id {
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-family: 'Courier New', monospace;
+}
+
+.record-right-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.status-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.total-price-badge {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+.action-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-top: 1px solid #e9ecef;
+  padding-top: 20px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  min-height: 40px;
+}
+
+.action-btn.completed {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.action-btn.completed:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.action-btn.active {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+.action-btn.active:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
+.action-btn.loading {
+  background: #6c757d;
+  color: white;
+  cursor: not-allowed;
+}
+
+.action-btn.disabled {
+  background: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+.action-btn.toggle {
+  background: #f8f9fa;
+  color: #495057;
+  border: 1px solid #dee2e6;
+}
+
+.action-btn.toggle:hover {
+  background: #e9ecef;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Items Detail Section */
+.items-detail {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.items-detail h4 {
+  margin: 0 0 15px 0;
+  color: #495057;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.item-name {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.item-quantity {
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.item-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.unit-price {
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.subtotal {
+  font-weight: 600;
+  color: #007bff;
+  font-size: 0.95rem;
+}
+
+/* Pagination */
+.nota-belanja-b2b-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 30px;
+  padding: 20px 0;
+}
+
+.pagination-btn {
+  padding: 8px 16px;
+  border: 1px solid #dee2e6;
+  background: white;
+  color: #495057;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.pagination-btn:disabled {
+  cursor: not-allowed;
+  color: #6c757d;
+}
+
+.pagination-numbers {
+  display: flex;
+  gap: 5px;
+}
+
+.pagination-number {
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  background: white;
+  color: #495057;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+  min-width: 40px;
+  text-align: center;
+}
+
+.pagination-number:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+}
+
+.pagination-number.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.pagination-ellipsis {
+  padding: 8px 4px;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+}
+
+/* Snackbar */
+.nota-belanja-b2b-snackbar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #28a745;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  font-weight: 500;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateX(-50%) translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .nota-belanja-b2b-container {
+    padding: 15px;
+  }
+  
+  .nota-belanja-b2b-header h1 {
+    font-size: 1.6rem;
+  }
+  
+  .record-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .record-right-side {
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .action-row {
+    justify-content: center;
+  }
+  
+  .action-btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 120px;
+  }
+  
+  .item-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .item-price {
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  .pagination-numbers {
+    flex-wrap: wrap;
+  }
+}
