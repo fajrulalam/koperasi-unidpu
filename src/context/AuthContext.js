@@ -107,7 +107,7 @@ export const AuthProvider = ({ children }) => {
         "TabunganLogs",
         "SejarahTransaksi",
         "WarehouseExit",
-        "VoucherKoperasi",
+        // "VoucherKoperasi",
         "NotaBelanjaB2B",
       ], // Access to SimpanPinjam and DaftarAnggotaBaru
       Admin: [
