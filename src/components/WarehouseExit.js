@@ -12,6 +12,9 @@ import {
 } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
 import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import ReactDatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import "../styles/WarehouseExit.css";
 import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
@@ -113,7 +116,10 @@ const WarehouseExit = () => {
   const [showModal, setShowModal] = useState(false);
   const [products, setProducts] = useState({});
   const [records, setRecords] = useState([]);
+  const [stockTxList, setStockTxList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState(null);
+  const [endDate, setEndDate] = useState(null);
   const [uploadingFiles, setUploadingFiles] = useState({});
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
   const [currentPage, setCurrentPage] = useState(1);
@@ -162,6 +168,9 @@ const WarehouseExit = () => {
   const fetchRecords = async () => {
     try {
       const recordsData = await queryCollection("warehouseExit");
+      const txData = await queryCollection("stockTransactions_b2b");
+      setStockTxList(txData);
+
       // Sort by createdAt descending (newest first)
       const sortedRecords = recordsData.sort((a, b) => {
         const dateA =
@@ -209,6 +218,12 @@ const WarehouseExit = () => {
           piecesPerBox: product.piecesPerBox,
         });
 
+        let rowHargaKulakVal = parseRupiah(row.hargaKulak);
+        if (!rowHargaKulakVal && product.stock && product.stockValue) {
+          rowHargaKulakVal = Math.round(product.stockValue / product.stock);
+        }
+        const rowCost = quantity * rowHargaKulakVal;
+
         // Create stock transaction (similar to Transaksi.js)
         const stockTransactionId = uuidv4();
         await createDoc(
@@ -226,22 +241,37 @@ const WarehouseExit = () => {
             isDeleted: false,
             transactionType: "penjualan",
             transactionVia: "warehouseExit",
-            stockWorth: (product.stockValue / product.stock) * convertedQty,
+            cost: rowCost,
+            stockWorth: rowCost,
             transactionDetailId: transactionDetailId, // Reference to transaction detail
             createdBy: currentUser ? currentUser.email : "unknown",
           },
           stockTransactionId
         );
 
-        // Update stock
+        // Update stock and prices (Harga Kulak & Harga Satuan) in stocks_b2b
         const newStock = product.stock - convertedQty;
-        const stockReduction =
-          (product.stockValue / product.stock) * convertedQty;
-        const newStockValue = Math.max(0, product.stockValue - stockReduction);
+
+        let newHargaKulakVal = parseRupiah(row.hargaKulak);
+        if (!newHargaKulakVal && product.stock && product.stockValue) {
+          newHargaKulakVal = Math.round(product.stockValue / product.stock);
+        }
+        const newStockValue = Math.max(0, newStock * newHargaKulakVal);
+
+        let newUnitPriceVal = parseRupiah(row.unitPrice);
+        if (!newUnitPriceVal && product.pricePerUnit?.[row.unit]) {
+          newUnitPriceVal = product.pricePerUnit[row.unit];
+        }
+
+        const newPricePerUnit = {
+          ...(product.pricePerUnit || {}),
+          [row.unit]: newUnitPriceVal,
+        };
 
         await updateDoc("stocks_b2b", product.id, {
           stock: newStock,
           stockValue: newStockValue,
+          pricePerUnit: newPricePerUnit,
         });
       }
 
@@ -707,6 +737,289 @@ const WarehouseExit = () => {
     window.open(pdfUrl, "_blank");
   };
 
+  // Generate profit report PDF
+  const generateProfitReport = () => {
+    if (filteredRecords.length === 0) {
+      alert("Tidak ada data transaksi untuk rentang tanggal yang dipilih.");
+      return;
+    }
+
+    // 1. Calculate cumulative statistics
+    let grandTotalInvoice = 0;
+    let grandTotalCost = 0;
+
+    filteredRecords.forEach((record) => {
+      grandTotalInvoice += parseRupiah(record.total);
+      grandTotalCost += calculateRecordCost(record);
+    });
+
+    const grandTotalProfit = grandTotalInvoice - grandTotalCost;
+
+    // 2. Initialize jsPDF
+    const doc = new jsPDF("portrait", "mm", "a4");
+    const pageWidth = doc.internal.pageSize.width || 210;
+    const pageHeight = doc.internal.pageSize.height || 297;
+    const margin = 15;
+
+    // 3. Header Section (Premium Corporate Style)
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(33, 37, 41); // dark gray
+    doc.text("KOPERASI SENTRA DISTRIBUSI REJOSO GEMILANG", margin, 20);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(108, 117, 125); // muted gray
+    doc.text("Jombang, Jawa Timur, Indonesia", margin, 25);
+
+    // Separator line
+    doc.setDrawColor(220, 224, 230);
+    doc.setLineWidth(0.5);
+    doc.line(margin, 28, pageWidth - margin, 28);
+
+    // Document Title
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.setTextColor(33, 37, 41);
+    doc.text("LAPORAN LABA RUGI PENGIRIMAN BARANG", margin, 38);
+
+    // Period Subtitle
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(73, 80, 87);
+    let periodText = "";
+    if (startDate && endDate) {
+      const options = { day: "2-digit", month: "long", year: "numeric" };
+      const startStr = new Date(startDate).toLocaleDateString("id-ID", options);
+      const endStr = new Date(endDate).toLocaleDateString("id-ID", options);
+      periodText = `Periode: ${startStr} s/d ${endStr}`;
+    } else {
+      periodText = "Periode: 7 Transaksi Terakhir (Default)";
+    }
+    doc.text(periodText, margin, 44);
+
+    // Metadata (Generated date & User)
+    const printDate = new Date().toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    doc.setFontSize(8);
+    doc.setTextColor(108, 117, 125);
+    doc.text(`Dicetak pada: ${printDate} oleh ${currentUser?.email || "System"}`, pageWidth - margin, 44, { align: "right" });
+
+    // 4. Summary boxes
+    const boxWidth = 56;
+    const boxHeight = 22;
+    const boxY = 50;
+    const boxSpacing = 6;
+
+    // Box 1: Total Penjualan (Revenue)
+    doc.setDrawColor(206, 212, 218);
+    doc.setFillColor(248, 249, 250);
+    doc.roundedRect(margin, boxY, boxWidth, boxHeight, 2, 2, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(108, 117, 125);
+    doc.text("TOTAL PENJUALAN", margin + 4, boxY + 6);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11.5);
+    doc.setTextColor(0, 123, 255); // primary blue
+    doc.text(`Rp ${formatRupiah(grandTotalInvoice)}`, margin + 4, boxY + 15);
+
+    // Box 2: Total Kulakan (Cost)
+    const box2X = margin + boxWidth + boxSpacing;
+    doc.setFillColor(248, 249, 250);
+    doc.roundedRect(box2X, boxY, boxWidth, boxHeight, 2, 2, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(108, 117, 125);
+    doc.text("TOTAL KULAKAN (COST)", box2X + 4, boxY + 6);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11.5);
+    doc.setTextColor(108, 117, 125); // gray
+    doc.text(`Rp ${formatRupiah(grandTotalCost)}`, box2X + 4, boxY + 15);
+
+    // Box 3: Total Keuntungan (Net Profit)
+    const box3X = box2X + boxWidth + boxSpacing;
+    const isProfit = grandTotalProfit >= 0;
+
+    const profitBg = isProfit ? [212, 237, 218] : [248, 215, 218]; // light green vs light red
+    const profitBorder = isProfit ? [195, 230, 203] : [245, 198, 203];
+    const profitText = isProfit ? [21, 87, 36] : [114, 28, 36];
+
+    doc.setDrawColor(profitBorder[0], profitBorder[1], profitBorder[2]);
+    doc.setFillColor(profitBg[0], profitBg[1], profitBg[2]);
+    doc.roundedRect(box3X, boxY, boxWidth, boxHeight, 2, 2, "FD");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(profitText[0], profitText[1], profitText[2]);
+    doc.text("TOTAL KEUNTUNGAN (NET)", box3X + 4, boxY + 6);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11.5);
+    doc.setTextColor(profitText[0], profitText[1], profitText[2]);
+    doc.text(`${isProfit ? "+" : "-"}Rp ${formatRupiah(Math.abs(grandTotalProfit))}`, box3X + 4, boxY + 15);
+
+    // 5. Data Table
+    const headers = [
+      [
+        "No",
+        "Tanggal",
+        "ID Invoice",
+        "Nama Pelanggan",
+        "Penjualan (Rp)",
+        "Kulakan (Rp)",
+        "Keuntungan (Rp)"
+      ]
+    ];
+
+    const tableData = filteredRecords.map((record, index) => {
+      const totalCost = calculateRecordCost(record);
+      const profit = parseRupiah(record.total) - totalCost;
+      const profitStr = (profit >= 0 ? "+" : "-") + `Rp ${formatRupiah(Math.abs(profit))}`;
+
+      const recordDate = record.createdAt
+        ? (typeof record.createdAt === "string"
+          ? new Date(record.createdAt)
+          : record.createdAt.toDate?.())
+        : null;
+
+      const dateStr = recordDate && !isNaN(recordDate.getTime())
+        ? recordDate.toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric"
+        })
+        : "-";
+
+      return [
+        index + 1,
+        dateStr,
+        record.id || "-",
+        record.customerDetail?.customerName || "-",
+        formatRupiah(record.total),
+        formatRupiah(totalCost),
+        profitStr
+      ];
+    });
+
+    const footRow = [
+      [
+        "",
+        "",
+        "",
+        "Grand Total",
+        formatRupiah(grandTotalInvoice),
+        formatRupiah(grandTotalCost),
+        (grandTotalProfit >= 0 ? "+" : "-") + `Rp ${formatRupiah(Math.abs(grandTotalProfit))}`
+      ]
+    ];
+
+    autoTable(doc, {
+      head: headers,
+      body: tableData,
+      foot: footRow,
+      startY: 80,
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 3,
+        font: "helvetica",
+      },
+      headStyles: {
+        fillColor: [52, 58, 64], // sleek dark charcoal
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      footStyles: {
+        fillColor: [241, 243, 245],
+        textColor: [33, 37, 41],
+        fontStyle: "bold",
+      },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 10 }, // No
+        1: { halign: "left", cellWidth: 22 }, // Tanggal
+        2: { halign: "left", cellWidth: 38 }, // ID Invoice
+        3: { halign: "left", cellWidth: 38 }, // Nama Pelanggan
+        4: { halign: "right", cellWidth: 24 }, // Penjualan
+        5: { halign: "right", cellWidth: 24 }, // Kulakan
+        6: { halign: "right", cellWidth: 24 } // Keuntungan
+      },
+      didParseCell: function (data) {
+        if (data.column.index === 6 && (data.cell.section === "body" || data.cell.section === "foot")) {
+          const rawVal = data.cell.raw;
+          if (rawVal && rawVal.toString().startsWith("-")) {
+            data.cell.styles.textColor = [220, 53, 69]; // Bootstrap danger red
+            data.cell.styles.fontStyle = "bold";
+          } else if (rawVal && rawVal.toString().startsWith("+")) {
+            data.cell.styles.textColor = [40, 167, 69]; // Bootstrap success green
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      }
+    });
+
+    // 6. Signature Block
+    let finalY = doc.lastAutoTable.finalY || 100;
+
+    if (finalY + 45 > pageHeight) {
+      doc.addPage();
+      finalY = 20;
+    } else {
+      finalY += 15;
+    }
+
+    const signatureX = pageWidth - margin - 60;
+    const todayStr = new Date().toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric"
+    });
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    doc.setTextColor(33, 37, 41);
+    doc.text(`Jombang, ${todayStr}`, signatureX, finalY);
+    doc.text("Mengetahui,", signatureX, finalY + 5);
+    doc.text("Kepala Koperasi / Direktur,", signatureX, finalY + 10);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("( ________________________ )", signatureX, finalY + 32);
+
+    // Open PDF in new tab
+    const pdfBlob = doc.output("blob");
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, "_blank");
+  };
+
+  // Calculate the total Kulakan (purchase cost) for a shipment record
+  const calculateRecordCost = (record) => {
+    // 1. Try to find matched transactions in stockTxList
+    const matchingTxs = stockTxList.filter(
+      (tx) => tx.transactionDetailId === record.transactionDetailId
+    );
+    if (matchingTxs.length > 0) {
+      return Math.round(
+        matchingTxs.reduce((sum, tx) => sum + (tx.cost || 0), 0)
+      );
+    }
+
+    // 2. Fallback to record.items cost calculation using item.hargaKulak if stored
+    return Math.round(
+      record.items?.reduce((sum, item) => {
+        const itemHargaKulak = item.hargaKulak || 0;
+        return sum + (item.quantity * itemHargaKulak);
+      }, 0) || 0
+    );
+  };
+
   // Get status display with enhanced information
   const getStatusDisplay = (record) => {
     const { workflow } = record;
@@ -792,9 +1105,8 @@ const WarehouseExit = () => {
 
       setSnackbar({
         open: true,
-        message: `${
-          fileType === "po" ? "PO" : "Payment proof"
-        } uploaded successfully!`,
+        message: `${fileType === "po" ? "PO" : "Payment proof"
+          } uploaded successfully!`,
       });
 
       setTimeout(() => {
@@ -827,11 +1139,36 @@ const WarehouseExit = () => {
     fetchRecords();
   }, []);
 
+  // Get filtered records based on selected date range (or default to last 7)
+  const getFilteredRecords = () => {
+    if (!startDate || !endDate) {
+      // By default show the last 7 records
+      return records.slice(0, 7);
+    }
+
+    return records.filter((record) => {
+      if (!record.createdAt) return false;
+      const recordDate = new Date(record.createdAt);
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return recordDate >= start && recordDate <= end;
+    });
+  };
+
+  const handleClearFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
+    setCurrentPage(1);
+  };
+
   // Calculate pagination
+  const filteredRecords = getFilteredRecords();
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = records.slice(indexOfFirstRecord, indexOfLastRecord);
-  const totalPages = Math.ceil(records.length / recordsPerPage);
+  const currentRecords = filteredRecords.slice(indexOfFirstRecord, indexOfLastRecord);
+  const totalPages = Math.ceil(filteredRecords.length / recordsPerPage);
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage(pageNumber);
@@ -856,6 +1193,89 @@ const WarehouseExit = () => {
         )}
       </div>
 
+      <div className="warehouse-exit-controls" style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        background: "white",
+        padding: "16px 20px",
+        borderRadius: "8px",
+        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+        marginBottom: "20px",
+        flexWrap: "wrap",
+        gap: "16px",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <DateRangeFilter
+            startDate={startDate}
+            endDate={endDate}
+            onChange={(s, e) => {
+              setStartDate(s);
+              setEndDate(e);
+              setCurrentPage(1);
+            }}
+          />
+          {(startDate || endDate) && (
+            <button
+              onClick={handleClearFilter}
+              style={{
+                padding: "8px 16px",
+                background: "#6c757d",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "0.9rem",
+                fontWeight: "500",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => e.target.style.background = "#5a6268"}
+              onMouseLeave={(e) => e.target.style.background = "#6c757d"}
+            >
+              Clear Filter
+            </button>
+          )}
+          <button
+            onClick={generateProfitReport}
+            disabled={filteredRecords.length === 0}
+            style={{
+              padding: "8px 16px",
+              background: filteredRecords.length === 0 ? "#6c757d" : "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: filteredRecords.length === 0 ? "not-allowed" : "pointer",
+              fontSize: "0.9rem",
+              fontWeight: "500",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              opacity: filteredRecords.length === 0 ? 0.6 : 1,
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (filteredRecords.length > 0) {
+                e.target.style.background = "#218838";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (filteredRecords.length > 0) {
+                e.target.style.background = "#28a745";
+              }
+            }}
+          >
+            <FaFileInvoice /> Laporan Keuntungan
+          </button>
+        </div>
+        <div style={{ fontSize: "0.9rem", color: "#666" }}>
+          {!startDate && !endDate ? (
+            <span>Menampilkan <strong>7 record terakhir</strong></span>
+          ) : (
+            <span>Menampilkan record tanggal <strong>{startDate.toLocaleDateString("id-ID")} - {endDate.toLocaleDateString("id-ID")}</strong></span>
+          )}
+        </div>
+      </div>
+
       <div className="warehouse-exit-records">
         {records.length === 0 ? (
           <div className="warehouse-exit-empty">
@@ -873,6 +1293,17 @@ const WarehouseExit = () => {
           <>
             {currentRecords.map((record) => {
               const statusDisplay = getStatusDisplay(record);
+
+              // Check if cost has been recorded
+              const matchingTxs = stockTxList.filter(
+                (tx) => tx.transactionDetailId === record.transactionDetailId
+              );
+              const hasRecordedCost = matchingTxs.some(tx => tx.cost !== undefined && tx.cost > 0);
+              const hasItemCost = record.items?.some(item => item.hargaKulak !== undefined && item.hargaKulak > 0);
+              const hasCost = hasRecordedCost || hasItemCost;
+
+              const totalCost = calculateRecordCost(record);
+              const profit = parseRupiah(record.total) - totalCost;
 
               return (
                 <div key={record.id} className="warehouse-exit-record-tile">
@@ -900,9 +1331,52 @@ const WarehouseExit = () => {
                         {statusDisplay.icon}
                         {statusDisplay.text}
                       </span>
-                      <div className="total-price-badge">
-                        Rp {formatRupiah(record.total.toString())}
-                      </div>
+                      {hasCost ? (
+                        <div className="record-financials" style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "4px" }}>
+                          {/* Total Kulakan */}
+                          <div className="total-kulakan-badge" style={{
+                            background: "#fff3cd",
+                            color: "#856404",
+                            fontWeight: "600",
+                            fontSize: "0.85rem",
+                            padding: "6px 12px",
+                            borderRadius: "8px",
+                            border: "1px solid #ffeeba",
+                          }} title="Total Harga Kulak (Cost)">
+                            Kulak: Rp {formatRupiah(totalCost)}
+                          </div>
+
+                          {/* Invoiced Total */}
+                          <div className="total-price-badge" style={{
+                            background: "#007bff",
+                            color: "white",
+                            fontWeight: "700",
+                            fontSize: "0.95rem",
+                            padding: "8px 16px",
+                            borderRadius: "8px",
+                            border: "1px solid #007bff",
+                          }} title="Invoiced Total">
+                            Rp {formatRupiah(record.total.toString())}
+                          </div>
+
+                          {/* Profit / Untung */}
+                          <div className="profit-badge" style={{
+                            background: profit >= 0 ? "#d4edda" : "#f8d7da",
+                            color: profit >= 0 ? "#155724" : "#721c24",
+                            fontWeight: "600",
+                            fontSize: "0.85rem",
+                            padding: "6px 12px",
+                            borderRadius: "8px",
+                            border: profit >= 0 ? "1px solid #c3e6cb" : "1px solid #f5c6cb",
+                          }} title={profit >= 0 ? "Profit" : "Loss"}>
+                            {profit >= 0 ? "Untung" : "Rugi"}: Rp {formatRupiah(Math.abs(profit).toString())}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="total-price-badge">
+                          Rp {formatRupiah(record.total.toString())}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1052,9 +1526,8 @@ const WarehouseExit = () => {
                         return (
                           <button
                             key={pageNum}
-                            className={`pagination-number ${
-                              pageNum === currentPage ? "active" : ""
-                            }`}
+                            className={`pagination-number ${pageNum === currentPage ? "active" : ""
+                              }`}
                             onClick={() => handlePageChange(pageNum)}
                           >
                             {pageNum}
@@ -1116,3 +1589,97 @@ const WarehouseExit = () => {
 };
 
 export default WarehouseExit;
+
+/**
+ * Custom Date Range Filter for Warehouse Exit page
+ */
+function DateRangeFilter({ startDate, endDate, onChange }) {
+  const [tempStart, setTempStart] = useState(startDate);
+  const [tempEnd, setTempEnd] = useState(endDate);
+
+  useEffect(() => {
+    setTempStart(startDate);
+    setTempEnd(endDate);
+  }, [startDate, endDate]);
+
+  function applyDates() {
+    if (!tempStart || !tempEnd) {
+      alert("Pilih tanggal mulai dan selesai.");
+      return;
+    }
+    if (tempStart > tempEnd) {
+      alert("Tanggal mulai tidak boleh melebihi tanggal selesai.");
+      return;
+    }
+    onChange(tempStart, tempEnd);
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+      <div style={{ position: "relative" }}>
+        <ReactDatePicker
+          selected={tempStart}
+          onChange={(date) => setTempStart(date)}
+          selectsStart
+          startDate={tempStart}
+          endDate={tempEnd}
+          dateFormat="dd/MM/yyyy"
+          placeholderText="Tanggal Mulai"
+          className="warehouse-exit-input"
+          customInput={
+            <input style={{
+              padding: "8px 12px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              fontSize: "0.9rem",
+              width: "140px",
+              background: "white",
+            }} readOnly />
+          }
+        />
+      </div>
+      <span style={{ color: "#6b7280" }}>s/d</span>
+      <div style={{ position: "relative" }}>
+        <ReactDatePicker
+          selected={tempEnd}
+          onChange={(date) => setTempEnd(date)}
+          selectsEnd
+          startDate={tempStart}
+          endDate={tempEnd}
+          minDate={tempStart}
+          dateFormat="dd/MM/yyyy"
+          placeholderText="Tanggal Selesai"
+          className="warehouse-exit-input"
+          customInput={
+            <input style={{
+              padding: "8px 12px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              fontSize: "0.9rem",
+              width: "140px",
+              background: "white",
+            }} readOnly />
+          }
+        />
+      </div>
+      <button
+        onClick={applyDates}
+        style={{
+          padding: "8px 16px",
+          background: "#007bff",
+          color: "white",
+          border: "none",
+          borderRadius: "6px",
+          cursor: "pointer",
+          fontSize: "0.9rem",
+          fontWeight: "500",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => e.target.style.background = "#0056b3"}
+        onMouseLeave={(e) => e.target.style.background = "#007bff"}
+      >
+        Filter
+      </button>
+    </div>
+  );
+}

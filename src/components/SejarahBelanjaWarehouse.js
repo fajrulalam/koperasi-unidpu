@@ -102,6 +102,8 @@ export default function SejarahBelanja() {
 
   // For item searching (autocomplete from 'stocks')
   const [stockList, setStockList] = useState([]); // entire 'stocks' data
+  const [stockMap, setStockMap] = useState({}); // itemId to stock object lookup map
+  const [notaList, setNotaList] = useState([]); // all notaBelanja records for date range
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [chips, setChips] = useState([]);
@@ -134,6 +136,14 @@ export default function SejarahBelanja() {
         itemId: data.itemId || data.id,
       }));
 
+      // Create a map from itemId (and id) to the product object for quick lookup
+      const map = {};
+      stockData.forEach((data) => {
+        if (data.itemId) map[data.itemId] = data;
+        if (data.id) map[data.id] = data;
+      });
+      setStockMap(map);
+
       console.log(
         `Fetched ${stockData.length} stock items from ${environment} environment (${actualPath})`
       );
@@ -164,6 +174,21 @@ export default function SejarahBelanja() {
             orderBy("timestampInMillisEpoch", "desc")
           )
       );
+
+      // Fetch notaBelanja records for the same period to reconstruct supplier info
+      let notas = [];
+      try {
+        const notaCollection = "notaBelanja_b2b";
+        const allNotas = await queryCollection(notaCollection);
+        notas = allNotas.filter((nota) => {
+          if (!nota.createdAt) return false;
+          const date = new Date(nota.createdAt);
+          return date >= sd && date <= ed;
+        });
+      } catch (err) {
+        console.error("Error fetching notas:", err);
+      }
+      setNotaList(notas);
 
       console.log(
         `Fetched ${transactionData.length} records from ${environment} environment (${actualPath})`
@@ -279,6 +304,32 @@ export default function SejarahBelanja() {
   }, [displayed]);
 
   // =========== Modal Dialog Functions ===========
+
+  // Helper to resolve supplier name for a transaction
+  const getSupplierName = (tx) => {
+    // 1. If the transaction document itself has supplierName or namaPemasok, use it
+    if (tx.supplierName) return tx.supplierName;
+    if (tx.namaPemasok) return tx.namaPemasok;
+
+    // 2. Try to find a matching notaBelanja by matching cost/quantity/itemId
+    if (tx.transactionVia === "bulkPurchase" && notaList.length > 0) {
+      const matchingNota = notaList.find((nota) => {
+        return nota.items?.some(
+          (item) =>
+            item.itemId === tx.itemId &&
+            item.quantity === tx.quantity &&
+            Math.abs(item.subtotal - tx.cost) < 5 // small margin for roundings
+        );
+      });
+      if (matchingNota?.supplierName) {
+        return matchingNota.supplierName;
+      }
+    }
+
+    // 3. Fallback to product lookup in stockMap using itemId
+    const prod = stockMap[tx.itemId];
+    return prod?.namaPemasok || "Lainnya";
+  };
 
   function openDayModal(dayData) {
     setSelectedDay(dayData);
@@ -619,6 +670,36 @@ export default function SejarahBelanja() {
               </div>
             </div>
 
+            {/* Supplier Split Breakdown Card */}
+            <div
+              className="modal-supplier-summary"
+              style={{
+                marginBottom: "20px",
+                padding: "16px",
+                backgroundColor: "#eef7ff",
+                borderRadius: "6px",
+                border: "1px solid #bce0ff",
+              }}
+            >
+              <h4 style={{ margin: "0 0 10px 0", color: "#0056b3", fontSize: "15px", fontWeight: "600" }}>
+                Total per Supplier:
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {Object.entries(
+                  selectedDay.transactions.reduce((acc, tx) => {
+                    const supplier = getSupplierName(tx);
+                    acc[supplier] = (acc[supplier] || 0) + (tx.cost || 0);
+                    return acc;
+                  }, {})
+                ).map(([supplier, total]) => (
+                  <div key={supplier} style={{ display: "flex", justifyContent: "space-between", fontSize: "14px" }}>
+                    <span style={{ color: "#555", fontWeight: "500" }}>{supplier}</span>
+                    <span style={{ fontWeight: "600", color: "#333" }}>{formatCurrency(total)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="modal-breakdown">
               <h3 style={{ marginBottom: "16px", color: "#333" }}>
                 Detail Transaksi
@@ -641,6 +722,15 @@ export default function SejarahBelanja() {
                         }}
                       >
                         Item
+                      </th>
+                      <th
+                        style={{
+                          padding: "12px 8px",
+                          textAlign: "left",
+                          borderBottom: "1px solid #ddd",
+                        }}
+                      >
+                        Supplier
                       </th>
                       <th
                         style={{
@@ -685,6 +775,9 @@ export default function SejarahBelanja() {
                       <tr key={idx} style={{ borderBottom: "1px solid #eee" }}>
                         <td style={{ padding: "12px 8px" }}>
                           {tx.itemName || "N/A"}
+                        </td>
+                        <td style={{ padding: "12px 8px" }}>
+                          {getSupplierName(tx)}
                         </td>
                         <td style={{ padding: "12px 8px" }}>
                           {tx.kategori || "N/A"}
