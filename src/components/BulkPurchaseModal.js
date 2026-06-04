@@ -463,6 +463,7 @@ const BulkPurchaseModal = ({
           isDeleted: false,
           createdBy: currentUser ? currentUser.email : "unknown",
           items: items, // Add items array to transaction
+          supplierName: supplierName.trim(), // Save supplier name to transaction
         };
 
         const txId = uuidv4();

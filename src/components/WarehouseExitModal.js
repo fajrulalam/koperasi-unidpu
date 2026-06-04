@@ -30,6 +30,7 @@ const WarehouseExitModal = ({
       product: null,
       quantity: "",
       unit: "",
+      hargaKulak: "",
       unitPrice: "",
       subtotal: "",
     },
@@ -38,6 +39,7 @@ const WarehouseExitModal = ({
       product: null,
       quantity: "",
       unit: "",
+      hargaKulak: "",
       unitPrice: "",
       subtotal: "",
     },
@@ -46,6 +48,7 @@ const WarehouseExitModal = ({
       product: null,
       quantity: "",
       unit: "",
+      hargaKulak: "",
       unitPrice: "",
       subtotal: "",
     },
@@ -70,9 +73,10 @@ const WarehouseExitModal = ({
   const handleProductSearch = (rowId, searchTerm) => {
     setSearchTerms((prev) => ({ ...prev, [rowId]: searchTerm }));
     setHighlightedIndex((prev) => ({ ...prev, [rowId]: 0 }));
+    setShowDropdowns((prev) => ({ ...prev, [rowId]: true }));
 
     if (!searchTerm.trim()) {
-      setFilteredProducts((prev) => ({ ...prev, [rowId]: [] }));
+      setFilteredProducts((prev) => ({ ...prev, [rowId]: productsArray }));
       return;
     }
 
@@ -85,10 +89,24 @@ const WarehouseExitModal = ({
     setFilteredProducts((prev) => ({ ...prev, [rowId]: filtered }));
   };
 
+  // Handle focus/click on search input to ensure dropdown displays correctly
+  const handleInputFocus = (rowId) => {
+    setShowDropdowns((prev) => ({ ...prev, [rowId]: true }));
+    const currentTerm = searchTerms[rowId] || "";
+    handleProductSearch(rowId, currentTerm);
+  };
+
   // Handle product selection
   const handleProductSelect = (rowId, product) => {
     const unitPrice = product.pricePerUnit?.[product.smallestUnit] || 0;
     const formattedUnitPrice = formatRupiah(unitPrice.toString());
+
+    // Calculate average kulak price
+    let avgKulakPrice = 0;
+    if (product.stock && product.stock > 0 && product.stockValue) {
+      avgKulakPrice = Math.round(product.stockValue / product.stock);
+    }
+    const formattedHargaKulak = formatRupiah(avgKulakPrice.toString());
 
     setRows((prev) =>
       prev.map((row) =>
@@ -97,6 +115,7 @@ const WarehouseExitModal = ({
               ...row,
               product,
               unit: product.smallestUnit,
+              hargaKulak: formattedHargaKulak,
               unitPrice: formattedUnitPrice,
               subtotal: "", // Will be calculated when quantity is entered
             }
@@ -183,6 +202,16 @@ const WarehouseExitModal = ({
     }
   };
 
+  // Handle harga kulak change
+  const handleHargaKulakChange = (rowId, value) => {
+    const formattedValue = formatRupiah(value);
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId ? { ...row, hargaKulak: formattedValue } : row
+      )
+    );
+  };
+
   // Add new row
   const addRow = () => {
     setRows((prev) => [
@@ -192,6 +221,7 @@ const WarehouseExitModal = ({
         product: null,
         quantity: "",
         unit: "",
+        hargaKulak: "",
         unitPrice: "",
         subtotal: "",
       },
@@ -326,6 +356,7 @@ const WarehouseExitModal = ({
           itemName: row.product.name,
           quantity: parseFloat(row.quantity),
           unit: row.unit,
+          hargaKulak: parseRupiah(row.hargaKulak),
           unitPrice: parseRupiah(row.unitPrice),
           subtotal: parseRupiah(row.subtotal),
         })),
@@ -360,6 +391,7 @@ const WarehouseExitModal = ({
         product: null,
         quantity: "",
         unit: "",
+        hargaKulak: "",
         unitPrice: "",
         subtotal: "",
       },
@@ -368,6 +400,7 @@ const WarehouseExitModal = ({
         product: null,
         quantity: "",
         unit: "",
+        hargaKulak: "",
         unitPrice: "",
         subtotal: "",
       },
@@ -376,6 +409,7 @@ const WarehouseExitModal = ({
         product: null,
         quantity: "",
         unit: "",
+        hargaKulak: "",
         unitPrice: "",
         subtotal: "",
       },
@@ -406,6 +440,13 @@ const WarehouseExitModal = ({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const calculateTotal = () => {
+    return rows.reduce(
+      (sum, row) => sum + parseRupiah(row.subtotal),
+      0
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -463,6 +504,7 @@ const WarehouseExitModal = ({
                   <th>Nama Barang</th>
                   <th>Jumlah</th>
                   <th>Satuan</th>
+                  <th>Harga Kulak</th>
                   <th>Harga Satuan</th>
                   <th>Subtotal</th>
                   <th width="50"></th>
@@ -492,7 +534,8 @@ const WarehouseExitModal = ({
                           onChange={(e) =>
                             handleProductSearch(row.id, e.target.value)
                           }
-                          onFocus={() => toggleDropdown(row.id)}
+                          onFocus={() => handleInputFocus(row.id)}
+                          onClick={() => handleInputFocus(row.id)}
                           onKeyDown={(e) => handleKeyDown(row.id, e)}
                         />
                         {showDropdowns[row.id] &&
@@ -609,6 +652,17 @@ const WarehouseExitModal = ({
                       <input
                         type="text"
                         className="warehouse-exit-input"
+                        placeholder="Harga kulak"
+                        value={row.hargaKulak}
+                        onChange={(e) =>
+                          handleHargaKulakChange(row.id, e.target.value)
+                        }
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="warehouse-exit-input"
                         placeholder="Harga satuan"
                         value={row.unitPrice}
                         onChange={(e) =>
@@ -637,6 +691,15 @@ const WarehouseExitModal = ({
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="warehouse-exit-total-row">
+                  <td colSpan="5" style={{ textAlign: "right", fontWeight: "bold", padding: "16px", fontSize: "1.05rem" }}>Total:</td>
+                  <td style={{ fontWeight: "bold", padding: "16px", fontSize: "1.05rem", color: "#28a745" }}>
+                    Rp {formatRupiah(calculateTotal())}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
 
