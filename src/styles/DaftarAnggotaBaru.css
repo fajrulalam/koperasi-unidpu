@@ -8,7 +8,15 @@
 
 .daftar-anggota-container {
   padding: 24px; /* Increased padding */
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Apply font here if not globally */
+  font-family:
+    "Inter",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif; /* Apply font here if not globally */
   background-color: #f9fafb; /* Slightly off-white background for the page */
 }
 
@@ -19,7 +27,8 @@
   font-weight: 600; /* Bolder title */
 }
 
-.loading, .error {
+.loading,
+.error {
   padding: 3rem; /* Increased padding */
   text-align: center;
   font-size: 1rem;
@@ -62,7 +71,9 @@
   border: 1px solid #d1d5db; /* Slightly darker border */
   border-radius: 6px; /* Consistent rounding */
   font-size: 0.9rem; /* Adjusted font size */
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .search-input:focus {
@@ -91,7 +102,9 @@
   background-size: 1.2em 1.2em;
   padding-right: 2.5rem; /* Space for custom arrow */
   cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .filter-select:focus {
@@ -282,8 +295,12 @@
 }
 
 @keyframes fadeOut {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 .header-buttons {
@@ -438,7 +455,7 @@
 }
 
 .add-button::before {
-  content: '+';
+  content: "+";
   font-size: 1rem;
   font-weight: 700;
   margin-right: 4px;
@@ -472,13 +489,16 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.approve-button, .save-button { /* Combine green buttons */
+.approve-button,
+.save-button {
+  /* Combine green buttons */
   background-color: #22c55e; /* Green */
   color: white;
   border-color: #22c55e;
 }
 
-.approve-button:hover, .save-button:hover {
+.approve-button:hover,
+.save-button:hover {
   background-color: #16a34a; /* Darker green */
   border-color: #16a34a;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -518,7 +538,12 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(17, 24, 39, 0.6); /* Darker overlay with hint of blue */
+  background-color: rgba(
+    17,
+    24,
+    39,
+    0.6
+  ); /* Darker overlay with hint of blue */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -530,7 +555,6 @@
   /* transition: opacity 0.2s ease, visibility 0.2s ease; */
 }
 /* Example: .modal-backdrop.visible { opacity: 1; visibility: visible; } */
-
 
 .member-modal {
   background-color: white;
@@ -547,7 +571,6 @@
   /* transition: transform 0.2s ease; */
 }
 /* Example: .modal-backdrop.visible .member-modal { transform: scale(1); } */
-
 
 .modal-header {
   padding: 0.75rem 1rem; /* Drastically reduce padding */
@@ -588,7 +611,10 @@
 
 .member-detail-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Adjust min width */
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(280px, 1fr)
+  ); /* Adjust min width */
   gap: 0.5rem; /* Drastically reduce gap */
   margin-bottom: 1rem;
 }
@@ -640,7 +666,9 @@
   border-radius: 6px; /* Consistent rounding */
   font-weight: 500;
   font-size: 0.9rem; /* Consistent font size */
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .payment-link:hover {
@@ -668,13 +696,15 @@
 
 .whatsapp-button {
   padding: 10px 20px;
-  background-color: #25D366; /* Keep original WhatsApp green */
+  background-color: #25d366; /* Keep original WhatsApp green */
   color: white;
   border: none;
   border-radius: 6px; /* Consistent rounding */
   cursor: pointer;
   font-weight: 500;
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
@@ -701,11 +731,24 @@
   box-shadow: none; /* Remove shadow when disabled */
 }
 /* Ensure specific disabled colors don't override general */
-.approve-button:disabled, .save-button:disabled { background-color: #d1d5db; border-color: #d1d5db; }
-.reject-button:disabled { background-color: #d1d5db; border-color: #d1d5db; }
-.cancel-button:disabled { background-color: #e5e7eb; border-color: #e5e7eb; color: #9ca3af; }
-.whatsapp-button:disabled { background-color: #d1d5db; border-color: #d1d5db; }
-
+.approve-button:disabled,
+.save-button:disabled {
+  background-color: #d1d5db;
+  border-color: #d1d5db;
+}
+.reject-button:disabled {
+  background-color: #d1d5db;
+  border-color: #d1d5db;
+}
+.cancel-button:disabled {
+  background-color: #e5e7eb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+.whatsapp-button:disabled {
+  background-color: #d1d5db;
+  border-color: #d1d5db;
+}
 
 /* Edit form styles */
 .edit-form {
@@ -732,7 +775,9 @@
   border: 1px solid #d1d5db; /* Consistent border */
   border-radius: 6px; /* Consistent rounding */
   font-size: 0.9rem; /* Consistent font size */
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   background-color: #ffffff; /* Ensure white background */
 }
 
@@ -771,7 +816,7 @@
     font-size: 0.8rem; /* Smaller font on mobile */
     padding: 1px 4px; /* Reduced padding on mobile */
   }
-  
+
   /* Improved button responsiveness on mobile */
   .add-button,
   .review-button,
@@ -784,7 +829,7 @@
     min-width: auto; /* Allow buttons to be narrower on mobile */
     font-size: 0.75rem; /* Smaller font size on mobile */
   }
-  
+
   /* Ensure buttons don't overflow on mobile */
   .action-buttons {
     flex-wrap: wrap; /* Allow wrapping on mobile */
@@ -822,7 +867,6 @@
       color: #374151;
   } */
   /* Note: The above table transformation requires JS/backend to add data-label attributes */
-
 
   .action-buttons {
     flex-direction: row; /* Keep as row but allow wrapping */

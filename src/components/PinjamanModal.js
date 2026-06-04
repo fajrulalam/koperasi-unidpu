@@ -73,9 +73,11 @@ const PinjamanModal = ({
                 required
                 disabled={isSubmitting}
               >
-                <option value="3">3 bulan</option>
-                <option value="6">6 bulan</option>
-                <option value="12">12 bulan</option>
+                {Array.from({ length: 10 }, (_, i) => i + 3).map((n) => (
+                  <option key={n} value={String(n)}>
+                    {n} bulan
+                  </option>
+                ))}
               </select>
             </div>
 

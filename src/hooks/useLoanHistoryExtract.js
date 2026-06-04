@@ -77,7 +77,7 @@ export const useLoanHistoryExtract = () => {
       const jumlahPinjaman = loan.jumlahPinjaman;
       const tenor = loan.tenor;
       const bunga = calculateBunga(jumlahPinjaman);
-      const pokok = calculatePokok(jumlahPinjaman);
+      const _pokok = calculatePokok(jumlahPinjaman);
 
       // Create the initial row (when loan was activated)
       const activeDate = loan.history[activeIndex].timestamp;

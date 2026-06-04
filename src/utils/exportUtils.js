@@ -1,6 +1,15 @@
 // src/utils/exportUtils.js
 import * as XLSX from "xlsx";
 
+const calculateFee = (jumlahPinjaman) => {
+  if (jumlahPinjaman > 8000000) return 500000;
+  if (jumlahPinjaman > 6000000) return 400000;
+  if (jumlahPinjaman > 4000000) return 300000;
+  if (jumlahPinjaman > 2000000) return 200000;
+  if (jumlahPinjaman >= 1000000) return 100000;
+  return 0;
+};
+
 /**
  * Export loan data to Excel file
  * @param {Array} loans - Array of loan objects to export
@@ -156,15 +165,20 @@ export const exportLoansToExcel = (loans, formatDate, calculateEndDate) => {
       const jumlahPinjaman = loan.jumlahPinjaman || 0;
       const terbayar = (jumlahPinjaman / tenor) * jumlahMenyicil;
 
+      const biayaAdmin = loan.biayaAdmin ?? calculateFee(jumlahPinjaman);
+      const sisaHutang = loan.sisaHutang ?? (jumlahPinjaman - terbayar);
+
       return {
         ID: loan.id || "",
         Nama: userData.namaLengkap || "",
         NIK: userData.nik || "",
         Email: userData.email || loan.userEmail || "",
         "Jumlah Pinjaman": jumlahPinjaman,
+        "Biaya Admin": biayaAdmin,
+        "Sisa Pinjaman": sisaHutang,
         Tenor: tenor,
-        Pembayaran: jumlahMenyicil, // Just the payment count
-        Terbayar: terbayar, // New column for amount paid
+        Pembayaran: jumlahMenyicil,
+        Terbayar: terbayar,
         "Tanggal Pengajuan": tanggalPengajuan,
         "Tanggal Pelunasan": tanggalPelunasan,
         Status: loan.status || "",
@@ -184,6 +198,8 @@ export const exportLoansToExcel = (loans, formatDate, calculateEndDate) => {
       { wch: 20 }, // NIK
       { wch: 30 }, // Email
       { wch: 15 }, // Jumlah Pinjaman
+      { wch: 15 }, // Biaya Admin
+      { wch: 15 }, // Sisa Pinjaman
       { wch: 8 }, // Tenor
       { wch: 12 }, // Pembayaran
       { wch: 15 }, // Terbayar

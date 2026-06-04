@@ -5,7 +5,10 @@ import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { printReceipt as printerServicePrint } from "../services/PrinterService";
+import { voucherService } from "../services/voucherService";
 import PaymentModal from "./PaymentModal";
+import BukaBukuModal from "./BukaBukuModal";
+import TutupBukuModal from "./TutupBukuModal";
 import {
   convertToSmallestUnit,
   convertFromSmallestUnit,
@@ -135,12 +138,13 @@ const printReceiptWithVoucher = async (receiptData, setSnackbarFn) => {
 
     // Add voucher as an item if applied
     if (appliedVoucher) {
+      const actualDiscount = Math.min(appliedVoucher.value, total);
       receiptItems.push({
         name: appliedVoucher.name,
         quantity: 1,
         unit: "",
-        price: -appliedVoucher.value,
-        subtotal: -appliedVoucher.value,
+        price: -actualDiscount,
+        subtotal: -actualDiscount,
       });
     }
 
@@ -226,6 +230,43 @@ const Transaksi = () => {
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Active cashback campaigns
+  const [activeCampaigns, setActiveCampaigns] = useState([]);
+
+  // Buka Buku gate
+  const [bukuOpened, setBukuOpened] = useState(null);
+  const [showBukaBuku, setShowBukaBuku] = useState(false);
+  const [staleRecord, setStaleRecord] = useState(null);
+  const [showStaleTutupBuku, setShowStaleTutupBuku] = useState(false);
+
+  useEffect(() => {
+    const checkBukuStatus = async () => {
+      try {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const doc = await readDoc("dailyClosings", today);
+        if (doc) {
+          setBukuOpened(true);
+          return;
+        }
+        setBukuOpened(false);
+
+        const allClosings = await queryCollection("dailyClosings");
+        const stale = allClosings.find(
+          (c) => c.status === "open" && c.dateString < today
+        );
+        if (stale) {
+          setStaleRecord(stale);
+        }
+        setShowBukaBuku(true);
+      } catch {
+        setBukuOpened(false);
+        setShowBukaBuku(true);
+      }
+    };
+    checkBukuStatus();
+  }, [isProduction]);
+
   const handleEnterKeyDown = (e) => {
     if (e.key === "Enter") {
       setEnterKeyDownTime(Date.now());
@@ -274,6 +315,22 @@ const Transaksi = () => {
       setProductData(products);
     };
     fetchProducts();
+  }, [isProduction]);
+
+  // Fetch active cashback campaigns
+  useEffect(() => {
+    const fetchActiveCampaigns = async () => {
+      try {
+        const campaigns = await voucherService.getActiveCashbackCampaigns(
+          isProduction
+        );
+        setActiveCampaigns(campaigns);
+        console.log("Active cashback campaigns:", campaigns);
+      } catch (error) {
+        console.error("Error fetching active campaigns:", error);
+      }
+    };
+    fetchActiveCampaigns();
   }, [isProduction]);
 
   useEffect(() => {
@@ -584,6 +641,9 @@ const Transaksi = () => {
       totalNumeric,
       appliedVoucher,
       originalTotal,
+      memberData,
+      userPoints,
+      isPaidViaQris,
     } = paymentData;
 
     // Define which mass units need conversion to kg.
@@ -661,22 +721,33 @@ const Transaksi = () => {
         id: transactionId,
         items: transactionItems,
         total: originalTotal || total,
-        isMember: false,
+        isMember: !!memberData, // true if member data exists
         createdBy: currentUser ? currentUser.email : "unknown",
+        // Member tracking fields
+        userId: memberData?.id || null,
+        nomorAnggota: memberData?.nomorAnggota || null,
+        memberName: memberData?.nama || null,
+        // Points tracking - amount paid excluding voucher discount
+        userPoints: userPoints || totalNumeric,
+        isPaidViaQris: isPaidViaQris || false,
       };
 
       // Add voucher information if applied
       if (appliedVoucher) {
+        const actualDiscount = Math.min(
+          appliedVoucher.value,
+          originalTotal || total
+        );
         transactionData.voucherId = appliedVoucher.id;
         transactionData.voucherName = appliedVoucher.name;
-        transactionData.voucherDiscount = appliedVoucher.value;
+        transactionData.voucherDiscount = actualDiscount;
         transactionData.discountedTotal = totalNumeric;
       }
 
       await createDoc("transactionDetail", transactionData, transactionId);
 
-      // Claim voucher if applied
-      if (appliedVoucher) {
+      // Claim voucher if applied (skip for multi-use — already handled in PaymentModal)
+      if (appliedVoucher && appliedVoucher.isOneTimeUse !== false) {
         try {
           await updateDoc("vouchers", appliedVoucher.id, {
             isClaimed: true,
@@ -684,7 +755,6 @@ const Transaksi = () => {
           });
         } catch (voucherError) {
           console.error("Error claiming voucher:", voucherError);
-          // Continue with transaction even if voucher claiming fails
         }
       }
 
@@ -747,8 +817,9 @@ const Transaksi = () => {
           stockWorth: isDiscrepant
             ? stockWorthPerUnit * actualStockReduction // Only count worth of actual stock used
             : transactionStockWorth,
-          isStockDiscrepant: isDiscrepant, // Flag to indicate stock discrepancy
+          isStockDiscrepant: isDiscrepant,
           createdBy: currentUser ? currentUser.email : "unknown",
+          isPaidViaQris: isPaidViaQris || false,
         });
 
         // Update stock, ensuring it doesn't go negative
@@ -934,6 +1005,31 @@ const Transaksi = () => {
   return (
     <div className="transaksi-container">
       <h1>Transaksi - Point of Sales Unimart</h1>
+
+      <BukaBukuModal
+        isOpen={showBukaBuku}
+        onClose={() => setShowBukaBuku(false)}
+        onOpened={() => {
+          setBukuOpened(true);
+          setShowBukaBuku(false);
+        }}
+        staleRecord={staleRecord}
+        onRequestCloseStale={() => {
+          setShowBukaBuku(false);
+          setShowStaleTutupBuku(true);
+        }}
+      />
+
+      <TutupBukuModal
+        isOpen={showStaleTutupBuku}
+        onClose={() => setShowStaleTutupBuku(false)}
+        onSaved={() => {
+          setShowStaleTutupBuku(false);
+          setStaleRecord(null);
+          setShowBukaBuku(true);
+        }}
+        forRecord={staleRecord}
+      />
 
       <div className="product-input" ref={containerRef}>
         <div className="scanner-toggle">
@@ -1199,7 +1295,18 @@ const Transaksi = () => {
       {/* Sticky Footer */}
       <div className="footer">
         <h2>Total: {formatCurrency(total)}</h2>
-        <button onClick={openModal}>Bayar</button>
+        {bukuOpened ? (
+          <button onClick={openModal}>Bayar</button>
+        ) : (
+          <button
+            onClick={() => setShowBukaBuku(true)}
+            style={{
+              background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+            }}
+          >
+            Buka Buku
+          </button>
+        )}
       </div>
 
       {/* Payment Modal with Voucher Support */}
@@ -1210,6 +1317,8 @@ const Transaksi = () => {
         onPaymentComplete={handlePaymentComplete}
         isProcessing={isProcessing}
         firestore={{ readDoc, updateDoc, serverTimestamp }}
+        activeCampaigns={activeCampaigns}
+        isProduction={isProduction}
       />
 
       {/* Render multiple stacked snackbars */}

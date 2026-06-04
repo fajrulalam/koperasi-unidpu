@@ -19,16 +19,20 @@ export const convertToSmallestUnit = (quantity, unit, product) => {
 
   const baseUnit = product.smallestUnit;
   const quantityInGrams = quantity * CONVERSION_TABLE[unit];
-  
+
   if (baseUnit === "pcs") return quantityInGrams;
   if (baseUnit === "gram") return quantityInGrams;
   if (baseUnit === "ons") return quantityInGrams / 100;
   if (baseUnit === "kg") return quantityInGrams / 1000;
-  
+
   return quantityInGrams;
 };
 
-export const convertFromSmallestUnit = (quantityInSmallest, targetUnit, product) => {
+export const convertFromSmallestUnit = (
+  quantityInSmallest,
+  targetUnit,
+  product
+) => {
   if (targetUnit === "box") {
     if (!product.piecesPerBox) {
       throw new Error("Pieces per box not defined for this product");
@@ -115,12 +119,63 @@ export const validateVoucher = (voucher) => {
   }
 
   const now = new Date();
-  const activeDate = voucher.activeDate?.toDate ? voucher.activeDate.toDate() : new Date(voucher.activeDate);
-  const expireDate = voucher.expireDate?.toDate ? voucher.expireDate.toDate() : new Date(voucher.expireDate);
+  const activeDate = voucher.activeDate?.toDate
+    ? voucher.activeDate.toDate()
+    : new Date(voucher.activeDate);
+  const expireDate = voucher.expireDate?.toDate
+    ? voucher.expireDate.toDate()
+    : new Date(voucher.expireDate);
 
-  if (!voucher.isActive || voucher.isClaimed || now < activeDate || now > expireDate) {
+  // Check date validity
+  if (now < activeDate) {
+    return { isValid: false, message: "Voucher belum aktif" };
+  }
+  if (now > expireDate) {
+    return { isValid: false, message: "Voucher sudah kedaluwarsa" };
+  }
+
+  // Handle campaign vouchers (cashbackCampaign type)
+  if (voucher.type === "cashbackCampaign") {
+    // Campaign voucher must have status "CLAIMED" to be usable
+    if (voucher.status === "IN_PROGRESS") {
+      return {
+        isValid: false,
+        message: "Voucher belum bisa digunakan - target belanja belum tercapai",
+      };
+    }
+    if (voucher.status === "REDEEMED") {
+      return { isValid: false, message: "Voucher sudah pernah digunakan" };
+    }
+    // Status "CLAIMED" means it's ready to use
+    if (voucher.status !== "CLAIMED") {
+      return { isValid: false, message: "Voucher tidak valid" };
+    }
+    // For CLAIMED campaign vouchers, isActive should be true
+    if (!voucher.isActive) {
+      return { isValid: false, message: "Voucher sudah tidak aktif" };
+    }
+    return { isValid: true, message: "", isCampaignVoucher: true };
+  }
+
+  // Handle regular vouchers
+  if (!voucher.isActive) {
     return { isValid: false, message: "Voucher sudah tidak aktif" };
   }
 
-  return { isValid: true, message: "" };
+  // Multi-use vouchers: check remaining balance instead of isClaimed
+  if (voucher.isOneTimeUse === false) {
+    const amountSpent = voucher.amountSpent || 0;
+    if (amountSpent >= voucher.value) {
+      return { isValid: false, message: "Saldo voucher sudah habis" };
+    }
+    const remaining = voucher.value - amountSpent;
+    return { isValid: true, message: "", isCampaignVoucher: false, remaining };
+  }
+
+  // One-time use vouchers
+  if (voucher.isClaimed) {
+    return { isValid: false, message: "Voucher sudah pernah digunakan" };
+  }
+
+  return { isValid: true, message: "", isCampaignVoucher: false };
 };

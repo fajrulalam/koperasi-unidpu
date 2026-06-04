@@ -23,33 +23,16 @@ const WarehouseExitModal = ({
   onSave,
   products,
   currentUser,
+  isEditMode = false,
+  initialData = null,
 }) => {
-  const [rows, setRows] = useState([
-    {
-      id: 1,
-      product: null,
-      quantity: "",
-      unit: "",
-      unitPrice: "",
-      subtotal: "",
-    },
-    {
-      id: 2,
-      product: null,
-      quantity: "",
-      unit: "",
-      unitPrice: "",
-      subtotal: "",
-    },
-    {
-      id: 3,
-      product: null,
-      quantity: "",
-      unit: "",
-      unitPrice: "",
-      subtotal: "",
-    },
-  ]);
+  const defaultRows = [
+    { id: 1, product: null, quantity: "", unit: "", unitPrice: "", subtotal: "" },
+    { id: 2, product: null, quantity: "", unit: "", unitPrice: "", subtotal: "" },
+    { id: 3, product: null, quantity: "", unit: "", unitPrice: "", subtotal: "" },
+  ];
+
+  const [rows, setRows] = useState(defaultRows);
   const [nextId, setNextId] = useState(4);
   const [searchTerms, setSearchTerms] = useState({});
   const [showDropdowns, setShowDropdowns] = useState({});
@@ -62,6 +45,49 @@ const WarehouseExitModal = ({
   const [businessType, setBusinessType] = useState("");
 
   const dropdownRefs = useRef({});
+
+  // Pre-populate form when opening in edit mode
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (isEditMode && initialData) {
+      setCustomerName(initialData.customerDetail?.customerName || "");
+      setBusinessType(initialData.customerDetail?.businessType || "");
+
+      if (initialData.items?.length > 0) {
+        const populatedRows = initialData.items.map((item, index) => {
+          const product =
+            Object.values(products).find(
+              (p) => (p.itemId || p.id) === item.itemId
+            ) || null;
+          return {
+            id: index + 1,
+            product,
+            quantity: item.quantity.toString(),
+            unit: item.unit,
+            unitPrice: formatRupiah(item.unitPrice.toString()),
+            subtotal: formatRupiah(item.subtotal.toString()),
+          };
+        });
+        setRows(populatedRows);
+        setNextId(initialData.items.length + 1);
+        const terms = {};
+        populatedRows.forEach((row, i) => {
+          terms[row.id] = row.product
+            ? row.product.name
+            : initialData.items[i]?.itemName || "";
+        });
+        setSearchTerms(terms);
+      }
+    } else if (!isEditMode) {
+      setRows(defaultRows);
+      setNextId(4);
+      setSearchTerms({});
+      setCustomerName("");
+      setBusinessType("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   // Convert products object to array for searching
   const productsArray = Object.values(products || {});
@@ -289,30 +315,32 @@ const WarehouseExitModal = ({
         (row) => row.product && row.quantity && row.subtotal
       );
 
-      // Check stock availability first
-      const stockChecks = [];
-      for (const row of validRows) {
-        const quantity = parseFloat(row.quantity);
-        const availableStock = row.product.stock || 0;
+      // Check stock availability first (skip in edit mode — parent handles stock reversal)
+      if (!isEditMode) {
+        const stockChecks = [];
+        for (const row of validRows) {
+          const quantity = parseFloat(row.quantity);
+          const availableStock = row.product.stock || 0;
 
-        if (availableStock < quantity) {
-          stockChecks.push({
-            name: row.product.name,
-            requested: quantity,
-            available: availableStock,
-          });
+          if (availableStock < quantity) {
+            stockChecks.push({
+              name: row.product.name,
+              requested: quantity,
+              available: availableStock,
+            });
+          }
         }
-      }
 
-      if (stockChecks.length > 0) {
-        const errorMessage = stockChecks
-          .map(
-            (item) =>
-              `${item.name}: diminta ${item.requested}, tersedia ${item.available}`
-          )
-          .join("\n");
-        alert(`Stok tidak mencukupi:\n${errorMessage}`);
-        return;
+        if (stockChecks.length > 0) {
+          const errorMessage = stockChecks
+            .map(
+              (item) =>
+                `${item.name}: diminta ${item.requested}, tersedia ${item.available}`
+            )
+            .join("\n");
+          alert(`Stok tidak mencukupi:\n${errorMessage}`);
+          return;
+        }
       }
 
       // Create transaction data
@@ -413,7 +441,7 @@ const WarehouseExitModal = ({
     <div className="warehouse-exit-modal-overlay">
       <div className="warehouse-exit-modal-content">
         <div className="warehouse-exit-modal-header">
-          <h2>Warehouse Exit - Create New Record</h2>
+          <h2>{isEditMode ? "Edit Catatan Keluar Gudang" : "Warehouse Exit - Create New Record"}</h2>
           <button className="warehouse-exit-modal-close" onClick={handleClose}>
             <FaTimes />
           </button>
@@ -652,7 +680,7 @@ const WarehouseExitModal = ({
             Cancel
           </button>
           <button className="warehouse-exit-submit-btn" onClick={handleSubmit}>
-            Create Record
+            {isEditMode ? "Simpan Perubahan" : "Create Record"}
           </button>
         </div>
       </div>

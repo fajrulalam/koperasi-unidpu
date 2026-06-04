@@ -62,6 +62,11 @@ const BarcodeExpandedView = ({ isOpen, onClose, voucher }) => {
         <div className="barcode-expanded-header">
           <h3>{voucher.voucherName}</h3>
           <span className="barcode-value">{formatCurrency(voucher.value)}</span>
+          {voucher.isOneTimeUse === false && (
+            <span className="barcode-remaining">
+              Sisa: {formatCurrency(voucher.value - (voucher.amountSpent || 0))}
+            </span>
+          )}
           <button className="close-button" onClick={onClose}>×</button>
         </div>
         

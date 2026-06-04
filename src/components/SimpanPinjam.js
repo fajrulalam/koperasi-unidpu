@@ -1,14 +1,35 @@
 // src/components/SimpanPinjam.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import LoanDetailModal from "./LoanDetailModal";
 import RejectionModal from "./RejectionModal";
 import RevisionModal from "./RevisionModal";
 import PaymentProofModal from "./PaymentProofModal";
+import RestrukturisasiReviewModal from "./RestrukturisasiReviewModal";
 import useSimpanPinjam from "./hooks/useSimpanPinjam";
 import "../styles/SimpanPinjamStyles.css";
 
+/**
+ * Calculate fee based on loan amount
+ */
+function calculateFee(jumlahPinjaman) {
+  if (jumlahPinjaman > 8000000) return 500000;
+  if (jumlahPinjaman > 6000000) return 400000;
+  if (jumlahPinjaman > 4000000) return 300000;
+  if (jumlahPinjaman > 2000000) return 200000;
+  if (jumlahPinjaman >= 1000000) return 100000;
+  return 0;
+}
+
+/**
+ * Format currency in Indonesian Rupiah
+ */
+function formatCurrency(amount) {
+  return `Rp ${amount.toLocaleString("id-ID")}`;
+}
+
 const SimpanPinjam = () => {
   const {
+    loans,
     filteredLoans,
     loading,
     error,
@@ -34,13 +55,17 @@ const SimpanPinjam = () => {
     setViewingLoan,
     handleApprove,
     handleReject,
+    handleRejectDirect,
     handleRevise,
+    handleReviseDirect,
     handleMakePayment,
     handleMarkComplete,
     handleUploadPaymentProof,
     handleExportToExcel,
     handleUpdateBankDetails,
     handleUpdateUserData,
+    fetchLoanById,
+    migrateLoansWithNewFields,
     formatDate,
     calculateEndDate,
     isLoanOverdue,
@@ -54,20 +79,144 @@ const SimpanPinjam = () => {
     "Direvisi BAK",
     "Menunggu Transfer BAK",
     "Disetujui dan Aktif",
+    "Menunggu Persetujuan Restrukturisasi",
   ]);
 
   // State for payment proof modal
   const [paymentProofLoan, setPaymentProofLoan] = useState(null);
 
-  // Effect to filter loans based on selected statuses
-  useEffect(() => {
-    // Convert array of selected statuses to a comma-separated string for the filter
-    if (selectedStatuses.length > 0) {
-      setStatusFilter(selectedStatuses.join(","));
-    } else {
-      setStatusFilter("");
+  // State for restructuring review modal
+  const [reviewingRestruktur, setReviewingRestruktur] = useState(null);
+
+  // State to track if filter is pending
+  const [filterPending, setFilterPending] = useState(false);
+
+  // Track if this is the first render
+  const [isFirstRender, setIsFirstRender] = useState(true);
+
+  // State for summary section collapsed/expanded
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+
+  // Calculate fee summary and money in circulation
+  const loanSummary = useMemo(() => {
+    if (!loans || loans.length === 0) {
+      return {
+        feeGroups: [],
+        totalFee: 0,
+        moneyInCirculation: 0,
+        activeLoansCount: 0,
+        completedLoansCount: 0,
+      };
     }
-  }, [selectedStatuses, setStatusFilter]);
+
+    // Filter loans with status 'Disetujui dan Aktif' or 'Lunas'
+    const relevantLoans = loans.filter(
+      (loan) => loan.status === "Disetujui dan Aktif" || loan.status === "Lunas"
+    );
+
+    // Define fee groups
+    const feeGroupDefinitions = [
+      { min: 1000000, max: 2000000, fee: 100000, label: "Rp 1-2 Juta" },
+      { min: 2000001, max: 4000000, fee: 200000, label: "Rp 2-4 Juta" },
+      { min: 4000001, max: 6000000, fee: 300000, label: "Rp 4-6 Juta" },
+      { min: 6000001, max: 8000000, fee: 400000, label: "Rp 6-8 Juta" },
+      { min: 8000001, max: 10000000, fee: 500000, label: "Rp 8-10 Juta" },
+    ];
+
+    // Initialize fee groups
+    const feeGroups = feeGroupDefinitions.map((def) => ({
+      ...def,
+      count: 0,
+      totalFee: 0,
+    }));
+
+    let totalFee = 0;
+    let moneyInCirculation = 0;
+    let totalLoaned = 0; // Total principal loaned (after fee)
+    let totalPaid = 0; // Total installments paid
+    let activeLoansCount = 0;
+    let completedLoansCount = 0;
+
+    relevantLoans.forEach((loan) => {
+      const jumlahPinjaman = loan.jumlahPinjaman || 0;
+      const fee = calculateFee(jumlahPinjaman);
+      const tenor = loan.tenor || 1;
+      const jumlahMenyicil = loan.jumlahMenyicil || 0;
+      const principalAfterFee = jumlahPinjaman - fee;
+      const monthlyPayment = principalAfterFee / tenor;
+      const amountPaid = monthlyPayment * jumlahMenyicil;
+
+      // Count by status
+      if (loan.status === "Disetujui dan Aktif") {
+        activeLoansCount++;
+      } else if (loan.status === "Lunas") {
+        completedLoansCount++;
+      }
+
+      // Add to fee groups
+      const groupIndex = feeGroups.findIndex(
+        (g) => jumlahPinjaman >= g.min && jumlahPinjaman <= g.max
+      );
+      if (groupIndex !== -1) {
+        feeGroups[groupIndex].count++;
+        feeGroups[groupIndex].totalFee += fee;
+        totalFee += fee;
+      }
+
+      // Calculate totals for all relevant loans (Disetujui dan Aktif OR Lunas)
+      totalLoaned += principalAfterFee;
+      totalPaid += amountPaid;
+
+      // Calculate money in circulation (only for active loans)
+      if (loan.status === "Disetujui dan Aktif") {
+        const outstanding = principalAfterFee - amountPaid;
+        moneyInCirculation += outstanding;
+      }
+    });
+
+    return {
+      feeGroups: feeGroups.filter((g) => g.count > 0), // Only show groups with loans
+      totalFee,
+      moneyInCirculation,
+      totalLoaned,
+      totalPaid,
+      activeLoansCount,
+      completedLoansCount,
+    };
+  }, [loans]);
+
+  // Effect to filter loans based on selected statuses with debounce
+  useEffect(() => {
+    // Apply filter immediately on first render, debounce for subsequent changes
+    if (isFirstRender) {
+      if (selectedStatuses.length > 0) {
+        setStatusFilter(selectedStatuses.join(","));
+      } else {
+        setStatusFilter("");
+      }
+      setIsFirstRender(false);
+      return;
+    }
+
+    // Set pending state to show user that filter will be applied
+    setFilterPending(true);
+
+    // Debounce the filter application by 3s
+    const debounceTimer = setTimeout(() => {
+      // Convert array of selected statuses to a comma-separated string for the filter
+      if (selectedStatuses.length > 0) {
+        setStatusFilter(selectedStatuses.join(","));
+      } else {
+        setStatusFilter("");
+      }
+      setFilterPending(false);
+    }, 3000);
+
+    // Cleanup timer on unmount or when selectedStatuses changes
+    return () => {
+      clearTimeout(debounceTimer);
+    };
+  }, [selectedStatuses, setStatusFilter, isFirstRender]);
 
   // Handle checkbox change for status filters
   const handleStatusFilterChange = (status) => {
@@ -86,10 +235,12 @@ const SimpanPinjam = () => {
       "Direvisi BAK",
       "Menunggu Transfer BAK",
       "Disetujui dan Aktif",
+      "Menunggu Persetujuan Restrukturisasi",
       "Lunas",
       "Ditolak BAK",
       "Ditolak Wakil Rektor 2",
       "Revisi Ditolak Anggota",
+      "Direstrukturisasi",
     ]);
   };
 
@@ -117,6 +268,15 @@ const SimpanPinjam = () => {
           title="Ekspor ke Excel"
         >
           <span className="export-icon">📊</span> Ekspor Excel
+        </button>
+        {/* TEMPORARY: Remove after running migration once */}
+        <button
+          className="export-excel-btn"
+          onClick={migrateLoansWithNewFields}
+          title="Migrasi biayaAdmin & sisaHutang"
+          style={{ marginLeft: 8, backgroundColor: '#fef3c7', color: '#92400e' }}
+        >
+          Migrasi Data
         </button>
       </div>
 
@@ -164,6 +324,11 @@ const SimpanPinjam = () => {
           <div className="status-filter-header">
             <label>Status:</label>
             <div className="status-filter-actions">
+              {filterPending && (
+                <span className="filter-pending-indicator">
+                  ⏳ Memproses filter...
+                </span>
+              )}
               <button
                 className="filter-action-btn"
                 onClick={handleSelectAllStatuses}
@@ -311,6 +476,38 @@ const SimpanPinjam = () => {
               />
               Revisi Ditolak Anggota
             </label>
+            <label
+              className={`chip ${
+                selectedStatuses.includes("Menunggu Persetujuan Restrukturisasi")
+                  ? "active"
+                  : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={selectedStatuses.includes("Menunggu Persetujuan Restrukturisasi")}
+                onChange={() =>
+                  handleStatusFilterChange("Menunggu Persetujuan Restrukturisasi")
+                }
+              />
+              Menunggu Restrukturisasi
+            </label>
+            <label
+              className={`chip ${
+                selectedStatuses.includes("Direstrukturisasi")
+                  ? "active"
+                  : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={selectedStatuses.includes("Direstrukturisasi")}
+                onChange={() =>
+                  handleStatusFilterChange("Direstrukturisasi")
+                }
+              />
+              Direstrukturisasi
+            </label>
           </div>
         </div>
 
@@ -333,6 +530,137 @@ const SimpanPinjam = () => {
         </button>
       </div>
 
+      {/* Loan Summary Section - Collapsible */}
+      {(loanSummary.activeLoansCount > 0 ||
+        loanSummary.completedLoansCount > 0) && (
+        <div
+          className={`loan-summary-section ${
+            isSummaryExpanded ? "expanded" : ""
+          }`}
+        >
+          <div
+            className="loan-summary-header"
+            onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+          >
+            <span className="loan-summary-title">Ringkasan</span>
+            <div className="loan-summary-preview">
+              <span className="preview-item">
+                <span className="preview-label">
+                  Pendapatan dari biaya admin:
+                </span>
+                <span className="preview-value">
+                  {formatCurrency(loanSummary.totalFee)}
+                </span>
+                {loanSummary.moneyInCirculation > 0 && (
+                  <span className="preview-percentage">
+                    +
+                    {(
+                      (loanSummary.totalFee / loanSummary.moneyInCirculation) *
+                      100
+                    ).toFixed(1)}
+                    %
+                  </span>
+                )}
+              </span>
+              <span className="preview-divider">|</span>
+              <span className="preview-item">
+                <span className="preview-label">Uang beredar:</span>
+                <span className="preview-value">
+                  {formatCurrency(loanSummary.moneyInCirculation)}
+                </span>
+              </span>
+            </div>
+            <span
+              className={`summary-chevron ${
+                isSummaryExpanded ? "expanded" : ""
+              }`}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M4 6L8 10L12 6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+          </div>
+
+          {isSummaryExpanded && (
+            <div className="loan-summary-body">
+              <div className="loan-summary-grid">
+                <div className="summary-card summary-card-fee">
+                  <div className="summary-card-header">
+                    <span className="summary-title">Total Fee Terkumpul</span>
+                    <span className="summary-value">
+                      {formatCurrency(loanSummary.totalFee)}
+                    </span>
+                  </div>
+                  <div className="summary-meta">
+                    {loanSummary.activeLoansCount +
+                      loanSummary.completedLoansCount}{" "}
+                    pinjaman ({loanSummary.activeLoansCount} aktif,{" "}
+                    {loanSummary.completedLoansCount} lunas)
+                  </div>
+                  {loanSummary.feeGroups.length > 0 && (
+                    <div className="fee-breakdown">
+                      {loanSummary.feeGroups.map((group, idx) => (
+                        <div key={idx} className="fee-group-item">
+                          <span className="fee-group-label">{group.label}</span>
+                          <span className="fee-group-count">
+                            {group.count}x
+                          </span>
+                          <span className="fee-group-total">
+                            {formatCurrency(group.totalFee)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="summary-card summary-card-circulation">
+                  <div className="summary-card-header">
+                    <span className="summary-title">Uang Beredar</span>
+                    <span className="summary-value">
+                      {formatCurrency(loanSummary.moneyInCirculation)}
+                    </span>
+                  </div>
+                  <div className="summary-meta">
+                    Dari {loanSummary.activeLoansCount} pinjaman aktif
+                  </div>
+                  <div className="circulation-breakdown">
+                    <div className="circulation-item">
+                      <span className="circulation-label">
+                        Total dipinjamkan
+                      </span>
+                      <span className="circulation-value">
+                        {formatCurrency(loanSummary.totalLoaned)}
+                      </span>
+                    </div>
+                    <div className="circulation-item">
+                      <span className="circulation-label">
+                        Total sudah dicicil
+                      </span>
+                      <span className="circulation-value circulation-value-paid">
+                        - {formatCurrency(loanSummary.totalPaid)}
+                      </span>
+                    </div>
+                    <div className="circulation-item circulation-item-result">
+                      <span className="circulation-label">Sisa beredar</span>
+                      <span className="circulation-value">
+                        {formatCurrency(loanSummary.moneyInCirculation)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {filteredLoans.length === 0 ? (
         <div className="no-data">Tidak ada data pinjaman</div>
       ) : (
@@ -340,8 +668,11 @@ const SimpanPinjam = () => {
           <table className="loans-table">
             <thead>
               <tr>
+                <th className="th-no">No</th>
                 <th>Nama</th>
                 <th>Jumlah</th>
+                <th>Biaya Admin</th>
+                <th>Sisa Pinjaman</th>
                 <th>Pembayaran</th>
                 <th>Tenor</th>
                 <th>Tanggal Pengajuan</th>
@@ -351,7 +682,7 @@ const SimpanPinjam = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredLoans.map((loan) => {
+              {filteredLoans.map((loan, index) => {
                 const isOverdue =
                   loan.status === "Disetujui dan Aktif" &&
                   isLoanOverdue(loan.tanggalDisetujui, loan.tenor);
@@ -368,15 +699,19 @@ const SimpanPinjam = () => {
                 const canUploadProof =
                   userRole === "BAK" && loan.status === "Menunggu Transfer BAK";
 
+                const isPayableStatus =
+                  loan.status === "Disetujui dan Aktif" ||
+                  loan.status === "Menunggu Persetujuan Restrukturisasi";
+
                 const canMakePayment =
-                  loan.status === "Disetujui dan Aktif" &&
+                  isPayableStatus &&
                   loan.jumlahMenyicil + 1 < loan.tenor;
 
                 const canMarkComplete =
-                  loan.status === "Disetujui dan Aktif" &&
+                  isPayableStatus &&
                   loan.jumlahMenyicil + 1 >= loan.tenor;
 
-                const isDirector = userRole === "Direktur";
+                const isDirector = userRole === "Direktur" || userRole === "Director";
 
                 return (
                   <tr
@@ -386,13 +721,24 @@ const SimpanPinjam = () => {
                       isOverdue ? "overdue-row" : ""
                     }`}
                   >
+                    <td className="td-no">{index + 1}</td>
                     <td>{loan.userData?.namaLengkap || "N/A"}</td>
                     <td>
                       Rp {loan.jumlahPinjaman?.toLocaleString("id-ID") || "0"}
                     </td>
                     <td>
+                      Rp {(loan.biayaAdmin ?? calculateFee(loan.jumlahPinjaman || 0)).toLocaleString("id-ID")}
+                    </td>
+                    <td>
+                      {loan.sisaHutang != null
+                        ? `Rp ${loan.sisaHutang.toLocaleString("id-ID")}`
+                        : "-"}
+                    </td>
+                    <td>
                       {loan.status === "Disetujui dan Aktif" ||
-                      loan.status === "Lunas"
+                      loan.status === "Menunggu Persetujuan Restrukturisasi" ||
+                      loan.status === "Lunas" ||
+                      loan.status === "Direstrukturisasi"
                         ? `${loan.jumlahMenyicil || 0}/${loan.tenor}`
                         : "-"}
                     </td>
@@ -410,8 +756,22 @@ const SimpanPinjam = () => {
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="table-actions">
-                        {/* BAK Approval Button */}
-                        {(canApproveBAK || isDirector) &&
+                        {/* Restructuring Review — replaces individual buttons for restructured loans */}
+                        {loan.restructuredFromLoanId &&
+                          (loan.status === "Menunggu Persetujuan BAK" ||
+                            loan.status === "Menunggu Persetujuan Wakil Rektor 2") && (
+                            <button
+                              className="revise-btn"
+                              onClick={() => setReviewingRestruktur(loan)}
+                              title="Tinjau Restrukturisasi"
+                            >
+                              📋 Tinjau
+                            </button>
+                          )}
+
+                        {/* BAK Approval Button (non-restructuring only) */}
+                        {!loan.restructuredFromLoanId &&
+                          (canApproveBAK || isDirector) &&
                           loan.status === "Menunggu Persetujuan BAK" && (
                             <button
                               className="approve-btn"
@@ -424,8 +784,9 @@ const SimpanPinjam = () => {
                             </button>
                           )}
 
-                        {/* WR1 Approval Button */}
-                        {(canApproveWR1 || isDirector) &&
+                        {/* WR1 Approval Button (non-restructuring only) */}
+                        {!loan.restructuredFromLoanId &&
+                          (canApproveWR1 || isDirector) &&
                           loan.status ===
                             "Menunggu Persetujuan Wakil Rektor 2" && (
                             <button
@@ -439,8 +800,9 @@ const SimpanPinjam = () => {
                             </button>
                           )}
 
-                        {/* Rejection Button */}
-                        {(canApproveBAK || canApproveWR1 || isDirector) &&
+                        {/* Rejection Button (non-restructuring only) */}
+                        {!loan.restructuredFromLoanId &&
+                          (canApproveBAK || canApproveWR1 || isDirector) &&
                           (loan.status === "Menunggu Persetujuan BAK" ||
                             loan.status ===
                               "Menunggu Persetujuan Wakil Rektor 2") && (
@@ -455,8 +817,9 @@ const SimpanPinjam = () => {
                             </button>
                           )}
 
-                        {/* Revision Button */}
-                        {(userRole === "BAK" || isDirector) &&
+                        {/* Revision Button (non-restructuring only) */}
+                        {!loan.restructuredFromLoanId &&
+                          (userRole === "BAK" || isDirector) &&
                           loan.status === "Menunggu Persetujuan BAK" && (
                             <button
                               className="revise-btn"
@@ -525,7 +888,7 @@ const SimpanPinjam = () => {
       {/* Revision Modal */}
       {selectedLoan &&
         selectedLoan.action === "revise" &&
-        (userRole === "BAK" || userRole === "Direktur") && (
+        (userRole === "BAK" || userRole === "Direktur" || userRole === "Director") && (
           <RevisionModal
             loan={selectedLoan}
             onClose={() => setSelectedLoan(null)}
@@ -546,6 +909,14 @@ const SimpanPinjam = () => {
           onMakePayment={handleMakePayment}
           onUpdateBankDetails={handleUpdateBankDetails}
           onUpdateUserData={handleUpdateUserData}
+          onViewLoan={async (loanId) => {
+            const targetLoan = await fetchLoanById(loanId);
+            if (targetLoan) {
+              setViewingLoan(targetLoan);
+            } else {
+              alert(`Pinjaman #${loanId.substring(0, 8)} tidak ditemukan`);
+            }
+          }}
           userRole={userRole}
         />
       )}
@@ -556,6 +927,18 @@ const SimpanPinjam = () => {
           loan={paymentProofLoan}
           onClose={() => setPaymentProofLoan(null)}
           onUploadProof={handleUploadPaymentProof}
+        />
+      )}
+
+      {/* Restructuring Review Modal */}
+      {reviewingRestruktur && (
+        <RestrukturisasiReviewModal
+          loan={reviewingRestruktur}
+          onClose={() => setReviewingRestruktur(null)}
+          onApprove={handleApprove}
+          onReject={(loanId, reason) => handleRejectDirect(loanId, reason)}
+          onRevise={(loanId, amount, tenor) => handleReviseDirect(loanId, amount, tenor)}
+          userRole={userRole}
         />
       )}
     </div>

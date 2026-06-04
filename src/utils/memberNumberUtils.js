@@ -93,9 +93,6 @@ export const getNextMemberNumber = async () => {
     // Query for the latest member number for the current year
     const usersRef = collection(db, "users");
 
-    // Use a regex pattern to match the current year's member numbers
-    const yearPattern = `^${currentYear}`;
-
     // Get the highest member number for the current year
     const q = query(usersRef, orderBy("nomorAnggota", "desc"), limit(1));
 

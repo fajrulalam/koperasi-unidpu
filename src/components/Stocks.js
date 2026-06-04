@@ -159,7 +159,7 @@ export default function Stocks() {
   const [tempKategori, setTempKategori] = useState("");
   const [tempSubKategori, setTempSubKategori] = useState("");
   const [tempTipeStock, setTempTipeStock] = useState("");
-    const [tempNamaPemasok, setTempNamaPemasok] = useState("");
+  const [tempNamaPemasok, setTempNamaPemasok] = useState("");
   const [piecesPerBox, setPiecesPerBox] = useState("");
   const [tempDocId, setTempDocId] = useState("");
   const [tempItemId, setTempItemId] = useState("");
@@ -203,6 +203,9 @@ export default function Stocks() {
       ons: 100, // 1 ons = 100 grams
       gram: 1, // base unit
       pcs: 1, // for piece-based items
+      kardus: 1,
+      karton: 1,
+      pack: 1,
     };
 
     // If the unit or product's smallest unit isn't in our conversion table
@@ -1023,7 +1026,7 @@ export default function Stocks() {
         kategori: tempKategori,
         subKategori: tempSubKategori || tempKategori,
         tipeStock: tempTipeStock,
-          namaPemasok: tempNamaPemasok,
+        namaPemasok: tempNamaPemasok,
         satuan: Array.from(
           new Set([tempDefaultSatuan, ...tempAltSatuan].filter(Boolean))
         ),
@@ -1050,8 +1053,7 @@ export default function Stocks() {
       });
       showSuccessMessage("Barang baru berhasil ditambahkan!");
       closeDialog();
-    }
-    else if (currentDialogType === "tambah" && selectedProductId) {
+    } else if (currentDialogType === "tambah" && selectedProductId) {
       if (!tempAmount || !tempSatuan) {
         alert("Please fill the amount and unit.");
         return;
@@ -1107,8 +1109,7 @@ export default function Stocks() {
         alert(error.message);
         return;
       }
-    }
-    else if (currentDialogType === "tetapkan" && selectedProductId) {
+    } else if (currentDialogType === "tetapkan" && selectedProductId) {
       const prod = products[selectedProductId];
       // Allow 0 values but don't allow empty values
       if (tempAmount === "" || !tempSatuan) {
@@ -1178,8 +1179,7 @@ export default function Stocks() {
       } catch (error) {
         alert(error.message);
       }
-    }
-    else if (currentDialogType === "edit" && selectedProductId) {
+    } else if (currentDialogType === "edit" && selectedProductId) {
       const prod = products[selectedProductId];
 
       try {
@@ -1201,7 +1201,7 @@ export default function Stocks() {
           kategori: tempKategori,
           subKategori: tempSubKategori,
           tipeStock: tempTipeStock,
-            namaPemasok: tempNamaPemasok,
+          namaPemasok: tempNamaPemasok,
           satuan: Array.from(new Set([tempDefaultSatuan, ...tempAltSatuan])),
           pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, unit) => {
             acc[unit] = parseRupiah(tempPricePerUnit[unit]);
@@ -1578,23 +1578,23 @@ export default function Stocks() {
                 )}
               </div>
             </th>
-              <th>
-                  <div
-                      className="stock-sortable"
-                      onClick={() => requestSort("namaPemasok")}
-                  >
-                      Nama Pemasok
-                      {sortConfig.key === "namaPemasok" ? (
-                          sortConfig.direction === "asc" ? (
-                              <FaSortUp className="stock-sort-icon stock-sort-active" />
-                          ) : (
-                              <FaSortDown className="stock-sort-icon stock-sort-active" />
-                          )
-                      ) : (
-                          <FaSort className="stock-sort-icon" />
-                      )}
-                  </div>
-              </th>
+            <th>
+              <div
+                className="stock-sortable"
+                onClick={() => requestSort("namaPemasok")}
+              >
+                Nama Pemasok
+                {sortConfig.key === "namaPemasok" ? (
+                  sortConfig.direction === "asc" ? (
+                    <FaSortUp className="stock-sort-icon stock-sort-active" />
+                  ) : (
+                    <FaSortDown className="stock-sort-icon stock-sort-active" />
+                  )
+                ) : (
+                  <FaSort className="stock-sort-icon" />
+                )}
+              </div>
+            </th>
             <th>
               <div
                 className="stock-sortable"
@@ -1698,7 +1698,7 @@ export default function Stocks() {
               <td>{prod.kategori}</td>
               <td>{prod.subKategori}</td>
               <td>{prod.tipeStock}</td>
-                <td>{prod.namaPemasok}</td>
+              <td>{prod.namaPemasok}</td>
               <td>
                 {prod.stock} {prod.smallestUnit}
               </td>
@@ -1805,7 +1805,7 @@ export default function Stocks() {
             tempKategori,
             tempSubKategori,
             tempTipeStock,
-              tempNamaPemasok,
+            tempNamaPemasok,
             tempDefaultSatuan,
             tempAltSatuan,
             tempPricePerUnit,
@@ -1826,8 +1826,8 @@ export default function Stocks() {
               setTempSubKategori(newState.tempSubKategori);
             if ("tempTipeStock" in newState)
               setTempTipeStock(newState.tempTipeStock);
-              if ("tempNamaPemasok" in newState)
-                  setTempNamaPemasok(newState.tempNamaPemasok);
+            if ("tempNamaPemasok" in newState)
+              setTempNamaPemasok(newState.tempNamaPemasok);
             if ("tempDefaultSatuan" in newState)
               setTempDefaultSatuan(newState.tempDefaultSatuan);
             if ("tempAltSatuan" in newState)

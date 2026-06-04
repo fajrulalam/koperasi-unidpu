@@ -6,7 +6,6 @@ import UserMenu from "../components/UserMenu";
 import { LoginTailwind as Login } from "../components";
 import { useAuth } from "../context/AuthContext";
 import { useEnvironment } from "../context/EnvironmentContext";
-import { useDatabase } from "../context/DatabaseContext";
 import MemberPage from "./MemberPage"; // Import the dedicated MemberPage component
 import {
   TransaksiWithEnv as Transaksi,
@@ -21,6 +20,7 @@ import {
   SejarahTransaksiWarehouseWithEnv as SejarahTransaksiWarehouse,
   NotaBelanjaB2BWithEnv as NotaBelanjaB2B,
   AdminPanelWithEnv as AdminPanel,
+  FinanceWithEnv as Finance,
   AdminSettings,
 } from "../components";
 import TailwindTest from "../components/TailwindTest";
@@ -29,7 +29,7 @@ import VoucherKoperasiPageNew from "./VoucherKoperasiPageNew";
 
 const MainPage = () => {
   const { currentUser, userRole, hasAccess } = useAuth();
-  const { isProduction, environment } = useEnvironment();
+  const { isProduction } = useEnvironment();
   const [activeComponent, setActiveComponent] = useState("Transaksi");
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -61,6 +61,8 @@ const MainPage = () => {
         setActiveComponent("SejarahTransaksiWarehouse");
       } else if (hasAccess("NotaBelanjaB2B")) {
         setActiveComponent("NotaBelanjaB2B");
+      } else if (hasAccess("Finance")) {
+        setActiveComponent("Finance");
       } else if (hasAccess("VoucherKoperasi")) {
         setActiveComponent("VoucherKoperasi");
       } else if (hasAccess("AdminPanel")) {
@@ -107,6 +109,8 @@ const MainPage = () => {
         return <NotaBelanjaB2B />;
       case "SejarahTransaksi":
         return <SejarahTransaksi />;
+      case "Finance":
+        return <Finance />;
       case "AdminPanel":
         return <AdminPanel />;
       case "AdminSettings":
@@ -145,37 +149,42 @@ const MainPage = () => {
           display: "flex",
           alignItems: "center",
           padding: "10px 20px",
-          backgroundColor: "#fff",
+          backgroundColor: isProduction ? "#fff" : "#ff9800",
           boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
           position: "relative",
           zIndex: 10,
+          transition: "background-color 0.3s",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "1.2rem" }}>Koperasi Unipdu</h1>
-        <div
+        <h1
           style={{
-            marginLeft: "auto",
-            marginRight: "20px",
-            display: "flex",
-            alignItems: "center",
+            margin: 0,
+            fontSize: "1.2rem",
+            color: isProduction ? "#000" : "#fff",
           }}
         >
-          {!isProduction && (
-            <div
-              style={{
-                backgroundColor: "#ff9800",
-                color: "white",
-                padding: "4px 8px",
-                borderRadius: "4px",
-                fontSize: "0.7rem",
-                fontWeight: "bold",
-                marginRight: "15px",
-              }}
-            >
-              TESTING MODE
-            </div>
-          )}
-        </div>
+          Koperasi Unipdu
+        </h1>
+        {!isProduction && (
+          <span
+            style={{
+              position: "absolute",
+              left: "50%",
+              transform: "translateX(-50%)",
+              backgroundColor: "#fff",
+              color: "#e65100",
+              padding: "2px 10px",
+              borderRadius: "4px",
+              fontSize: "0.75rem",
+              fontWeight: "bold",
+              border: "2px solid #e65100",
+              letterSpacing: "0.5px",
+            }}
+          >
+            TESTING
+          </span>
+        )}
+        <div style={{ marginLeft: "auto" }} />
         <UserMenu />
       </header>
 

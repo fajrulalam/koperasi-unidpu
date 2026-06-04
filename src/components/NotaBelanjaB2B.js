@@ -7,11 +7,15 @@ import {
   FaClock,
   FaChevronDown,
   FaChevronUp,
+  FaEdit,
+  FaStickyNote,
 } from "react-icons/fa";
+import { v4 as uuidv4 } from "uuid";
 import "../styles/NotaBelanjaB2B.css";
 import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { uploadFile } from "../firebase";
+import BulkPurchaseModal from "./BulkPurchaseModal";
 
 // Helper function for currency formatting
 function formatRupiah(value) {
@@ -55,9 +59,16 @@ function formatIndonesianDate(dateString) {
   return `${dayName}, ${day} ${month} ${year}`;
 }
 
+// Helper to parse rupiah strings to numbers
+function parseRupiah(value) {
+  if (!value) return 0;
+  const numeric = value.toString().replace(/\D/g, "");
+  return parseInt(numeric, 10) || 0;
+}
+
 const NotaBelanjaB2B = () => {
   const { currentUser, userRole } = useAuth();
-  const { queryCollection, updateDoc } = useFirestore();
+  const { queryCollection, updateDoc, createDoc } = useFirestore();
 
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,8 +78,23 @@ const NotaBelanjaB2B = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
 
+  // Edit state
+  const [products, setProducts] = useState({});
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // Migration state
+  const [isMigrating, setIsMigrating] = useState(false);
+
+  // Catatan state: tracks the input text per record
+  const [catatanInputs, setCatatanInputs] = useState({});
+  const [savingCatatan, setSavingCatatan] = useState({});
+  const MAX_CATATAN = 5;
+
   // Check permissions
   const canUploadBuktiTransfer = userRole === "BAK";
+  const canEdit = userRole === "Director" || userRole === "Wakil Rektor 2";
+  const canRunMigration = userRole === "superAdmin" || userRole === "Director";
 
   // Fetch nota belanja records
   const fetchRecords = async () => {
@@ -207,8 +233,287 @@ const NotaBelanjaB2B = () => {
     }));
   };
 
+  // Fetch products for the edit modal product picker
+  const fetchProducts = async () => {
+    try {
+      const stocksData = await queryCollection("stocks_b2b");
+      const productsMap = {};
+      stocksData.forEach((item) => {
+        if (!item.isDeleted) {
+          let capitalizedName = "";
+          if (item.name) {
+            capitalizedName = item.name
+              .split(" ")
+              .map(
+                (word) =>
+                  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+              )
+              .join(" ");
+          }
+          productsMap[item.id] = {
+            ...item,
+            name: capitalizedName || item.name,
+            satuan: item.satuan || [],
+          };
+        }
+      });
+      setProducts(productsMap);
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    }
+  };
+
+  // Handle the full edit flow when BulkPurchaseModal submits in edit mode
+  const handleEditSave = async (action, data) => {
+    if (action !== "editBulkPurchase") return;
+
+    const record = editingRecord;
+    const { items, validRows, supplierName: newSupplierName, uploadedNota } = data;
+
+    try {
+      // Step 1: Fetch old stock transactions linked to this nota
+      const allStockTxns = await queryCollection("stockTransactions_b2b");
+      const oldStockTxns = allStockTxns.filter(
+        (t) => t.bulkPurchaseId === record.bulkPurchaseId && !t.isDeleted
+      );
+
+      // Step 2: Fetch fresh product data
+      const freshStocksData = await queryCollection("stocks_b2b");
+      const freshProductsMap = {};
+      freshStocksData.forEach((item) => {
+        if (!item.isDeleted) freshProductsMap[item.id] = item;
+      });
+
+      // Step 3: Reverse old stock transactions (pengadaan added stock, so we subtract)
+      for (const txn of oldStockTxns) {
+        const productId =
+          freshProductsMap[txn.itemId] != null
+            ? txn.itemId
+            : Object.keys(freshProductsMap).find(
+                (key) => freshProductsMap[key].itemId === txn.itemId
+              );
+
+        if (productId) {
+          const product = freshProductsMap[productId];
+          const restoredStock = product.stock - txn.quantity;
+          const restoredValue = (product.stockValue || 0) - (txn.cost || 0);
+
+          await updateDoc("stocks_b2b", productId, {
+            stock: restoredStock,
+            stockValue: Math.max(0, restoredValue),
+          });
+
+          freshProductsMap[productId] = {
+            ...product,
+            stock: restoredStock,
+            stockValue: Math.max(0, restoredValue),
+          };
+        }
+
+        // Mark old transaction as deleted
+        await updateDoc("stockTransactions_b2b", txn.id, { isDeleted: true });
+      }
+
+      // Step 4: Apply new stock transactions
+      const newBulkPurchaseId = uuidv4();
+
+      for (const row of validRows) {
+        const quantity = parseFloat(row.quantity);
+        const subtotal = parseRupiah(row.subtotal);
+        const product = freshProductsMap[row.product.id] || row.product;
+
+        const transactionDoc = {
+          itemId: row.product.itemId || row.product.id,
+          itemName: row.product.name,
+          kategori: row.product.kategori || "",
+          subKategori: row.product.subKategori || "",
+          unit: row.unit,
+          cost: subtotal,
+          quantity: quantity,
+          originalQuantity: quantity,
+          originalUnit: row.unit,
+          transactionType: "pengadaan",
+          transactionVia: "bulkPurchase",
+          isDeleted: false,
+          createdBy: currentUser ? currentUser.email : "unknown",
+          bulkPurchaseId: newBulkPurchaseId,
+          items: items,
+        };
+
+        const txId = uuidv4();
+        await createDoc("stockTransactions_b2b", transactionDoc, txId);
+
+        const newStock = (product.stock || 0) + quantity;
+        const newStockValue = (product.stockValue || 0) + subtotal;
+
+        await updateDoc("stocks_b2b", row.product.id, {
+          stock: newStock,
+          stockValue: newStockValue,
+        });
+
+        freshProductsMap[row.product.id] = {
+          ...product,
+          stock: newStock,
+          stockValue: newStockValue,
+        };
+      }
+
+      // Step 5: Update the notaBelanja_b2b document
+      const notaUpdateData = {
+        items: items,
+        supplierName: newSupplierName,
+        bulkPurchaseId: newBulkPurchaseId,
+      };
+
+      // If a new nota file was uploaded, update the file info
+      if (uploadedNota && !uploadedNota.isExisting) {
+        notaUpdateData.fileName = uploadedNota.fileName;
+        notaUpdateData.downloadURL = uploadedNota.downloadURL;
+      }
+
+      await updateDoc("notaBelanja_b2b", record.id, notaUpdateData);
+
+      // Refresh data
+      await fetchRecords();
+      await fetchProducts();
+      setEditingRecord(null);
+
+      setSnackbar({ open: true, message: "Nota belanja berhasil diperbarui!" });
+      setTimeout(() => setSnackbar({ open: false, message: "" }), 3000);
+    } catch (error) {
+      console.error("Error updating nota belanja:", error);
+      throw error;
+    }
+  };
+
+  // Add a catatan to a nota belanja record
+  const handleAddCatatan = async (recordId) => {
+    const text = (catatanInputs[recordId] || "").trim();
+    if (!text) return;
+
+    setSavingCatatan((prev) => ({ ...prev, [recordId]: true }));
+    try {
+      const record = records.find((r) => r.id === recordId);
+      const existingCatatan = record?.catatan || [];
+
+      if (existingCatatan.length >= MAX_CATATAN) {
+        alert(`Maksimal ${MAX_CATATAN} catatan per nota belanja.`);
+        return;
+      }
+
+      const newEntry = `${text} (${currentUser?.email || "unknown"})`;
+      const updatedCatatan = [...existingCatatan, newEntry];
+
+      await updateDoc("notaBelanja_b2b", recordId, {
+        catatan: updatedCatatan,
+      });
+
+      // Clear input and refresh
+      setCatatanInputs((prev) => ({ ...prev, [recordId]: "" }));
+      await fetchRecords();
+
+      setSnackbar({ open: true, message: "Catatan berhasil ditambahkan!" });
+      setTimeout(() => setSnackbar({ open: false, message: "" }), 3000);
+    } catch (error) {
+      console.error("Error adding catatan:", error);
+      alert("Error menambahkan catatan: " + error.message);
+    } finally {
+      setSavingCatatan((prev) => ({ ...prev, [recordId]: false }));
+    }
+  };
+
+  // Migration: backfill bulkPurchaseId on existing records
+  const runMigration = async () => {
+    if (isMigrating) return;
+    if (!window.confirm(
+      "Ini akan menambahkan bulkPurchaseId ke semua nota belanja dan transaksi yang belum memilikinya. Lanjutkan?"
+    )) return;
+
+    setIsMigrating(true);
+    try {
+      const allNotas = await queryCollection("notaBelanja_b2b");
+      const notasWithoutId = allNotas.filter((n) => !n.bulkPurchaseId);
+
+      const allTxns = await queryCollection("stockTransactions_b2b");
+      const txnsWithoutId = allTxns.filter(
+        (t) =>
+          t.transactionVia === "bulkPurchase" &&
+          !t.isDeleted &&
+          !t.bulkPurchaseId
+      );
+
+      let matchedNotas = 0;
+      let matchedTxns = 0;
+      let unmatchedNotas = 0;
+
+      for (const nota of notasWithoutId) {
+        const notaItemsKey = JSON.stringify(
+          (nota.items || []).map((i) => ({
+            itemId: i.itemId,
+            quantity: i.quantity,
+            subtotal: i.subtotal,
+          }))
+        );
+
+        // Find transactions with matching items array
+        const matchingTxns = txnsWithoutId.filter((txn) => {
+          const txnItemsKey = JSON.stringify(
+            (txn.items || []).map((i) => ({
+              itemId: i.itemId,
+              quantity: i.quantity,
+              subtotal: i.subtotal,
+            }))
+          );
+          return txnItemsKey === notaItemsKey;
+        });
+
+        if (matchingTxns.length > 0) {
+          const newBulkPurchaseId = uuidv4();
+
+          await updateDoc("notaBelanja_b2b", nota.id, {
+            bulkPurchaseId: newBulkPurchaseId,
+          });
+          matchedNotas++;
+
+          for (const txn of matchingTxns) {
+            await updateDoc("stockTransactions_b2b", txn.id, {
+              bulkPurchaseId: newBulkPurchaseId,
+            });
+            matchedTxns++;
+            // Remove from pool so they don't match another nota
+            const idx = txnsWithoutId.indexOf(txn);
+            if (idx > -1) txnsWithoutId.splice(idx, 1);
+          }
+        } else {
+          // No matching transactions found -- assign ID to nota only
+          const newBulkPurchaseId = uuidv4();
+          await updateDoc("notaBelanja_b2b", nota.id, {
+            bulkPurchaseId: newBulkPurchaseId,
+          });
+          unmatchedNotas++;
+        }
+      }
+
+      await fetchRecords();
+
+      const message = `Migrasi selesai! ${matchedNotas} nota berhasil ditautkan dengan ${matchedTxns} transaksi.` +
+        (unmatchedNotas > 0
+          ? ` ${unmatchedNotas} nota tidak ditemukan transaksinya (tetap diberi ID).`
+          : "");
+
+      setSnackbar({ open: true, message });
+      setTimeout(() => setSnackbar({ open: false, message: "" }), 5000);
+    } catch (error) {
+      console.error("Error running migration:", error);
+      alert("Error saat migrasi: " + error.message);
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   useEffect(() => {
     fetchRecords();
+    fetchProducts();
   }, []);
 
   // Calculate pagination
@@ -230,6 +535,19 @@ const NotaBelanjaB2B = () => {
     <div className="nota-belanja-b2b-container">
       <div className="nota-belanja-b2b-header">
         <h1>Nota Belanja B2B</h1>
+        {canRunMigration && records.some((r) => !r.bulkPurchaseId) && (
+          <button
+            className="migration-btn"
+            onClick={runMigration}
+            disabled={isMigrating}
+            style={{
+              opacity: isMigrating ? 0.5 : 1,
+              cursor: isMigrating ? "not-allowed" : "pointer",
+            }}
+          >
+            {isMigrating ? "Migrasi berjalan..." : "Migrasi Data (Backfill ID)"}
+          </button>
+        )}
       </div>
 
       <div className="nota-belanja-b2b-records">
@@ -299,7 +617,7 @@ const NotaBelanjaB2B = () => {
                           handleViewFile(record.process.transferBAK)
                         }
                       >
-                        <FaEye /> Lihat Bukti Transfer
+                        <FaEye /> Bukti Transfer
                       </button>
                     ) : canUploadBuktiTransfer ? (
                       <label className="action-btn active">
@@ -319,6 +637,32 @@ const NotaBelanjaB2B = () => {
                       <button className="action-btn disabled" disabled>
                         <FaUpload /> Upload Bukti Transfer
                       </button>
+                    )}
+
+                    {/* Edit Button */}
+                    {canEdit && record.bulkPurchaseId && !record.process?.transferBAK?.completed ? (
+                      <button
+                        className="action-btn edit-btn"
+                        onClick={() => {
+                          setEditingRecord(record);
+                          setShowEditModal(true);
+                        }}
+                      >
+                        <FaEdit /> Edit
+                      </button>
+                    ) : (
+                      <div className="action-btn-tooltip-wrapper">
+                        <button className="action-btn disabled" disabled>
+                          <FaEdit /> Edit
+                        </button>
+                        <span className="action-btn-tooltip">
+                          {!canEdit
+                            ? "Hanya Director/Wakil Rektor 2 yang bisa mengedit"
+                            : !record.bulkPurchaseId
+                            ? "Nota ini dibuat sebelum fitur edit. Jalankan migrasi data terlebih dahulu."
+                            : "Nota yang sudah ditransfer tidak bisa diedit"}
+                        </span>
+                      </div>
                     )}
 
                     {/* Toggle Details Button */}
@@ -355,7 +699,7 @@ const NotaBelanjaB2B = () => {
                                 <span className="subtotal">
                                   Rp{" "}
                                   {formatRupiah(
-                                    (item.subtotal || 0).toString()
+                                    (item.subtotal || 0).toString(),
                                   )}
                                 </span>
                               </div>
@@ -367,6 +711,57 @@ const NotaBelanjaB2B = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Catatan Section */}
+                  <div className="catatan-section">
+                    {record.catatan && record.catatan.length > 0 && (
+                      <div className="catatan-list">
+                        {record.catatan.map((note, idx) => (
+                          <div key={idx} className="catatan-entry">
+                            <FaStickyNote className="catatan-icon" />
+                            <span className="catatan-text">
+                              Catatan: {note}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {(!record.catatan || record.catatan.length < MAX_CATATAN) && (
+                      <div className="catatan-input-row">
+                        <input
+                          type="text"
+                          className="catatan-input"
+                          placeholder="Tulis catatan..."
+                          value={catatanInputs[record.id] || ""}
+                          onChange={(e) =>
+                            setCatatanInputs((prev) => ({
+                              ...prev,
+                              [record.id]: e.target.value,
+                            }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !savingCatatan[record.id]) {
+                              handleAddCatatan(record.id);
+                            }
+                          }}
+                          disabled={savingCatatan[record.id]}
+                        />
+                        <button
+                          className="catatan-submit-btn"
+                          onClick={() => handleAddCatatan(record.id)}
+                          disabled={
+                            savingCatatan[record.id] ||
+                            !(catatanInputs[record.id] || "").trim()
+                          }
+                        >
+                          {savingCatatan[record.id]
+                            ? "Menyimpan..."
+                            : "Tambah Catatan"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -417,7 +812,7 @@ const NotaBelanjaB2B = () => {
                         );
                       }
                       return null;
-                    }
+                    },
                   )}
                 </div>
 
@@ -438,6 +833,21 @@ const NotaBelanjaB2B = () => {
           </>
         )}
       </div>
+
+      {/* Edit Modal */}
+      <BulkPurchaseModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingRecord(null);
+        }}
+        onSave={handleEditSave}
+        products={products}
+        currentUser={currentUser}
+        isWarehouse={true}
+        isEditMode={true}
+        initialData={editingRecord}
+      />
 
       {/* Snackbar */}
       {snackbar.open && (

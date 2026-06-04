@@ -366,6 +366,98 @@
   font-size: 14px;
 }
 
+/* Restructuring styles */
+.restruktur-badge {
+  display: inline-block;
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.restruktur-pending-banner {
+  background-color: #fef3c7;
+  color: #92400e;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-align: center;
+  border: 1px solid #fbbf24;
+}
+
+.linked-loan-banner {
+  background-color: #eff6ff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  border: 1px solid #93c5fd;
+}
+
+.linked-loan-banner-success {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+}
+
+.linked-loan-link {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.linked-loan-link:hover {
+  color: #1d4ed8;
+}
+
+.brutal-button.warning-button {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 2px solid #92400e;
+}
+
+.brutal-button.warning-button:hover {
+  background-color: #fde68a;
+}
+
+.brutal-button.restruktur-purple-btn {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #7c3aed 100%);
+  background-size: 200% 200%;
+  color: #fff;
+  border-color: #1f2937;
+  box-shadow: 3px 3px 0 #1f2937;
+  animation: shimmer-purple 3s ease-in-out infinite;
+}
+.brutal-button.restruktur-purple-btn:hover {
+  background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 50%, #6d28d9 100%);
+  background-size: 200% 200%;
+  animation: shimmer-purple 3s ease-in-out infinite;
+}
+@keyframes shimmer-purple {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.status-badge.restructured {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-badge.restructuring-pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .detail-grid {

@@ -1,89 +1,77 @@
-import React, { useState, useEffect } from 'react';
-import { useEnvironment } from '../context/EnvironmentContext';
-import { voucherService } from '../services/voucherService';
-import '../styles/VoucherDetailModalNew.css';
+import React, { useState, useEffect } from "react";
+import { useEnvironment } from "../context/EnvironmentContext";
+import { voucherService } from "../services/voucherService";
+import { jsPDF } from "jspdf";
+import JsBarcode from "jsbarcode";
+import "../styles/VoucherDetailModalNew.css";
 
-const VoucherDetailModalNew = ({ voucherGroup, onClose, onVoucherGroupUpdated }) => {
+const VoucherDetailModalNew = ({
+  voucherGroup,
+  onClose,
+  onVoucherGroupUpdated,
+  readOnly = false,
+}) => {
   const { isProduction } = useEnvironment();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('vouchers');
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  
-  // Edit form state
-  const [editData, setEditData] = useState({
-    voucherName: voucherGroup.voucherName,
-    value: voucherService.formatNumber(voucherGroup.value),
-    activeDate: '',
-    expireDate: '',
-    isActive: voucherGroup.isActive
-  });
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   // Add members state
   const [showAddMembers, setShowAddMembers] = useState(false);
-  const [allMembers, setAllMembers] = useState([]);
   const [availableMembers, setAvailableMembers] = useState([]);
   const [selectedNewMembers, setSelectedNewMembers] = useState([]);
-  const [memberFilters, setMemberFilters] = useState({
-    kantor: [],
-    satuanKerja: []
+  const [memberSearch, setMemberSearch] = useState("");
+
+  const isForMemberOnly = voucherGroup.isVoucherForMemberOnly !== false;
+  const isCashbackCampaign = voucherGroup.type === "cashbackCampaign";
+
+  const [editData, setEditData] = useState({
+    voucherName: voucherGroup.voucherName,
+    value: voucherService.formatNumber(voucherGroup.value),
+    threshold: isCashbackCampaign
+      ? voucherService.formatNumber(voucherGroup.threshold || 0)
+      : "",
+    activeDate: "",
+    expireDate: "",
+    isActive: voucherGroup.isActive,
   });
 
   useEffect(() => {
     fetchVouchers();
-    
-    // Format dates for datetime-local input
     if (voucherGroup.activeDate) {
-      const activeDate = voucherGroup.activeDate.toDate ? 
-        voucherGroup.activeDate.toDate() : 
-        new Date(voucherGroup.activeDate);
-      setEditData(prev => ({
+      const activeDate = voucherGroup.activeDate.toDate
+        ? voucherGroup.activeDate.toDate()
+        : new Date(voucherGroup.activeDate);
+      setEditData((prev) => ({
         ...prev,
-        activeDate: activeDate.toISOString().slice(0, 16)
+        activeDate: activeDate.toISOString().slice(0, 16),
       }));
     }
-    
     if (voucherGroup.expireDate) {
-      const expireDate = voucherGroup.expireDate.toDate ? 
-        voucherGroup.expireDate.toDate() : 
-        new Date(voucherGroup.expireDate);
-      setEditData(prev => ({
+      const expireDate = voucherGroup.expireDate.toDate
+        ? voucherGroup.expireDate.toDate()
+        : new Date(voucherGroup.expireDate);
+      setEditData((prev) => ({
         ...prev,
-        expireDate: expireDate.toISOString().slice(0, 16)
+        expireDate: expireDate.toISOString().slice(0, 16),
       }));
     }
   }, [voucherGroup, isProduction]);
 
-  const handleDeleteVoucherGroup = async () => {
-    try {
-      setDeleting(true);
-      setError(null);
-      await voucherService.deleteVoucherGroup(voucherGroup.id, isProduction);
-      
-      // Close modal and refresh the parent component
-      setShowDeleteConfirmation(false);
-      onVoucherGroupUpdated();
-      onClose();
-    } catch (error) {
-      console.error('Error deleting voucher group:', error);
-      setError('Gagal menghapus grup voucher');
-      setShowDeleteConfirmation(false);
-      setDeleting(false);
-    }
-  };
-
   const fetchVouchers = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const vouchersData = await voucherService.getVouchersByGroupId(voucherGroup.id, isProduction);
+      const vouchersData = await voucherService.getVouchersByGroupId(
+        voucherGroup.id,
+        isProduction
+      );
       setVouchers(vouchersData);
-    } catch (error) {
-      console.error('Error fetching vouchers:', error);
-      setError('Gagal memuat data voucher');
+    } catch (err) {
+      setError("Gagal memuat data voucher");
     } finally {
       setLoading(false);
     }
@@ -92,474 +80,791 @@ const VoucherDetailModalNew = ({ voucherGroup, onClose, onVoucherGroupUpdated })
   const fetchAvailableMembers = async () => {
     try {
       const members = await voucherService.getMembers(isProduction);
-      setAllMembers(members);
-      
-      // Filter out members who already have vouchers in this group
-      const existingUserIds = vouchers.map(v => v.userId);
-      const available = members.filter(member => !existingUserIds.includes(member.id));
-      setAvailableMembers(available);
-    } catch (error) {
-      console.error('Error fetching members:', error);
-      setError('Gagal memuat data anggota');
+      const existingUserIds = vouchers.map((v) => v.userId);
+      setAvailableMembers(
+        members.filter((m) => !existingUserIds.includes(m.id))
+      );
+    } catch (err) {
+      setError("Gagal memuat data anggota");
     }
   };
 
-  const handleEditToggle = () => {
-    setIsEditing(!isEditing);
-    setError(null);
-  };
-
   const handleEditDataChange = (field, value) => {
-    if (field === 'value') {
-      const numericValue = value.replace(/[^\d]/g, '');
-      const formattedValue = voucherService.formatNumber(numericValue);
-      setEditData(prev => ({
+    if (field === "value" || field === "threshold") {
+      const numericValue = value.replace(/[^\d]/g, "");
+      setEditData((prev) => ({
         ...prev,
-        [field]: formattedValue
+        [field]: voucherService.formatNumber(numericValue),
       }));
     } else {
-      setEditData(prev => ({
-        ...prev,
-        [field]: value
-      }));
+      setEditData((prev) => ({ ...prev, [field]: value }));
     }
   };
 
   const handleSaveEdit = async () => {
     try {
       setLoading(true);
-      setError(null);
-      
       const updateData = {
         voucherName: editData.voucherName,
         value: voucherService.parseCurrency(editData.value),
         activeDate: new Date(editData.activeDate),
         expireDate: new Date(editData.expireDate),
-        isActive: editData.isActive
+        isActive: editData.isActive,
       };
 
-      await voucherService.updateVoucherGroup(voucherGroup.id, updateData, isProduction);
-      
+      // Include threshold for campaign type
+      if (isCashbackCampaign) {
+        updateData.threshold = voucherService.parseCurrency(editData.threshold);
+      }
+
+      await voucherService.updateVoucherGroup(
+        voucherGroup.id,
+        updateData,
+        isProduction
+      );
       setIsEditing(false);
       onVoucherGroupUpdated();
-    } catch (error) {
-      console.error('Error updating voucher group:', error);
-      setError('Gagal memperbarui voucher group');
+    } catch (err) {
+      setError("Gagal menyimpan perubahan");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteVoucher = async (voucherId) => {
-    if (!window.confirm('Apakah Anda yakin ingin menghapus voucher ini?')) {
-      return;
-    }
-
+    if (!window.confirm("Hapus voucher ini?")) return;
     try {
       setLoading(true);
-      setError(null);
-      
       await voucherService.deleteVoucherFromGroup(voucherId, isProduction);
       await fetchVouchers();
-      
-      // Update voucher group total count
-      const updatedVouchers = vouchers.filter(v => v.id !== voucherId);
-      await voucherService.updateVoucherGroup(voucherGroup.id, {
-        totalVouchers: updatedVouchers.length
-      }, isProduction);
-      
-    } catch (error) {
-      console.error('Error deleting voucher:', error);
-      setError('Gagal menghapus voucher');
+      await voucherService.updateVoucherGroup(
+        voucherGroup.id,
+        { totalVouchers: vouchers.length - 1 },
+        isProduction
+      );
+    } catch (err) {
+      setError("Gagal menghapus voucher");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteVoucherGroup = async () => {
+    try {
+      setDeleting(true);
+      await voucherService.deleteVoucherGroup(voucherGroup.id, isProduction);
+      setShowDeleteConfirmation(false);
+      onVoucherGroupUpdated();
+      onClose();
+    } catch (err) {
+      setError("Gagal menghapus grup voucher");
+      setShowDeleteConfirmation(false);
+      setDeleting(false);
     }
   };
 
   const handleAddMembersToggle = () => {
     setShowAddMembers(!showAddMembers);
-    if (!showAddMembers) {
-      fetchAvailableMembers();
-    }
-  };
-
-  const handleAddSelectedMembers = async () => {
-    if (selectedNewMembers.length === 0) {
-      setError('Pilih minimal satu anggota untuk ditambahkan');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      await voucherService.addMembersToVoucherGroup(
-        voucherGroup.id,
-        selectedNewMembers,
-        isProduction
-      );
-      
-      setSelectedNewMembers([]);
-      setShowAddMembers(false);
-      await fetchVouchers();
-      
-    } catch (error) {
-      console.error('Error adding members:', error);
-      setError('Gagal menambahkan anggota');
-    } finally {
-      setLoading(false);
-    }
+    if (!showAddMembers) fetchAvailableMembers();
   };
 
   const handleMemberSelect = (member) => {
-    const isSelected = selectedNewMembers.find(m => m.id === member.id);
+    const isSelected = selectedNewMembers.some((m) => m.id === member.id);
     if (isSelected) {
-      setSelectedNewMembers(selectedNewMembers.filter(m => m.id !== member.id));
+      setSelectedNewMembers(
+        selectedNewMembers.filter((m) => m.id !== member.id)
+      );
     } else {
       setSelectedNewMembers([...selectedNewMembers, member]);
     }
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString('id-ID', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getStatusBadge = (voucher) => {
-    const now = new Date();
-    const activeDate = voucher.activeDate?.toDate ? voucher.activeDate.toDate() : new Date(voucher.activeDate);
-    const expireDate = voucher.expireDate?.toDate ? voucher.expireDate.toDate() : new Date(voucher.expireDate);
-    
-    if (voucher.isClaimed) {
-      return <span className="status-badge claimed">CLAIMED</span>;
-    } else if (!voucher.isActive) {
-      return <span className="status-badge inactive">TIDAK AKTIF</span>;
-    } else if (now < activeDate) {
-      return <span className="status-badge pending">BELUM AKTIF</span>;
-    } else if (now > expireDate) {
-      return <span className="status-badge expired">KEDALUWARSA</span>;
-    } else {
-      return <span className="status-badge active">AKTIF</span>;
+  const handleAddSelectedMembers = async () => {
+    if (selectedNewMembers.length === 0) return;
+    try {
+      setLoading(true);
+      await voucherService.addMembersToVoucherGroup(
+        voucherGroup.id,
+        selectedNewMembers,
+        isProduction
+      );
+      setSelectedNewMembers([]);
+      setShowAddMembers(false);
+      await fetchVouchers();
+    } catch (err) {
+      setError("Gagal menambahkan anggota");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const renderVouchersTab = () => (
-    <div>
-      <div className="detail-section-voucherDetailModal">
-        <div className="vouchers-actions-voucherDetailModal">
-          <h4>Kelola Anggota</h4>
-          <button 
-            className="button-primary-voucherDetailModal"
-            onClick={handleAddMembersToggle}
-            disabled={loading}
-          >
-            {showAddMembers ? 'Batal' : 'Tambah Anggota'}
-          </button>
-        </div>
+  const formatDate = (timestamp) => {
+    if (!timestamp) return "-";
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
-        {showAddMembers && (
-          <div className="add-members-section-voucherDetailModal">
-            <div className="detail-grid-voucherDetailModal">
-              <div className="detail-item-voucherDetailModal" style={{ gridColumn: "span 2" }}>
-                <span>Anggota Tersedia: {availableMembers.length} | Dipilih: {selectedNewMembers.length}</span>
-              </div>
-            </div>
-            
-            <div className="members-list-voucherDetailModal">
-              {availableMembers.map(member => (
-                <div key={member.id} className="member-item-voucherDetailModal">
-                  <label className="checkbox-label-voucherDetailModal">
-                    <input
-                      type="checkbox"
-                      checked={selectedNewMembers.find(m => m.id === member.id) ? true : false}
-                      onChange={() => handleMemberSelect(member)}
-                    />
-                    <div className="member-info-voucherDetailModal">
-                      <strong>{member.nama}</strong>
-                      <span>{member.kantor} - {member.satuanKerja}</span>
-                    </div>
-                  </label>
-                </div>
-              ))}
-            </div>
-            
-            <div className="add-members-actions-voucherDetailModal">
-              <button 
-                className="button-success-voucherDetailModal"
-                onClick={handleAddSelectedMembers}
-                disabled={loading || selectedNewMembers.length === 0}
-              >
-                Tambah {selectedNewMembers.length} Anggota
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+  const formatShortDate = (timestamp) => {
+    if (!timestamp) return "-";
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    return date.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
-      <div className="detail-section-voucherDetailModal">
-        <h4>Daftar Voucher</h4>
-        <div className="vouchers-table-voucherDetailModal">
-          <table>
-            <thead>
-              <tr>
-                <th>Nama</th>
-                <th>Kantor</th>
-                <th>Satuan Kerja</th>
-                <th>Nilai</th>
-                <th>Status</th>
-                <th>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {vouchers.map(voucher => (
-                <tr key={voucher.id}>
-                  <td>{voucher.nama}</td>
-                  <td>{voucher.kantor}</td>
-                  <td>{voucher.satuanKerja}</td>
-                  <td>{voucherService.formatCurrency(voucher.value)}</td>
-                  <td>{getStatusBadge(voucher)}</td>
-                  <td>
-                    <button 
-                      className="button-danger-voucherDetailModal button-small-voucherDetailModal"
-                      onClick={() => handleDeleteVoucher(voucher.id)}
-                      disabled={loading}
-                    >
-                      Hapus
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+  const getVoucherStatus = () => {
+    const now = new Date();
+    const activeDate = voucherGroup.activeDate?.toDate
+      ? voucherGroup.activeDate.toDate()
+      : new Date(voucherGroup.activeDate);
+    const expireDate = voucherGroup.expireDate?.toDate
+      ? voucherGroup.expireDate.toDate()
+      : new Date(voucherGroup.expireDate);
+
+    if (!voucherGroup.isActive) return { label: "Nonaktif", type: "inactive" };
+    if (now < activeDate) return { label: "Belum Aktif", type: "pending" };
+    if (now > expireDate) return { label: "Kedaluwarsa", type: "expired" };
+    return { label: "Aktif", type: "active" };
+  };
+
+  const generateVouchersPdf = async () => {
+    try {
+      setGeneratingPdf(true);
+      setError(null);
+
+      const pageWidth = 210;
+      const pageHeight = 297;
+      const margin = 15;
+      const columns = 2;
+      const rows = 4;
+      const cardGap = 10;
+
+      const cardWidth =
+        (pageWidth - margin * 2 - (columns - 1) * cardGap) / columns;
+      const cardHeight =
+        (pageHeight - margin * 2 - (rows - 1) * cardGap) / rows;
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const loadImage = (src) =>
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+
+      let logoDataUrl = null;
+      try {
+        const logo = await loadImage("/logo-koperasi-favicon.png");
+        const canvas = document.createElement("canvas");
+        canvas.width = logo.width;
+        canvas.height = logo.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(logo, 0, 0);
+        logoDataUrl = canvas.toDataURL("image/png");
+      } catch (e) {
+        console.warn("Could not load logo:", e);
+      }
+
+      const vouchersPerPage = columns * rows;
+      const totalPages = Math.ceil(vouchers.length / vouchersPerPage);
+
+      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+        if (pageIndex > 0) pdf.addPage();
+
+        const startIndex = pageIndex * vouchersPerPage;
+        const endIndex = Math.min(
+          startIndex + vouchersPerPage,
+          vouchers.length
+        );
+
+        for (let i = startIndex; i < endIndex; i++) {
+          const voucher = vouchers[i];
+          const positionInPage = i - startIndex;
+          const col = positionInPage % columns;
+          const row = Math.floor(positionInPage / columns);
+
+          const x = margin + col * (cardWidth + cardGap);
+          const y = margin + row * (cardHeight + cardGap);
+
+          pdf.setDrawColor(220, 220, 220);
+          pdf.setLineWidth(0.4);
+          pdf.rect(x, y, cardWidth, cardHeight);
+
+          if (logoDataUrl) {
+            const watermarkSize = Math.min(cardWidth, cardHeight) * 0.5;
+            const watermarkX = x + (cardWidth - watermarkSize) / 2;
+            const watermarkY = y + (cardHeight - watermarkSize) / 2;
+            pdf.saveGraphicsState();
+            pdf.setGState(new pdf.GState({ opacity: 0.12 }));
+            pdf.addImage(
+              logoDataUrl,
+              "PNG",
+              watermarkX,
+              watermarkY,
+              watermarkSize,
+              watermarkSize
+            );
+            pdf.restoreGraphicsState();
+          }
+
+          pdf.setFontSize(14);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(236, 72, 153);
+          pdf.text("UNIMART", x + 5, y + 10);
+
+          pdf.setFontSize(11);
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(31, 41, 55);
+          const voucherNameLines = pdf.splitTextToSize(
+            voucherGroup.voucherName,
+            cardWidth - 10
+          );
+          pdf.text(voucherNameLines, x + 5, y + 18);
+
+          pdf.setFontSize(10);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(59, 130, 246);
+          pdf.text(voucherService.formatCurrency(voucher.value), x + 5, y + 28);
+
+          const barcodeCanvas = document.createElement("canvas");
+          JsBarcode(barcodeCanvas, voucher.id, {
+            format: "CODE128",
+            width: 2,
+            height: 50,
+            displayValue: false,
+            margin: 0,
+          });
+
+          const barcodeDataUrl = barcodeCanvas.toDataURL("image/png");
+          pdf.addImage(
+            barcodeDataUrl,
+            "PNG",
+            x + 5,
+            y + 33,
+            cardWidth - 10,
+            cardHeight - 38
+          );
+        }
+      }
+
+      pdf.save(
+        `vouchers-${voucherGroup.voucherName}-${
+          new Date().toISOString().split("T")[0]
+        }.pdf`
+      );
+    } catch (err) {
+      setError("Gagal membuat PDF");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+  const status = getVoucherStatus();
+  // For campaign vouchers, count different statuses separately
+  // For regular vouchers, count those with isClaimed === true
+  const claimedCount = isCashbackCampaign
+    ? vouchers.filter((v) => v.status === "CLAIMED").length
+    : vouchers.filter(
+        (v) =>
+          v.isClaimed ||
+          (v.isOneTimeUse === false &&
+            (v.amountSpent || 0) >= v.value)
+      ).length;
+  const redeemedCount = isCashbackCampaign
+    ? vouchers.filter((v) => v.status === "REDEEMED").length
+    : 0;
+  const inProgressCount = isCashbackCampaign
+    ? vouchers.filter((v) => v.status === "IN_PROGRESS").length
+    : 0;
+  const filteredAvailableMembers = availableMembers.filter((m) =>
+    m.nama?.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
-  const renderSettingsTab = () => (
-  <div className="detail-section-voucherDetailModal">
-    <div className="settings-actions-voucherDetailModal">
-      <h4>Pengaturan Voucher</h4>
-      <div className="action-buttons-voucherDetailModal">
-        <button 
-          className={`button-${isEditing ? 'secondary' : 'primary'}-voucherDetailModal`}
-          onClick={handleEditToggle}
-          disabled={loading || deleting}
-        >
-          {isEditing ? 'Batal' : 'Edit'}
-        </button>
-        
-        {isEditing && (
-          <button 
-            className="button-success-voucherDetailModal"
-            onClick={handleSaveEdit}
-            disabled={loading || deleting}
-          >
-            Simpan
-          </button>
-        )}
-      </div>
-    </div>
-
-    <div className="detail-grid-voucherDetailModal">
-      <div className="detail-item-voucherDetailModal">
-        <span>Nama Voucher</span>
-        {isEditing ? (
-          <input
-            type="text"
-            value={editData.voucherName}
-            onChange={(e) => handleEditDataChange('voucherName', e.target.value)}
-          />
-        ) : (
-          <strong>{voucherGroup.voucherName}</strong>
-        )}
-      </div>
-
-      <div className="detail-item-voucherDetailModal">
-        <span>Nilai Voucher</span>
-        {isEditing ? (
-          <input
-            type="text"
-            value={editData.value}
-            onChange={(e) => handleEditDataChange('value', e.target.value)}
-          />
-        ) : (
-          <strong>{voucherService.formatCurrency(voucherGroup.value)}</strong>
-        )}
-      </div>
-
-      <div className="detail-item-voucherDetailModal">
-        <span>Tanggal Aktif</span>
-        {isEditing ? (
-          <input
-            type="datetime-local"
-            value={editData.activeDate}
-            onChange={(e) => handleEditDataChange('activeDate', e.target.value)}
-          />
-        ) : (
-          <strong>{formatDate(voucherGroup.activeDate)}</strong>
-        )}
-      </div>
-
-      <div className="detail-item-voucherDetailModal">
-        <span>Tanggal Berakhir</span>
-        {isEditing ? (
-          <input
-            type="datetime-local"
-            value={editData.expireDate}
-            onChange={(e) => handleEditDataChange('expireDate', e.target.value)}
-          />
-        ) : (
-          <strong>{formatDate(voucherGroup.expireDate)}</strong>
-        )}
-      </div>
-
-      <div className="detail-item-voucherDetailModal">
-        <span>Status</span>
-        {isEditing ? (
-          <select
-            value={editData.isActive}
-            onChange={(e) => handleEditDataChange('isActive', e.target.value === 'true')}
-          >
-            <option value="true">Aktif</option>
-            <option value="false">Tidak Aktif</option>
-          </select>
-        ) : (
-          <strong>{voucherGroup.isActive ? 'Aktif' : 'Tidak Aktif'}</strong>
-        )}
-      </div>
-    </div>
-    
-    {/* Danger Zone Section */}
-    <div className="danger-zone-section">
-      <h4>Zona Berbahaya</h4>
-      <div className="danger-zone-warning">
-        <p>Tindakan di bawah ini tidak dapat dibatalkan. Harap berhati-hati!</p>
-      </div>
-      <div className="danger-zone-actions">
-        <button 
-          className="button-danger-voucherDetailModal"
-          onClick={() => setShowDeleteConfirmation(true)}
-          disabled={loading || deleting || isEditing}
-        >
-          Hapus Grup Voucher
-        </button>
-      </div>
-    </div>
-  </div>
-);  
-
   return (
-    <div className="modal-overlay-voucherDetailModal" onClick={onClose}>
-      <div 
-        className="modal-content-voucherDetailModal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header-voucherDetailModal">
-          <h3>{voucherGroup.voucherName}</h3>
-          <button className="modal-close-voucherDetailModal" onClick={onClose}>×</button>
+    <div className="vd-overlay" onClick={onClose}>
+      <div className="vd-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="vd-header">
+          <div className="vd-header-info">
+            <h2>{voucherGroup.voucherName}</h2>
+            <div className="vd-header-meta">
+              <span className={`vd-status vd-status--${status.type}`}>
+                {status.label}
+              </span>
+              {isCashbackCampaign && (
+                <span className="vd-type-badge vd-type-badge--campaign">
+                  Kampanye Cashback
+                </span>
+              )}
+              {!isForMemberOnly && !isCashbackCampaign && (
+                <span className="vd-type-badge">Voucher Cetak</span>
+              )}
+            </div>
+          </div>
+          <button className="vd-close" onClick={onClose}>
+            ×
+          </button>
         </div>
 
-        <div className="modal-body-voucherDetailModal">
-          <div className="detail-section-voucherDetailModal">
-            <h4>Ringkasan Voucher</h4>
-            <div className="detail-grid-voucherDetailModal">
-              <div className="detail-item-voucherDetailModal">
-                <span>Total Voucher</span>
-                <strong>{vouchers.length}</strong>
+        <div className="vd-body">
+          {error && <div className="vd-error">{error}</div>}
+
+          {/* Stats Row */}
+          <div className="vd-stats">
+            <div className="vd-stat">
+              <span className="vd-stat-value">
+                {voucherService.formatCurrency(voucherGroup.value)}
+              </span>
+              <span className="vd-stat-label">
+                {isCashbackCampaign ? "Hadiah" : "Nilai"}
+              </span>
+            </div>
+            {/* {isCashbackCampaign && (
+              <div className="vd-stat">
+                <span className="vd-stat-value">
+                  {voucherService.formatCurrency(voucherGroup.threshold || 0)}
+                </span>
+                <span className="vd-stat-label">Target</span>
               </div>
-              <div className="detail-item-voucherDetailModal">
-                <span>Terklaim</span>
-                <strong>{vouchers.filter(v => v.isClaimed).length}</strong>
-              </div>
-              <div className="detail-item-voucherDetailModal">
-                <span>Aktif/Kadaluarsa</span>
-                <strong>
-                  {vouchers.filter(v => !v.isClaimed && v.expireDate.toDate() > new Date()).length} / 
-                  {vouchers.filter(v => !v.isClaimed && v.expireDate.toDate() <= new Date()).length}
-                </strong>
-              </div>
-              <div className="detail-item-voucherDetailModal">
-                <span>Nilai</span>
-                <strong>{voucherService.formatCurrency(voucherGroup.value)}</strong>
-              </div>
-              <div className="detail-item-voucherDetailModal">
-                <span>Dibuat</span>
-                <strong>{formatDate(voucherGroup.createdAt)}</strong>
-              </div>
+            )} */}
+            <div className="vd-stat">
+              <span className="vd-stat-value">{vouchers.length}</span>
+              <span className="vd-stat-label">
+                {isCashbackCampaign ? "Peserta" : "Total"}
+              </span>
+            </div>
+            {isCashbackCampaign ? (
+              <>
+                {/* <div className="vd-stat">
+                  <span className="vd-stat-value">{inProgressCount}</span>
+                  <span className="vd-stat-label">Mengumpulkan</span>
+                </div> */}
+                <div className="vd-stat">
+                  <span className="vd-stat-value">{claimedCount}</span>
+                  <span className="vd-stat-label">Siap Pakai</span>
+                </div>
+                <div className="vd-stat">
+                  <span className="vd-stat-value">{redeemedCount}</span>
+                  <span className="vd-stat-label">Terpakai</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="vd-stat">
+                  <span className="vd-stat-value">{claimedCount}</span>
+                  <span className="vd-stat-label">Diklaim</span>
+                </div>
+                <div className="vd-stat">
+                  <span className="vd-stat-value">
+                    {vouchers.length - claimedCount}
+                  </span>
+                  <span className="vd-stat-label">Tersisa</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Date Info */}
+          <div className="vd-dates">
+            <div className="vd-date-item">
+              <span className="vd-date-label">Mulai</span>
+              <span className="vd-date-value">
+                {formatShortDate(voucherGroup.activeDate)}
+              </span>
+            </div>
+            <div className="vd-date-divider">→</div>
+            <div className="vd-date-item">
+              <span className="vd-date-label">Berakhir</span>
+              <span className="vd-date-value">
+                {formatShortDate(voucherGroup.expireDate)}
+              </span>
             </div>
           </div>
 
-          <div className="tab-navigation-voucherDetailModal">
-            <button 
-              className={`tab-button-voucherDetailModal ${activeTab === 'vouchers' ? 'active' : ''}`}
-              onClick={() => setActiveTab('vouchers')}
-            >
-              Daftar Voucher
-            </button>
-            <button 
-              className={`tab-button-voucherDetailModal ${activeTab === 'settings' ? 'active' : ''}`}
-              onClick={() => setActiveTab('settings')}
-            >
-              Pengaturan
-            </button>
-          </div>
-
-          {error && (
-            <div className="error-message-voucherDetailModal">{error}</div>
+          {/* PDF Download for Non-Member Vouchers */}
+          {!isForMemberOnly && !readOnly && (
+            <div className="vd-pdf-section">
+              <button
+                className="vd-pdf-btn"
+                onClick={generateVouchersPdf}
+                disabled={generatingPdf || loading || vouchers.length === 0}
+              >
+                {generatingPdf ? (
+                  <>
+                    <span className="vd-spinner"></span>
+                    Membuat PDF...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7,10 12,15 17,10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download PDF ({vouchers.length} voucher)
+                  </>
+                )}
+              </button>
+              <p className="vd-pdf-hint">
+                File PDF siap cetak dengan barcode untuk setiap voucher
+              </p>
+            </div>
           )}
 
-          {loading && (
-            <div className="loading-spinner-voucherDetailModal">Loading...</div>
+          {/* Member Voucher List - Also show for campaigns but without add member option */}
+          {(isForMemberOnly || isCashbackCampaign) && (
+            <div className="vd-section">
+              <div className="vd-section-header">
+                <h3>
+                  {isCashbackCampaign ? "Daftar Peserta" : "Daftar Penerima"}
+                </h3>
+                {!isCashbackCampaign && !readOnly && (
+                  <button
+                    className="vd-link-btn"
+                    onClick={handleAddMembersToggle}
+                    disabled={loading}
+                  >
+                    {showAddMembers ? "Batal" : "+ Tambah"}
+                  </button>
+                )}
+              </div>
+
+              {showAddMembers && !isCashbackCampaign && (
+                <div className="vd-add-members">
+                  <input
+                    type="text"
+                    className="vd-search"
+                    placeholder="Cari nama anggota..."
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                  />
+                  <div className="vd-member-list">
+                    {filteredAvailableMembers.length === 0 ? (
+                      <div className="vd-empty">Tidak ada anggota tersedia</div>
+                    ) : (
+                      filteredAvailableMembers.map((member) => (
+                        <label key={member.id} className="vd-member-item">
+                          <input
+                            type="checkbox"
+                            checked={selectedNewMembers.some(
+                              (m) => m.id === member.id
+                            )}
+                            onChange={() => handleMemberSelect(member)}
+                          />
+                          <div className="vd-member-info">
+                            <span className="vd-member-name">
+                              {member.nama}
+                            </span>
+                            <span className="vd-member-detail">
+                              {member.kantor}
+                            </span>
+                          </div>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                  {selectedNewMembers.length > 0 && (
+                    <button
+                      className="vd-add-btn"
+                      onClick={handleAddSelectedMembers}
+                      disabled={loading}
+                    >
+                      Tambah {selectedNewMembers.length} Anggota
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {(!showAddMembers || isCashbackCampaign) && (
+                <div className="vd-voucher-list">
+                  {loading ? (
+                    <div className="vd-loading">Memuat...</div>
+                  ) : vouchers.length === 0 ? (
+                    <div className="vd-empty">
+                      {isCashbackCampaign
+                        ? "Belum ada peserta"
+                        : "Belum ada voucher"}
+                    </div>
+                  ) : (
+                    vouchers.map((voucher) => (
+                      <div key={voucher.id} className="vd-voucher-item">
+                        <div className="vd-voucher-info">
+                          <span className="vd-voucher-name">
+                            {voucher.nama || "-"}
+                          </span>
+                          <span className="vd-voucher-detail">
+                            {voucher.kantor}
+                            {isCashbackCampaign &&
+                              voucher.userPoints !== undefined && (
+                                <>
+                                  {" "}
+                                  •{" "}
+                                  {voucherService.formatCurrency(
+                                    voucher.userPoints
+                                  )}{" "}
+                                  poin
+                                </>
+                              )}
+                          </span>
+                        </div>
+                        <div className="vd-voucher-status">
+                          {isCashbackCampaign ? (
+                            // Campaign-specific status badges
+                            voucher.status === "REDEEMED" ? (
+                              <span className="vd-badge vd-badge--redeemed">
+                                Terpakai
+                              </span>
+                            ) : voucher.status === "CLAIMED" ? (
+                              <span className="vd-badge vd-badge--ready">
+                                Siap Pakai
+                              </span>
+                            ) : (
+                              <span className="vd-badge vd-badge--progress">
+                                Mengumpulkan
+                              </span>
+                            )
+                          ) : // Regular voucher status
+                          voucher.isOneTimeUse === false ? (
+                            (() => {
+                              const spent = voucher.amountSpent || 0;
+                              const remaining = voucher.value - spent;
+                              if (remaining <= 0) {
+                                return (
+                                  <span className="vd-badge vd-badge--redeemed">
+                                    Saldo Habis
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="vd-badge vd-badge--multiuse">
+                                  Sisa{" "}
+                                  {voucherService.formatNumber(remaining)}
+                                </span>
+                              );
+                            })()
+                          ) : voucher.isClaimed ? (
+                            <span className="vd-badge vd-badge--redeemed">
+                              Terpakai
+                            </span>
+                          ) : (
+                            <span className="vd-badge vd-badge--available">
+                              Tersedia
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
-          <div className="tab-content-voucherDetailModal">
-            {activeTab === 'vouchers' && renderVouchersTab()}
-            {activeTab === 'settings' && renderSettingsTab()}
-          </div>
+          {/* Settings Section - hidden for read-only users */}
+          {!readOnly && (
+            <div className="vd-section vd-section--settings">
+              <div className="vd-section-header">
+                <h3>Pengaturan</h3>
+                {!isEditing ? (
+                  <button
+                    className="vd-link-btn"
+                    onClick={() => setIsEditing(true)}
+                    disabled={loading}
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <div className="vd-edit-actions">
+                    <button
+                      className="vd-link-btn"
+                      onClick={() => setIsEditing(false)}
+                    >
+                      Batal
+                    </button>
+                    <button
+                      className="vd-save-btn"
+                      onClick={handleSaveEdit}
+                      disabled={loading}
+                    >
+                      Simpan
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="vd-settings-grid">
+                <div className="vd-field">
+                  <label>
+                    {isCashbackCampaign ? "Nama Kampanye" : "Nama Voucher"}
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editData.voucherName}
+                      onChange={(e) =>
+                        handleEditDataChange("voucherName", e.target.value)
+                      }
+                    />
+                  ) : (
+                    <span>{voucherGroup.voucherName}</span>
+                  )}
+                </div>
+                <div className="vd-field">
+                  <label>
+                    {isCashbackCampaign ? "Nilai Hadiah" : "Nilai"}
+                  </label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editData.value}
+                      onChange={(e) =>
+                        handleEditDataChange("value", e.target.value)
+                      }
+                    />
+                  ) : (
+                    <span>
+                      {voucherService.formatCurrency(voucherGroup.value)}
+                    </span>
+                  )}
+                </div>
+                {isCashbackCampaign && (
+                  <div className="vd-field">
+                    <label>Target Belanja</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editData.threshold}
+                        onChange={(e) =>
+                          handleEditDataChange("threshold", e.target.value)
+                        }
+                      />
+                    ) : (
+                      <span>
+                        {voucherService.formatCurrency(
+                          voucherGroup.threshold || 0
+                        )}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className="vd-field">
+                  <label>Tanggal Mulai</label>
+                  {isEditing ? (
+                    <input
+                      type="datetime-local"
+                      value={editData.activeDate}
+                      onChange={(e) =>
+                        handleEditDataChange("activeDate", e.target.value)
+                      }
+                    />
+                  ) : (
+                    <span>{formatDate(voucherGroup.activeDate)}</span>
+                  )}
+                </div>
+                <div className="vd-field">
+                  <label>Tanggal Berakhir</label>
+                  {isEditing ? (
+                    <input
+                      type="datetime-local"
+                      value={editData.expireDate}
+                      onChange={(e) =>
+                        handleEditDataChange("expireDate", e.target.value)
+                      }
+                    />
+                  ) : (
+                    <span>{formatDate(voucherGroup.expireDate)}</span>
+                  )}
+                </div>
+                <div className="vd-field">
+                  <label>Status</label>
+                  {isEditing ? (
+                    <select
+                      value={editData.isActive}
+                      onChange={(e) =>
+                        handleEditDataChange(
+                          "isActive",
+                          e.target.value === "true"
+                        )
+                      }
+                    >
+                      <option value="true">Aktif</option>
+                      <option value="false">Nonaktif</option>
+                    </select>
+                  ) : (
+                    <span>
+                      {voucherGroup.isActive ? "Aktif" : "Nonaktif"}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="vd-danger">
+                <button
+                  className="vd-danger-btn"
+                  onClick={() => setShowDeleteConfirmation(true)}
+                  disabled={loading || deleting || isEditing}
+                >
+                  Hapus Grup Voucher
+                </button>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirmation && (
+          <div className="vd-confirm-overlay">
+            <div className="vd-confirm">
+              <h4>Hapus Voucher?</h4>
+              <p>
+                Grup voucher <strong>{voucherGroup.voucherName}</strong> dan
+                semua voucher di dalamnya akan dihapus permanen.
+              </p>
+              <div className="vd-confirm-actions">
+                <button
+                  className="vd-confirm-cancel"
+                  onClick={() => setShowDeleteConfirmation(false)}
+                  disabled={deleting}
+                >
+                  Batal
+                </button>
+                <button
+                  className="vd-confirm-delete"
+                  onClick={handleDeleteVoucherGroup}
+                  disabled={deleting}
+                >
+                  {deleting ? "Menghapus..." : "Hapus"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirmation && (
-        <div className="confirmation-modal-overlay">
-          <div className="confirmation-modal">
-            <div className="confirmation-modal-header">
-              <h4>Konfirmasi Hapus</h4>
-            </div>
-            <div className="confirmation-modal-body">
-              <p>Anda yakin ingin menghapus grup voucher <strong>{voucherGroup.voucherName}</strong>?</p>
-              <p>Semua voucher yang terkait juga akan dihapus. Tindakan ini tidak dapat dibatalkan.</p>
-            </div>
-            <div className="confirmation-modal-footer">
-              <button 
-                className="button-secondary-voucherDetailModal"
-                onClick={() => setShowDeleteConfirmation(false)}
-                disabled={deleting}
-              >
-                Batal
-              </button>
-              <button 
-                className="button-danger-voucherDetailModal"
-                onClick={handleDeleteVoucherGroup}
-                disabled={deleting}
-              >
-                {deleting ? 'Menghapus...' : 'Hapus Permanen'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
-
 
 export default VoucherDetailModalNew;

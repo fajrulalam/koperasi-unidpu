@@ -60,6 +60,7 @@ const Sidebar = ({ onSelect, selectedItem, isCollapsed, onCollapseToggle }) => {
           label: "Sejarah Transaksi",
           icon: <FaChartLine />,
         },
+        { id: "Finance", label: "Finance", icon: <FaWallet /> },
       ],
     },
     {

@@ -1,23 +1,128 @@
 import React, { useState } from "react";
 import "../styles/LoanDetailModal.css";
+import "../styles/RestrukturisasiReviewModal.css";
 import {
   FaWhatsapp,
-  FaRegClock,
-  FaUserCheck,
-  FaUserTimes,
-  FaExchangeAlt,
-  FaPaperPlane,
-  FaFileInvoiceDollar,
-  FaCheckCircle,
-  FaLandmark,
-  FaFileSignature,
   FaCopy,
   FaFileExport,
-  FaPencilAlt,
   FaSave,
   FaTimes,
+  FaChevronDown,
+  FaChevronRight,
+  FaExternalLinkAlt,
 } from "react-icons/fa";
 import { useLoanHistoryExtract } from "../hooks/useLoanHistoryExtract";
+
+const calculateFee = (jumlahPinjaman) => {
+  if (jumlahPinjaman > 8000000) return 500000;
+  if (jumlahPinjaman > 6000000) return 400000;
+  if (jumlahPinjaman > 4000000) return 300000;
+  if (jumlahPinjaman > 2000000) return 200000;
+  if (jumlahPinjaman >= 1000000) return 100000;
+  return 0;
+};
+
+const formatRupiah = (n) => `Rp ${(n || 0).toLocaleString("id-ID")}`;
+
+const formatDate = (timestamp) => {
+  if (!timestamp) return "N/A";
+  const d = timestamp.seconds
+    ? new Date(timestamp.seconds * 1000)
+    : new Date(timestamp);
+  return d.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const isApprovalStatus = (status) =>
+  status.includes("Menunggu Persetujuan") ||
+  status.includes("Disetujui") ||
+  status.includes("Menunggu Transfer") ||
+  status === "Pengajuan Baru";
+
+const isCicilanStatus = (status) => status.includes("Cicilan");
+
+const groupHistory = (history) => {
+  if (!history || history.length === 0) return [];
+
+  const groups = [];
+  let i = 0;
+
+  while (i < history.length) {
+    const entry = history[i];
+
+    if (isApprovalStatus(entry.status)) {
+      const entries = [entry];
+      let j = i + 1;
+      while (j < history.length && isApprovalStatus(history[j].status)) {
+        entries.push(history[j]);
+        j++;
+      }
+      if (entries.length > 1) {
+        groups.push({
+          type: "group",
+          groupType: "approval",
+          label: "Proses Persetujuan",
+          entries,
+        });
+      } else {
+        groups.push({ type: "single", entry: entries[0] });
+      }
+      i = j;
+    } else if (isCicilanStatus(entry.status)) {
+      const entries = [entry];
+      let j = i + 1;
+      while (j < history.length && isCicilanStatus(history[j].status)) {
+        entries.push(history[j]);
+        j++;
+      }
+      if (entries.length > 1) {
+        const firstNum = entries[0].notes?.split("/")[0] || "?";
+        const lastNum = entries[entries.length - 1].notes?.split("/")[0] || "?";
+        groups.push({
+          type: "group",
+          groupType: "cicilan",
+          label: `Pembayaran Cicilan ${firstNum} - ${lastNum}`,
+          entries,
+        });
+      } else {
+        groups.push({ type: "single", entry: entries[0] });
+      }
+      i = j;
+    } else {
+      groups.push({ type: "single", entry });
+      i++;
+    }
+  }
+
+  return groups;
+};
+
+const getStatusColor = (status) => {
+  if (status.includes("Aktif") || status.includes("Lunas")) return "#059669";
+  if (status.includes("Ditolak") || status.includes("Dibatalkan"))
+    return "#dc2626";
+  if (status.includes("Direvisi")) return "#d97706";
+  if (status.includes("Menunggu")) return "#6b7280";
+  if (status.includes("Direstrukturisasi")) return "#2563eb";
+  if (status.includes("Cicilan")) return "#7c3aed";
+  return "#374151";
+};
+
+const getStatusBg = (status) => {
+  if (status.includes("Aktif")) return "#d1fae5";
+  if (status.includes("Lunas")) return "#dbeafe";
+  if (status.includes("Ditolak") || status.includes("Dibatalkan"))
+    return "#fee2e2";
+  if (status.includes("Direvisi")) return "#fef3c7";
+  if (status.includes("Menunggu Transfer")) return "#dbeafe";
+  if (status.includes("Menunggu")) return "#f3f4f6";
+  if (status.includes("Direstrukturisasi")) return "#dbeafe";
+  if (status.includes("Cicilan")) return "#f5f3ff";
+  return "#f3f4f6";
+};
 
 const LoanDetailModal = ({
   loan,
@@ -30,15 +135,14 @@ const LoanDetailModal = ({
   onMakePayment,
   onUpdateBankDetails,
   onUpdateUserData,
+  onViewLoan,
   actionLoading,
   userRole,
 }) => {
-  // Use the loan history extract hook
   const { extracting, downloadCSV } = useLoanHistoryExtract();
-  // Define useState hook at the top level of the component
   const [showSnackbar, setShowSnackbar] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
 
-  // State for editable fields
   const [editing, setEditing] = useState({
     bank: false,
     nomorRekening: false,
@@ -57,9 +161,7 @@ const LoanDetailModal = ({
 
   if (!loan) return null;
 
-  // Handle start editing for a field
   const startEditing = (field) => {
-    // For bank and nomorRekening, only allow editing if they're empty or N/A
     if (
       (field === "bank" || field === "nomorRekening") &&
       loan.bankDetails?.[field] &&
@@ -67,7 +169,6 @@ const LoanDetailModal = ({
     ) {
       return;
     }
-
     setEditValues((prev) => ({
       ...prev,
       [field]:
@@ -75,122 +176,85 @@ const LoanDetailModal = ({
           ? loan.bankDetails?.[field] || ""
           : loan.userData?.[field] || "",
     }));
-
     setEditing((prev) => ({ ...prev, [field]: true }));
   };
 
-  // Handle saving edits
   const saveEdit = (field) => {
-    // Update data in database based on field type
     if (field === "bank" || field === "nomorRekening") {
       if (onUpdateBankDetails) {
-        // Create a new bankDetails object with updated field
-        const updatedBankDetails = {
+        onUpdateBankDetails(loan.id, {
           ...(loan.bankDetails || {}),
           [field]: editValues[field],
-        };
-
-        onUpdateBankDetails(loan.id, updatedBankDetails);
+        });
       }
     } else {
       if (onUpdateUserData) {
-        // Create an object with just the updated field
-        const updatedData = {
-          [field]: editValues[field],
-        };
-
-        // Use loan.id to update userData within the loan document
-        onUpdateUserData(loan.id, updatedData);
+        onUpdateUserData(loan.id, { [field]: editValues[field] });
       }
     }
-
-    // Close the edit mode
     setEditing((prev) => ({ ...prev, [field]: false }));
   };
 
-  // Handle cancel editing
   const cancelEdit = (field) => {
     setEditing((prev) => ({ ...prev, [field]: false }));
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return "N/A";
-    return new Date(timestamp.seconds * 1000).toLocaleDateString("id-ID", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
+  const toggleGroup = (idx) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
     });
   };
 
-  const getStatusBadge = (status) => {
-    let colorClass = "";
-    switch (status) {
-      case "Menunggu Persetujuan BAK":
-      case "Menunggu Persetujuan Wakil Rektor 1":
-        colorClass = "status-pending";
-        break;
-      case "Menunggu Transfer BAK":
-        colorClass = "status-waiting";
-        break;
-      case "Disetujui dan Aktif":
-        colorClass = "status-active";
-        break;
-      case "Lunas":
-        colorClass = "status-completed";
-        break;
-      case "Direvisi BAK":
-        colorClass = "status-revision";
-        break;
-      case "Ditolak BAK":
-      case "Ditolak Wakil Rektor 1":
-        colorClass = "status-rejected";
-        break;
-      default:
-        colorClass = "status-default";
-    }
-    return (
-      <span className={`status-badge-loanDetailModal ${colorClass}`}>
-        {status}
-      </span>
-    );
+  const renderNotesWithLinks = (notes) => {
+    if (!notes || !onViewLoan) return notes;
+    const parts = notes.split(/(#[a-zA-Z0-9]{8})/g);
+    return parts.map((part, i) => {
+      const match = part.match(/^#([a-zA-Z0-9]{8})$/);
+      if (match) {
+        const shortId = match[1];
+        const fullId = loan.restructuredFromLoanId?.startsWith(shortId)
+          ? loan.restructuredFromLoanId
+          : loan.restructuredToLoanId?.startsWith(shortId)
+            ? loan.restructuredToLoanId
+            : null;
+        if (fullId) {
+          return (
+            <span
+              key={i}
+              className="loan-id-link"
+              onClick={() => onViewLoan(fullId)}
+            >
+              #{shortId}
+            </span>
+          );
+        }
+      }
+      return part;
+    });
   };
 
-  const getHistoryIcon = (status) => {
-    if (status.includes("Disetujui") || status.includes("Persetujuan"))
-      return <FaUserCheck />;
-    if (status.includes("Ditolak")) return <FaUserTimes />;
-    if (status.includes("Direvisi")) return <FaExchangeAlt />;
-    if (status.includes("Menunggu Transfer")) return <FaPaperPlane />;
-    if (status.includes("Cicilan")) return <FaFileInvoiceDollar />;
-    if (status.includes("Lunas")) return <FaCheckCircle />;
-    if (status.includes("Aktif")) return <FaLandmark />;
-    if (status.includes("Pengajuan")) return <FaFileSignature />;
-    return <FaRegClock />;
-  };
-
-  const getHistoryStatusClass = (status) => {
-    // More specific statuses first to avoid incorrect matching
-    if (status.includes("Menunggu Transfer BAK")) return "waiting";
-    if (status.includes("Menunggu Persetujuan")) return "pending";
-    if (status.includes("Direvisi")) return "revision";
-
-    // General statuses
-    if (
-      status.includes("Disetujui dan Aktif") ||
-      status.includes("Disetujui") ||
-      status.includes("Persetujuan")
-    )
-      return "approved";
-    if (status.includes("Ditolak")) return "rejected";
-    if (status.includes("Lunas")) return "completed";
-    if (status.includes("Cicilan")) return "payment";
-
-    return "default"; // Fallback for any other status
-  };
+  const isRestrukturisasi = !!loan.restructuredFromLoanId;
+  const jumlahPinjaman = loan.jumlahPinjaman || 0;
+  const biayaAdmin = loan.biayaAdmin ?? calculateFee(jumlahPinjaman);
+  const sisaHutangLama = loan.sisaPinjamanSebelumnya || 0;
+  const pinjamanBaru = loan.pinjamanBaru || 0;
+  const tenor = loan.tenor || 0;
+  const additionalTenor = loan.additionalTenor || 0;
+  const sisaTenorLama = tenor - additionalTenor;
+  const cicilanPerBulan = tenor > 0 ? Math.round(jumlahPinjaman / tenor) : 0;
+  const jumlahTransfer = isRestrukturisasi
+    ? pinjamanBaru - biayaAdmin
+    : jumlahPinjaman - biayaAdmin;
 
   const isActive = loan.status === "Disetujui dan Aktif";
-  const totalPayments = loan.tenor || 0;
+  const isPayableStatus =
+    isActive || loan.status === "Menunggu Persetujuan Restrukturisasi";
+  const totalPayments = tenor;
   const currentPayment = loan.jumlahMenyicil || 0;
+  const isGreyedOut = loan.status === "Direstrukturisasi";
 
   const canApprove =
     (userRole === "bak" && loan.status === "Menunggu Persetujuan BAK") ||
@@ -208,405 +272,453 @@ const LoanDetailModal = ({
     (userRole === "bak" || userRole === "direktur") &&
     loan.status === "Menunggu Transfer BAK";
 
-  const canMakePayment = isActive && currentPayment < totalPayments;
+  const canMakePayment = isPayableStatus && currentPayment < totalPayments;
   const canMarkComplete =
-    isActive && currentPayment >= totalPayments && totalPayments > 0;
+    isPayableStatus && currentPayment >= totalPayments && totalPayments > 0;
+
+  const historyGroups = groupHistory(loan.history);
+
+  const renderEditableField = (field, label, valueSource, valueKey) => {
+    const currentValue = valueSource?.[valueKey] || "N/A";
+    const canEdit =
+      field === "bank" || field === "nomorRekening"
+        ? !valueSource?.[valueKey] || valueSource[valueKey] === "N/A"
+        : true;
+
+    if (editing[field]) {
+      return (
+        <div className="ldm-info-row">
+          <span className="ldm-info-label">{label}</span>
+          <div className="ldm-edit-inline">
+            <input
+              type="text"
+              value={editValues[field]}
+              onChange={(e) =>
+                setEditValues((prev) => ({ ...prev, [field]: e.target.value }))
+              }
+              className="ldm-edit-input"
+            />
+            <button className="ldm-edit-save" onClick={() => saveEdit(field)}>
+              <FaSave />
+            </button>
+            <button
+              className="ldm-edit-cancel"
+              onClick={() => cancelEdit(field)}
+            >
+              <FaTimes />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="ldm-info-row">
+        <span className="ldm-info-label">{label}</span>
+        <span className="ldm-info-value">
+          {field === "nomorRekening" ? (
+            <span className="ldm-rekening-group">
+              <span>{currentValue}</span>
+              {loan.bankDetails?.nomorRekening &&
+                loan.bankDetails.nomorRekening !== "N/A" && (
+                  <button
+                    className="ldm-copy-btn"
+                    onClick={() => {
+                      navigator.clipboard.writeText(
+                        loan.bankDetails.nomorRekening,
+                      );
+                      setShowSnackbar(true);
+                      setTimeout(() => setShowSnackbar(false), 2000);
+                    }}
+                    title="Salin"
+                  >
+                    <FaCopy />
+                    {showSnackbar && (
+                      <span className="ldm-copied-tip">Disalin!</span>
+                    )}
+                  </button>
+                )}
+              {canEdit && (
+                <button
+                  className="ldm-edit-link"
+                  onClick={() => startEditing(field)}
+                >
+                  Edit
+                </button>
+              )}
+            </span>
+          ) : (
+            <span className="ldm-value-with-edit">
+              {currentValue}
+              {canEdit && (
+                <button
+                  className="ldm-edit-link"
+                  onClick={() => startEditing(field)}
+                >
+                  Edit
+                </button>
+              )}
+            </span>
+          )}
+        </span>
+      </div>
+    );
+  };
+
+  const renderHistoryEntry = (entry, key) => (
+    <div key={key} className="ldm-history-entry">
+      <div
+        className="ldm-history-dot"
+        style={{ backgroundColor: getStatusColor(entry.status) }}
+      />
+      <div className="ldm-history-content">
+        <div className="ldm-history-header">
+          <span
+            className="ldm-history-status"
+            style={{ color: getStatusColor(entry.status) }}
+          >
+            {entry.status}
+          </span>
+          <span className="ldm-history-date">
+            {formatDate(entry.timestamp)}
+          </span>
+        </div>
+        {entry.notes && (
+          <p className="ldm-history-notes">
+            {renderNotesWithLinks(entry.notes)}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="modal-overlay-loanDetailModal" onClick={onClose}>
-      <div
-        className="modal-content-loanDetailModal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header-loanDetailModal">
-          <h3>Detail Pinjaman #{loan.id.substring(0, 8)}</h3>
-          <button className="modal-close-loanDetailModal" onClick={onClose}>
+    <div className="ldm-overlay" onClick={onClose}>
+      <div className="ldm-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="ldm-header">
+          <div className="ldm-header-left">
+            <div className="ldm-title-row">
+              <h3>Pinjaman #{loan.id.substring(0, 8)}</h3>
+              <span
+                className="ldm-status-badge"
+                style={{
+                  backgroundColor: getStatusBg(loan.status),
+                  color: getStatusColor(loan.status),
+                }}
+              >
+                {loan.status}
+              </span>
+            </div>
+            {(loan.restructuredFromLoanId || loan.restructuredToLoanId) && (
+              <p className="ldm-nav-hint">
+                {loan.restructuredFromLoanId && (
+                  <span
+                    className="ldm-nav-link"
+                    onClick={() =>
+                      onViewLoan && onViewLoan(loan.restructuredFromLoanId)
+                    }
+                  >
+                    ← Pinjaman Sebelumnya
+                  </span>
+                )}
+                {loan.restructuredFromLoanId && loan.restructuredToLoanId && (
+                  <span className="ldm-nav-sep"> · </span>
+                )}
+                {loan.restructuredToLoanId && (
+                  <span
+                    className="ldm-nav-link"
+                    onClick={() =>
+                      onViewLoan && onViewLoan(loan.restructuredToLoanId)
+                    }
+                  >
+                    Pinjaman Baru →
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
+          <button className="rrm-close" onClick={onClose}>
             &times;
           </button>
         </div>
 
-        <div className="modal-body-loanDetailModal">
-          <div className="detail-section-loanDetailModal">
-            <h4>Informasi Peminjam</h4>
-            <div className="detail-grid-loanDetailModal">
-              <div className="detail-item-loanDetailModal">
-                <span>Nama</span>
-                <strong>{loan.userData?.namaLengkap || "N/A"}</strong>
+        {/* Body */}
+        <div className={`ldm-body${isGreyedOut ? " ldm-greyed" : ""}`}>
+          {/* Financial Summary */}
+          {isRestrukturisasi ? (
+            <div className="rrm-calc-table">
+              <div className="rrm-calc-row">
+                <span>
+                  Sisa hutang lama (#
+                  {loan.restructuredFromLoanId?.substring(0, 8)})
+                </span>
+                <span>{formatRupiah(sisaHutangLama)}</span>
               </div>
-              <div className="detail-item-loanDetailModal">
-                <span>Kontak</span>
-                <strong>
-                  <a
-                    href={`https://wa.me/${loan.userData?.nomorWhatsapp}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="whatsapp-link-loanDetailModal"
-                  >
-                    {loan.userData?.nomorWhatsapp || "N/A"} <FaWhatsapp />
-                  </a>
-                </strong>
+              <div className="rrm-calc-row">
+                <span>Pinjaman tambahan</span>
+                <span>+ {formatRupiah(pinjamanBaru)}</span>
               </div>
-              <div className="detail-item-loanDetailModal">
-                <span>Bank</span>
-                {editing.bank ? (
-                  <div className="edit-field-container">
-                    <input
-                      type="text"
-                      value={editValues.bank}
-                      onChange={(e) =>
-                        setEditValues((prev) => ({
-                          ...prev,
-                          bank: e.target.value,
-                        }))
-                      }
-                      className="edit-input"
-                    />
-                    <div className="edit-actions">
-                      <button onClick={() => saveEdit("bank")} title="Simpan">
-                        <FaSave />
-                      </button>
-                      <button onClick={() => cancelEdit("bank")} title="Batal">
-                        <FaTimes />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="field-with-edit">
-                    <strong>{loan.bankDetails?.bank || "N/A"}</strong>
-                    {(!loan.bankDetails?.bank ||
-                      loan.bankDetails?.bank === "N/A") && (
-                      <button
-                        className="edit-button"
-                        onClick={() => startEditing("bank")}
-                        title="Edit bank"
-                      >
-                        <FaPencilAlt />
-                      </button>
-                    )}
-                  </div>
-                )}
+              <div className="rrm-calc-row rrm-calc-total">
+                <span>Total pinjaman</span>
+                <span>{formatRupiah(jumlahPinjaman)}</span>
               </div>
-
-              <div className="detail-item-loanDetailModal">
-                <span>Nomor Rekening</span>
-                {editing.nomorRekening ? (
-                  <div className="edit-field-container">
-                    <input
-                      type="text"
-                      value={editValues.nomorRekening}
-                      onChange={(e) =>
-                        setEditValues((prev) => ({
-                          ...prev,
-                          nomorRekening: e.target.value,
-                        }))
-                      }
-                      className="edit-input"
-                    />
-                    <div className="edit-actions">
-                      <button
-                        onClick={() => saveEdit("nomorRekening")}
-                        title="Simpan"
-                      >
-                        <FaSave />
-                      </button>
-                      <button
-                        onClick={() => cancelEdit("nomorRekening")}
-                        title="Batal"
-                      >
-                        <FaTimes />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="account-number-container">
-                    <div className="account-number-wrapper">
-                      <strong>
-                        {loan.bankDetails?.nomorRekening || "N/A"}
-                      </strong>
-                      {showSnackbar && <div className="tooltip">Disalin!</div>}
-                    </div>
-                    <div className="account-actions">
-                      {loan.bankDetails?.nomorRekening && (
-                        <button
-                          className="copy-button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(
-                              loan.bankDetails.nomorRekening
-                            );
-                            setShowSnackbar(true);
-                            setTimeout(() => setShowSnackbar(false), 2000);
-                          }}
-                          title="Salin nomor rekening"
-                        >
-                          <FaCopy />
-                        </button>
-                      )}
-                      {(!loan.bankDetails?.nomorRekening ||
-                        loan.bankDetails?.nomorRekening === "N/A") && (
-                        <button
-                          className="edit-button"
-                          onClick={() => startEditing("nomorRekening")}
-                          title="Edit nomor rekening"
-                        >
-                          <FaPencilAlt />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="detail-item-loanDetailModal">
-                <span>Kantor</span>
-                {editing.kantor ? (
-                  <div className="edit-field-container">
-                    <input
-                      type="text"
-                      value={editValues.kantor}
-                      onChange={(e) =>
-                        setEditValues((prev) => ({
-                          ...prev,
-                          kantor: e.target.value,
-                        }))
-                      }
-                      className="edit-input"
-                    />
-                    <div className="edit-actions">
-                      <button onClick={() => saveEdit("kantor")} title="Simpan">
-                        <FaSave />
-                      </button>
-                      <button
-                        onClick={() => cancelEdit("kantor")}
-                        title="Batal"
-                      >
-                        <FaTimes />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="field-with-edit">
-                    <strong>{loan.userData?.kantor || "N/A"}</strong>
-                    <button
-                      className="edit-button"
-                      onClick={() => startEditing("kantor")}
-                      title="Edit kantor"
-                    >
-                      <FaPencilAlt />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="detail-item-loanDetailModal">
-                <span>Satuan Kerja</span>
-                {editing.satuanKerja ? (
-                  <div className="edit-field-container">
-                    <input
-                      type="text"
-                      value={editValues.satuanKerja}
-                      onChange={(e) =>
-                        setEditValues((prev) => ({
-                          ...prev,
-                          satuanKerja: e.target.value,
-                        }))
-                      }
-                      className="edit-input"
-                    />
-                    <div className="edit-actions">
-                      <button
-                        onClick={() => saveEdit("satuanKerja")}
-                        title="Simpan"
-                      >
-                        <FaSave />
-                      </button>
-                      <button
-                        onClick={() => cancelEdit("satuanKerja")}
-                        title="Batal"
-                      >
-                        <FaTimes />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="field-with-edit">
-                    <strong>{loan.userData?.satuanKerja || "N/A"}</strong>
-                    <button
-                      className="edit-button"
-                      onClick={() => startEditing("satuanKerja")}
-                      title="Edit satuan kerja"
-                    >
-                      <FaPencilAlt />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="detail-item-loanDetailModal">
-                <span>Nomor Anggota</span>
-                {editing.nomorAnggota ? (
-                  <div className="edit-field-container">
-                    <input
-                      type="text"
-                      value={editValues.nomorAnggota}
-                      onChange={(e) =>
-                        setEditValues((prev) => ({
-                          ...prev,
-                          nomorAnggota: e.target.value,
-                        }))
-                      }
-                      className="edit-input"
-                    />
-                    <div className="edit-actions">
-                      <button
-                        onClick={() => saveEdit("nomorAnggota")}
-                        title="Simpan"
-                      >
-                        <FaSave />
-                      </button>
-                      <button
-                        onClick={() => cancelEdit("nomorAnggota")}
-                        title="Batal"
-                      >
-                        <FaTimes />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="field-with-edit">
-                    <strong>{loan.userData?.nomorAnggota || "N/A"}</strong>
-                    <button
-                      className="edit-button"
-                      onClick={() => startEditing("nomorAnggota")}
-                      title="Edit nomor anggota"
-                    >
-                      <FaPencilAlt />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="detail-section-loanDetailModal">
-            <h4>Detail Pinjaman</h4>
-            <div className="detail-grid-loanDetailModal">
-              <div className="detail-item-loanDetailModal">
-                <span>Status</span>
-                <strong>{getStatusBadge(loan.status)}</strong>
-              </div>
-              <div className="detail-item-loanDetailModal">
-                <span>Jumlah Pinjaman</span>
-                <strong>
-                  Rp {loan.jumlahPinjaman?.toLocaleString("id-ID") || "0"}
-                </strong>
-              </div>
-              <div className="detail-item-loanDetailModal">
+              <div className="rrm-calc-divider" />
+              <div className="rrm-calc-row">
                 <span>Tenor</span>
-                <strong>{loan.tenor || "0"} Bulan</strong>
+                <span>
+                  {sisaTenorLama} + {additionalTenor} = {tenor} bulan
+                </span>
               </div>
-              <div className="detail-item-loanDetailModal">
-                <span>Tanggal Pengajuan</span>
-                <strong>{formatDate(loan.tanggalPengajuan)}</strong>
+              <div className="rrm-calc-row">
+                <span>Cicilan per bulan</span>
+                <span>{formatRupiah(cicilanPerBulan)}</span>
+              </div>
+              <div className="rrm-calc-row">
+                <span>Biaya administrasi</span>
+                <span>{formatRupiah(biayaAdmin)}</span>
+              </div>
+              {loan.sisaHutang != null && (
+                <>
+                  <div className="rrm-calc-divider" />
+                  <div className="rrm-calc-row" style={{ fontWeight: 600 }}>
+                    <span>Sisa hutang</span>
+                    <span>{formatRupiah(loan.sisaHutang)}</span>
+                  </div>
+                </>
+              )}
+              <div className="rrm-calc-divider" />
+              <div
+                className="rrm-calc-row"
+                style={{ fontSize: "0.82rem", color: "#6b7280" }}
+              >
+                <span>Pinjaman tambahan</span>
+                <span>{formatRupiah(pinjamanBaru)}</span>
               </div>
               <div
-                className="detail-item-loanDetailModal"
-                style={{ gridColumn: "span 2" }}
+                className="rrm-calc-row"
+                style={{ fontSize: "0.82rem", color: "#6b7280" }}
               >
-                <span>Tujuan</span>
-                <strong>{loan.tujuanPinjaman || "-"}</strong>
+                <span>Biaya administrasi</span>
+                <span>- {formatRupiah(biayaAdmin)}</span>
               </div>
-              {loan.catatanTambahan && (
-                <div
-                  className="detail-item-loanDetailModal"
-                  style={{ gridColumn: "span 2" }}
-                >
-                  <span>Catatan Tambahan</span>
-                  <strong>{loan.catatanTambahan}</strong>
-                </div>
-              )}
-              {loan.alasanPenolakan && (
-                <div
-                  className="detail-item-loanDetailModal rejected-reason"
-                  style={{ gridColumn: "span 2" }}
-                >
-                  <span>Alasan Penolakan</span>
-                  <strong>{loan.alasanPenolakan}</strong>
+              <div className="rrm-calc-row rrm-calc-transfer">
+                <span>Jumlah transfer ke anggota</span>
+                <span>{formatRupiah(jumlahTransfer)}</span>
+              </div>
+              {loan.buktiTransfer && (
+                <div className="ldm-proof-in-calc">
+                  <a
+                    href={loan.buktiTransfer}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ldm-proof-link"
+                  >
+                    Bukti Transfer{" "}
+                    <FaExternalLinkAlt style={{ fontSize: "0.7em" }} />
+                  </a>
                 </div>
               )}
             </div>
-          </div>
-
-          {(isActive || loan.status === "Lunas") && (
-            <div className="detail-section-loanDetailModal">
-              <h4>Riwayat Pembayaran</h4>
-              <div className="detail-grid-loanDetailModal">
-                <div className="detail-item-loanDetailModal">
-                  <span>Angsuran Terbayar</span>
-                  <strong>
-                    {currentPayment} / {totalPayments}
-                  </strong>
-                </div>
-                {loan.buktiTransfer && (
-                  <div className="detail-item-loanDetailModal">
-                    <span>Bukti Transfer</span>
-                    <strong>
-                      <a
-                        href={loan.buktiTransfer}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Lihat Bukti
-                      </a>
-                    </strong>
-                  </div>
-                )}
+          ) : (
+            <div className="rrm-calc-table">
+              <div className="rrm-calc-row rrm-calc-total">
+                <span>Jumlah Pinjaman</span>
+                <span>{formatRupiah(jumlahPinjaman)}</span>
               </div>
+              <div className="rrm-calc-row">
+                <span>Biaya administrasi</span>
+                <span>{formatRupiah(biayaAdmin)}</span>
+              </div>
+              {loan.sisaHutang != null && (
+                <div className="rrm-calc-row" style={{ fontWeight: 600 }}>
+                  <span>Sisa hutang</span>
+                  <span>{formatRupiah(loan.sisaHutang)}</span>
+                </div>
+              )}
+              <div className="rrm-calc-divider" />
+              <div className="rrm-calc-row rrm-calc-transfer">
+                <span>Jumlah transfer ke anggota</span>
+                <span>{formatRupiah(jumlahTransfer)}</span>
+              </div>
+              {loan.buktiTransfer && (
+                <div className="ldm-proof-in-calc">
+                  <a
+                    href={loan.buktiTransfer}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ldm-proof-link"
+                  >
+                    Bukti Transfer{" "}
+                    <FaExternalLinkAlt style={{ fontSize: "0.7em" }} />
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
+          {/* Borrower Info */}
+          <h4 className="ldm-section-title">Informasi Peminjam</h4>
+          <div className="ldm-section-card">
+            <div className="ldm-info-row">
+              <span className="ldm-info-label">Nama</span>
+              <span className="ldm-info-value">
+                {loan.userData?.namaLengkap || "N/A"}
+              </span>
+            </div>
+            <div className="ldm-info-row">
+              <span className="ldm-info-label">Kontak</span>
+              <span className="ldm-info-value">
+                <a
+                  href={`https://wa.me/${loan.userData?.nomorWhatsapp}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ldm-wa-link"
+                >
+                  {loan.userData?.nomorWhatsapp || "N/A"} <FaWhatsapp />
+                </a>
+              </span>
+            </div>
+            {renderEditableField("bank", "Bank", loan.bankDetails, "bank")}
+            {renderEditableField(
+              "nomorRekening",
+              "Nomor Rekening",
+              loan.bankDetails,
+              "nomorRekening",
+            )}
+            {renderEditableField("kantor", "Kantor", loan.userData, "kantor")}
+            {renderEditableField(
+              "satuanKerja",
+              "Satuan Kerja",
+              loan.userData,
+              "satuanKerja",
+            )}
+            {renderEditableField(
+              "nomorAnggota",
+              "Nomor Anggota",
+              loan.userData,
+              "nomorAnggota",
+            )}
+          </div>
+
+          {/* Loan Details */}
+          <h4 className="ldm-section-title">Detail Pinjaman</h4>
+          <div className="ldm-section-card">
+            <div className="ldm-info-row">
+              <span className="ldm-info-label">Tenor</span>
+              <span className="ldm-info-value">{tenor} bulan</span>
+            </div>
+            <div className="ldm-info-row">
+              <span className="ldm-info-label">Tanggal Pengajuan</span>
+              <span className="ldm-info-value">
+                {formatDate(loan.tanggalPengajuan)}
+              </span>
+            </div>
+            <div className="ldm-info-row">
+              <span className="ldm-info-label">Tujuan</span>
+              <span className="ldm-info-value">
+                {loan.tujuanPinjaman || "-"}
+              </span>
+            </div>
+            {(isPayableStatus ||
+              loan.status === "Lunas" ||
+              loan.status === "Direstrukturisasi") && (
+              <div className="ldm-info-row">
+                <span className="ldm-info-label">Angsuran Terbayar</span>
+                <span className="ldm-info-value">
+                  {currentPayment} / {totalPayments}
+                </span>
+              </div>
+            )}
+            {loan.catatanTambahan && loan.catatanTambahan.length > 0 && (
+              <div className="ldm-info-row ldm-info-row-block">
+                <span className="ldm-info-label">Catatan Tambahan</span>
+                <span className="ldm-info-value ldm-notes-block">
+                  {loan.catatanTambahan.map((note, i) => (
+                    <span key={i}>
+                      {renderNotesWithLinks(note)}
+                      {i < loan.catatanTambahan.length - 1 && <br />}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            )}
+            {loan.alasanPenolakan && (
+              <div className="ldm-info-row">
+                <span className="ldm-info-label">Alasan Penolakan</span>
+                <span className="ldm-info-value" style={{ color: "#dc2626" }}>
+                  {loan.alasanPenolakan}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* History */}
           {loan.history && loan.history.length > 0 && (
-            <div className="detail-section-loanDetailModal">
-              <h4>Histori Pinjaman</h4>
-              <div className="history-timeline-loanDetailModal">
-                {loan.history.map((entry, index) => (
-                  <div
-                    key={index}
-                    className={`history-item-loanDetailModal history-status-${getHistoryStatusClass(
-                      entry.status
-                    )}`}
-                  >
-                    <div className="history-marker-loanDetailModal">
-                      {getHistoryIcon(entry.status)}
-                    </div>
-                    <div className="history-content-loanDetailModal">
-                      <p className="status-loanDetailModal">{entry.status}</p>
-                      <p className="meta-loanDetailModal">
-                        {formatDate(entry.timestamp)} - oleh {entry.updatedBy}
-                      </p>
-                      {entry.notes && (
-                        <p className="notes-loanDetailModal">
-                          Catatan: {entry.notes}
-                        </p>
+            <>
+              <h4 className="ldm-section-title">Histori Pinjaman</h4>
+              <div className="ldm-history">
+                {historyGroups.map((group, idx) => {
+                  if (group.type === "single") {
+                    return renderHistoryEntry(group.entry, idx);
+                  }
+
+                  const isExpanded = expandedGroups.has(idx);
+                  const first = group.entries[0];
+                  const last = group.entries[group.entries.length - 1];
+                  const color =
+                    group.groupType === "cicilan" ? "#7c3aed" : "#059669";
+
+                  return (
+                    <div key={idx} className="ldm-history-group">
+                      <div
+                        className="ldm-group-header"
+                        onClick={() => toggleGroup(idx)}
+                      >
+                        <div className="ldm-group-left">
+                          <span className="ldm-group-chevron">
+                            {isExpanded ? (
+                              <FaChevronDown />
+                            ) : (
+                              <FaChevronRight />
+                            )}
+                          </span>
+                          <span className="ldm-group-label" style={{ color }}>
+                            {group.label}
+                          </span>
+                          <span className="ldm-group-count">
+                            {group.entries.length}
+                          </span>
+                        </div>
+                        <span className="ldm-group-dates">
+                          {formatDate(first.timestamp)} —{" "}
+                          {formatDate(last.timestamp)}
+                        </span>
+                      </div>
+                      {isExpanded && (
+                        <div className="ldm-group-entries">
+                          {group.entries.map((entry, j) =>
+                            renderHistoryEntry(entry, `${idx}-${j}`),
+                          )}
+                        </div>
                       )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-            </div>
+            </>
           )}
         </div>
 
-        <div className="modal-actions-loanDetailModal">
-          <button
-            className="button-secondary-loanDetailModal"
-            onClick={onClose}
-          >
+        {/* Footer */}
+        <div className="ldm-footer">
+          <button className="rrm-btn rrm-btn-secondary" onClick={onClose}>
             Tutup
           </button>
-          <div className="action-buttons-loanDetailModal">
+          <div className="ldm-actions">
             {canApprove && (
               <button
-                className="button-primary-loanDetailModal"
+                className="rrm-btn rrm-btn-approve"
                 onClick={() => onApprove(loan.id)}
                 disabled={actionLoading}
               >
@@ -615,7 +727,7 @@ const LoanDetailModal = ({
             )}
             {canReviseOrReject && (
               <button
-                className="button-secondary-loanDetailModal"
+                className="rrm-btn rrm-btn-revise"
                 onClick={() => onRevise(loan)}
                 disabled={actionLoading}
               >
@@ -624,7 +736,7 @@ const LoanDetailModal = ({
             )}
             {canReviseOrReject && (
               <button
-                className="button-danger-loanDetailModal"
+                className="rrm-btn rrm-btn-reject"
                 onClick={() => onReject(loan)}
                 disabled={actionLoading}
               >
@@ -633,7 +745,7 @@ const LoanDetailModal = ({
             )}
             {canUpload && (
               <button
-                className="button-primary-loanDetailModal"
+                className="rrm-btn rrm-btn-approve"
                 onClick={() => onUploadProof(loan)}
                 disabled={actionLoading}
               >
@@ -642,7 +754,7 @@ const LoanDetailModal = ({
             )}
             {canMakePayment && (
               <button
-                className="button-success-loanDetailModal"
+                className="rrm-btn rrm-btn-approve"
                 onClick={() => onMakePayment(loan.id)}
                 disabled={actionLoading}
               >
@@ -651,20 +763,22 @@ const LoanDetailModal = ({
             )}
             {canMarkComplete && (
               <button
-                className="button-success-loanDetailModal"
+                className="rrm-btn rrm-btn-approve"
                 onClick={() => onMarkComplete(loan.id)}
                 disabled={actionLoading}
               >
                 Tandai Lunas
               </button>
             )}
-            {loan.status === "Disetujui dan Aktif" && (
+            {(loan.status === "Disetujui dan Aktif" ||
+              loan.status === "Lunas") && (
               <button
-                className="button-info-loanDetailModal"
+                className="rrm-btn rrm-btn-secondary"
                 onClick={() => downloadCSV(loan)}
                 disabled={extracting || actionLoading}
+                style={{ display: "flex", alignItems: "center", gap: 6 }}
               >
-                <FaFileExport />{" "}
+                <FaFileExport />
                 {extracting ? "Mengekstrak..." : "Ekstrak Excel"}
               </button>
             )}

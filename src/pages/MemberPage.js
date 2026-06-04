@@ -12,9 +12,12 @@ import { db, auth } from "../firebase";
 import MemberBeranda from "./MemberBeranda";
 import MemberVoucher from "./MemberVoucher";
 import MemberSimpanPinjam from "./MemberSimpanPinjam";
+import MemberSejarahBelanja from "./MemberSejarahBelanja";
+import { useEnvironment, isMemberWhitelisted } from "../context/EnvironmentContext";
 import "../styles/Member.css";
 
 const MemberPage = () => {
+  const { isProduction, toggleEnvironment } = useEnvironment();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,14 +38,14 @@ const MemberPage = () => {
 
         if (docSnap.exists()) {
           // User document found with direct ID match
-          setUserData(docSnap.data());
+          setUserData({ ...docSnap.data(), docId: docSnap.id });
           setLoading(false);
           setRefreshing(false);
 
           // Set up real-time listener for future updates
           const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
             if (snapshot.exists()) {
-              setUserData(snapshot.data());
+              setUserData({ ...snapshot.data(), docId: snapshot.id });
             }
             setRefreshing(false);
           });
@@ -59,13 +62,13 @@ const MemberPage = () => {
           if (!querySnapshot.empty) {
             // Found a document with matching uid field
             const userDoc = querySnapshot.docs[0];
-            setUserData(userDoc.data());
+            setUserData({ ...userDoc.data(), docId: userDoc.id });
 
             // Set up real-time listener for future updates
             const userDocRef = doc(db, "users", userDoc.id);
             const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
               if (snapshot.exists()) {
-                setUserData(snapshot.data());
+                setUserData({ ...snapshot.data(), docId: snapshot.id });
               }
               setRefreshing(false);
             });
@@ -139,15 +142,6 @@ const MemberPage = () => {
     window.open(`https://wa.me/${nomorBuAna}?text=${message}`, "_blank");
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
   const renderPage = () => {
     if (!userData) return null;
 
@@ -160,7 +154,9 @@ const MemberPage = () => {
         case "voucher":
           return <MemberVoucher />;
         case "simpanpinjam":
-          return <MemberSimpanPinjam />;
+          return <MemberSimpanPinjam setActivePage={setActivePage} />;
+        case "sejarahbelanja":
+          return <MemberSejarahBelanja userData={userData} setActivePage={setActivePage} />;
         case "beranda":
         default:
           return <MemberBeranda setActivePage={setActivePage} />;
@@ -267,8 +263,20 @@ const MemberPage = () => {
   return (
     <div className="member-page-container">
       {/* Top Navigation */}
-      <div className="member-nav-container">
-        <div className="nav-logo">Koperasi Unipdu</div>
+      <div
+        className="member-nav-container"
+        style={
+          !isProduction
+            ? { backgroundColor: "#ff9800", borderColor: "#e65100" }
+            : undefined
+        }
+      >
+        <div className="nav-logo" style={!isProduction ? { color: "#fff" } : undefined}>
+          Koperasi Unipdu
+        </div>
+        {!isProduction && (
+          <span className="nav-testing-badge">TESTING</span>
+        )}
         <button className="nav-menu-button" onClick={toggleMenu}>
           <span>☰</span>
         </button>
@@ -329,9 +337,34 @@ const MemberPage = () => {
               >
                 Simpan/Pinjam
               </div>
+
+              <div
+                className={`menu-item ${
+                  activePage === "sejarahbelanja" ? "active" : ""
+                }`}
+                onClick={() => {
+                  setActivePage("sejarahbelanja");
+                  closeMenu();
+                }}
+              >
+                Sejarah Belanja
+              </div>
             </>
           )}
 
+          {userData?.docId && isMemberWhitelisted(userData.docId) && (
+            <div className="menu-env-toggle">
+              <span className="menu-env-label">
+                {isProduction ? "Production" : "Testing"}
+              </span>
+              <button
+                className={`menu-env-btn ${!isProduction ? "menu-env-btn--testing" : ""}`}
+                onClick={toggleEnvironment}
+              >
+                <span className="menu-env-knob" />
+              </button>
+            </div>
+          )}
           <div className="menu-logout" onClick={handleLogout}>
             Keluar
           </div>

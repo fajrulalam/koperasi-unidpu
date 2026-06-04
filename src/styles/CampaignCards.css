@@ -1,0 +1,329 @@
+/* CampaignCards.css - Neubrutalist Campaign Points Section */
+
+.campaign-section {
+  margin-bottom: 25px;
+}
+
+/* Section Header with Tutorial Button */
+.campaign-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+
+.campaign-section-title {
+  font-size: 18px;
+  font-weight: 900;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-color, #000);
+}
+
+/* Tutorial Button in Header */
+.campaign-tutorial-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 2px solid #1a1a1a;
+  border-radius: 24px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1a1a1a;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 3px 3px 0 0 #1a1a1a;
+  white-space: nowrap;
+}
+
+.campaign-tutorial-btn:hover {
+  background: #ffd166;
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 0 #1a1a1a;
+}
+
+.campaign-tutorial-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 0 #1a1a1a;
+}
+
+.tutorial-btn-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a1a1a;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.tutorial-btn-text {
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.campaign-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Campaign Card */
+.campaign-card {
+  background-color: var(--card-bg-color, #fff);
+  border: 3px solid var(--border-color, #000);
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: var(--shadow-offset, 6px) var(--shadow-offset, 6px) 0 0 var(--border-color, #000);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.campaign-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #ffd166, #06d6a0, #118ab2);
+}
+
+.campaign-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: calc(var(--shadow-offset, 6px) + 2px) calc(var(--shadow-offset, 6px) + 2px) 0 0 var(--border-color, #000);
+}
+
+.campaign-card.claimed {
+  background-color: #f0fdf4;
+}
+
+.campaign-card.claimed::before {
+  background: linear-gradient(90deg, #06d6a0, #06d6a0, #06d6a0);
+}
+
+.campaign-card.can-claim {
+  animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    box-shadow: var(--shadow-offset, 6px) var(--shadow-offset, 6px) 0 0 var(--border-color, #000);
+  }
+  50% {
+    box-shadow: var(--shadow-offset, 6px) var(--shadow-offset, 6px) 0 0 #06d6a0;
+  }
+}
+
+/* Card Header */
+.campaign-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.campaign-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 4px;
+  border: 2px solid var(--border-color, #000);
+  background-color: #ffd166;
+  color: #000;
+}
+
+.campaign-card.claimed .campaign-badge {
+  background-color: #06d6a0;
+}
+
+.campaign-expiry {
+  font-size: 12px;
+  font-weight: 700;
+  color: #666;
+}
+
+/* Campaign Name */
+.campaign-name {
+  font-size: 20px;
+  font-weight: 900;
+  margin: 0 0 15px 0;
+  color: var(--text-color, #000);
+}
+
+/* Reward Section */
+.campaign-reward {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 20px;
+  padding: 12px 15px;
+  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border: 2px solid var(--border-color, #000);
+  border-radius: 6px;
+}
+
+.campaign-reward-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a3412;
+  text-transform: uppercase;
+}
+
+.campaign-reward-value {
+  font-size: 24px;
+  font-weight: 900;
+  color: #c2410c;
+}
+
+/* Progress Section */
+.campaign-progress-section {
+  margin-bottom: 15px;
+}
+
+.campaign-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text-color, #000);
+}
+
+.campaign-progress-bar {
+  height: 12px;
+  background-color: #e5e5e5;
+  border: 2px solid var(--border-color, #000);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.campaign-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd166, #06d6a0);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.campaign-card.can-claim .campaign-progress-fill {
+  background: linear-gradient(90deg, #06d6a0, #059669);
+}
+
+.campaign-progress-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  text-align: center;
+}
+
+.campaign-card.can-claim .campaign-progress-text {
+  color: #059669;
+  font-weight: 700;
+}
+
+/* Claim Button */
+.campaign-claim-btn {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: 3px solid var(--border-color, #000);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  box-shadow: 4px 4px 0 0 var(--border-color, #000);
+}
+
+.campaign-claim-btn.active {
+  background-color: #06d6a0;
+  color: #000;
+}
+
+.campaign-claim-btn.active:hover {
+  background-color: #059669;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 0 var(--border-color, #000);
+}
+
+.campaign-claim-btn.active:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+.campaign-claim-btn.disabled {
+  background-color: #e5e5e5;
+  color: #999;
+  cursor: not-allowed;
+  box-shadow: 2px 2px 0 0 #ccc;
+}
+
+/* Claimed Info */
+.campaign-claimed-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 15px;
+  background-color: #dcfce7;
+  border: 2px solid var(--border-color, #000);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #166534;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .campaign-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .campaign-section-title {
+    font-size: 16px;
+  }
+
+  .campaign-tutorial-btn {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .tutorial-btn-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+  }
+
+  .campaign-card {
+    padding: 15px;
+  }
+
+  .campaign-name {
+    font-size: 18px;
+  }
+
+  .campaign-reward-value {
+    font-size: 20px;
+  }
+
+  .campaign-claim-btn {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+}
+

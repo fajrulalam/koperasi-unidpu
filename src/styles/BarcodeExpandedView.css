@@ -73,6 +73,13 @@
   margin-right: 25px;
 }
 
+.barcode-remaining {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #7c3aed;
+  margin-right: 25px;
+}
+
 .close-button {
   border: none;
   background: none;

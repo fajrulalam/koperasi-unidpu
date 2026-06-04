@@ -1,7 +1,6 @@
-import { auth, db } from "../firebase";
+import { auth, db, getEnvironmentCollectionPath } from "../firebase";
 import {
   doc,
-  getDoc,
   query,
   collection,
   where,
@@ -55,6 +54,10 @@ export const getStatusBadgeClass = (status) => {
     case "Dibatalkan":
     case "Ditolak":
       return "status-badge error";
+    case "Menunggu Persetujuan Restrukturisasi":
+      return "status-badge restructuring-pending";
+    case "Direstrukturisasi":
+      return "status-badge restructured";
     default:
       return "status-badge";
   }
@@ -193,15 +196,15 @@ export const setupUserDataListener = (
 };
 
 // Active loans fetching logic
-export const setupActiveLoansListener = (setActiveLoans, setLoadingLoans) => {
+export const setupActiveLoansListener = (setActiveLoans, setLoadingLoans, isProduction = true) => {
   const fetchActiveLoans = async () => {
     try {
       const user = auth.currentUser;
       if (!user) return;
 
-      // Query loans collection for this user
+      const spPath = getEnvironmentCollectionPath("simpanPinjam", isProduction);
       const loansQuery = query(
-        collection(db, "simpanPinjam"),
+        collection(db, spPath),
         where("userId", "==", user.uid)
       );
 
@@ -216,6 +219,8 @@ export const setupActiveLoansListener = (setActiveLoans, setLoadingLoans) => {
             "Ditolak Wakil Rektor 2",
             "Lunas",
             "Revisi Ditolak Anggota",
+            "Direstrukturisasi",
+            "Dibatalkan",
           ];
           const loansData = snapshot.docs
             .map((doc) => ({
@@ -403,8 +408,6 @@ export const getBalanceDisplay = (isInactive, userData) => {
   }
 
   const currentBalance = userData?.nominalTabungan || 0;
-  const next5th = getNext5thOfMonth();
-  const monthName = getIndonesianMonthName(next5th);
   const nextPaymentInfo = getNextPaymentInfo(userData);
 
   return {

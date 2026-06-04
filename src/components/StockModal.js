@@ -32,16 +32,16 @@ const SUBKATEGORI_MAKANAN = [
   "Makanan Siap Saji",
   "Bumbu",
   "Makanan Manis",
-    "Roti & Kue",
+  "Roti & Kue",
   "Lainnya",
 ];
 
 const SUBKATEGORI_PERAWATAN_DIRI = [
-    "Kebersihan Tubuh",
-    "Perawatan Rambut",
-    "Mulut & Gigi",
-    "Kewanitaan",
-    "Lainnya",
+  "Kebersihan Tubuh",
+  "Perawatan Rambut",
+  "Mulut & Gigi",
+  "Kewanitaan",
+  "Lainnya",
 ];
 
 const SUBKATEGORI_MINUMAN = [
@@ -51,7 +51,7 @@ const SUBKATEGORI_MINUMAN = [
   "Air Mineral",
   "Teh",
   "Kopi",
-    "Saset/Serbuk",
+  "Saset/Serbuk",
   "Lainnya",
 ];
 
@@ -64,21 +64,37 @@ const SUBKATEGORI_KESEHATAN = [
 ];
 
 const SUBKATEGORI_ATK = [
-    "Pulpen",
-    "Pensil",
-    "Buku",
-    "Stipo",
-    "Penghapus",
-    "Kertas",
-    "Lainnya",
+  "Pulpen",
+  "Pensil",
+  "Buku",
+  "Stipo",
+  "Penghapus",
+  "Kertas",
+  "Lainnya",
 ];
 
-const TIPE_STOCK_CHOICES = ["Produksi Sendiri", "Kulak", "Titipan", "Supplier/Sales", "Lainnya"];
-const NAMA_PEMASOK_CHOICES = ["Nabati", "Mayorca", "Pocari", "Fruitea (Sosro)", "Kulkul", "Yarno Mineral", "Nestle", "Gerry", "Lainnya"];
-const SMALLEST_UNITS = ["pcs", "gram", "ons", "kg"];
+const TIPE_STOCK_CHOICES = [
+  "Produksi Sendiri",
+  "Kulak",
+  "Titipan",
+  "Supplier/Sales",
+  "Lainnya",
+];
+const NAMA_PEMASOK_CHOICES = [
+  "Nabati",
+  "Mayorca",
+  "Pocari",
+  "Fruitea (Sosro)",
+  "Kulkul",
+  "Yarno Mineral",
+  "Nestle",
+  "Gerry",
+  "Lainnya",
+];
+const SMALLEST_UNITS = ["pcs", "gram", "ons", "kg", "kardus", "karton", "pack"];
 const ALT_UNITS = ["box", "kg", "kwintal", "ton", "ons"];
 
-function StockModal({ 
+function StockModal({
   dialogOpen,
   dialogType,
   selectedProductId,
@@ -87,7 +103,7 @@ function StockModal({
   onSave,
   tempState: externalTempState,
   setTempState: externalSetTempState,
-  convertToSmallestUnit
+  convertToSmallestUnit,
 }) {
   // Local state for form values
   const [localState, setLocalState] = useState({
@@ -96,7 +112,7 @@ function StockModal({
     tempKategori: externalTempState.tempKategori || "",
     tempSubKategori: externalTempState.tempSubKategori || "",
     tempTipeStock: externalTempState.tempTipeStock || "",
-      tempNamaPemasok: externalTempState.tempNamaPemasok || "",
+    tempNamaPemasok: externalTempState.tempNamaPemasok || "",
     tempDefaultSatuan: externalTempState.tempDefaultSatuan || "",
     tempAltSatuan: [...(externalTempState.tempAltSatuan || [])],
     tempPricePerUnit: { ...(externalTempState.tempPricePerUnit || {}) },
@@ -105,7 +121,7 @@ function StockModal({
     tempCost: externalTempState.tempCost || "",
     piecesPerBox: externalTempState.piecesPerBox || "",
     tempDocId: externalTempState.tempDocId || "",
-    originalSmallestUnit: externalTempState.originalSmallestUnit || ""
+    originalSmallestUnit: externalTempState.originalSmallestUnit || "",
   });
 
   // Sync external state with local state when props change
@@ -116,7 +132,7 @@ function StockModal({
       tempKategori: externalTempState.tempKategori || "",
       tempSubKategori: externalTempState.tempSubKategori || "",
       tempTipeStock: externalTempState.tempTipeStock || "",
-        tempNamaPemasok: externalTempState.tempNamaPemasok || "",
+      tempNamaPemasok: externalTempState.tempNamaPemasok || "",
       tempDefaultSatuan: externalTempState.tempDefaultSatuan || "",
       tempAltSatuan: [...(externalTempState.tempAltSatuan || [])],
       tempPricePerUnit: { ...(externalTempState.tempPricePerUnit || {}) },
@@ -125,7 +141,7 @@ function StockModal({
       tempCost: externalTempState.tempCost || "",
       piecesPerBox: externalTempState.piecesPerBox || "",
       tempDocId: externalTempState.tempDocId || "",
-      originalSmallestUnit: externalTempState.originalSmallestUnit || ""
+      originalSmallestUnit: externalTempState.originalSmallestUnit || "",
     });
   }, [externalTempState, dialogType, selectedProductId]);
 
@@ -134,36 +150,41 @@ function StockModal({
     const handler = setTimeout(() => {
       externalSetTempState(localState);
     }, 100);
-    
+
     return () => {
       clearTimeout(handler);
     };
   }, [localState, externalSetTempState]);
-  
+
   // Simple form validation state
   const [formErrors, setFormErrors] = useState({});
-  
+
   // Validate form before save
   const validateForm = (type) => {
     const errors = {};
-    
+
     if (type === "addNew" || type === "edit") {
-      if (!localState.tempName.trim()) errors.tempName = "Nama barang wajib diisi";
-      if (!localState.tempKategori) errors.tempKategori = "Kategori wajib dipilih";
-      if (!localState.tempTipeStock) errors.tempTipeStock = "Tipe stock wajib dipilih";
-      if (!localState.tempDefaultSatuan) errors.tempDefaultSatuan = "Unit terkecil wajib dipilih";
-      
+      if (!localState.tempName.trim())
+        errors.tempName = "Nama barang wajib diisi";
+      if (!localState.tempKategori)
+        errors.tempKategori = "Kategori wajib dipilih";
+      if (!localState.tempTipeStock)
+        errors.tempTipeStock = "Tipe stock wajib dipilih";
+      if (!localState.tempDefaultSatuan)
+        errors.tempDefaultSatuan = "Unit terkecil wajib dipilih";
+
       // Validate box conversion if box is selected
       if (boxIsSelected && !localState.piecesPerBox) {
         errors.piecesPerBox = "Jumlah per box wajib diisi";
       }
     }
-    
+
     if (type === "tambah" || type === "tetapkan") {
-      if (localState.tempAmount === "" || localState.tempAmount == null) errors.tempAmount = "Jumlah wajib diisi";
+      if (localState.tempAmount === "" || localState.tempAmount == null)
+        errors.tempAmount = "Jumlah wajib diisi";
       if (!localState.tempSatuan) errors.tempSatuan = "Satuan wajib dipilih";
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -181,7 +202,7 @@ function StockModal({
       }, 100);
     }
   }, [dialogOpen, dialogType]);
-  
+
   // Close modal when Escape key is pressed
   useEffect(() => {
     function handleEsc(e) {
@@ -194,50 +215,50 @@ function StockModal({
   }, [dialogOpen, onClose]);
 
   // Check if box is selected in any of the satuan fields
-  const boxIsSelected = 
-    localState.tempDefaultSatuan === "box" || 
+  const boxIsSelected =
+    localState.tempDefaultSatuan === "box" ||
     localState.tempAltSatuan.includes("box");
 
   // Handle amount change with numeric formatting
   function handleAmountChange(e) {
     const numericValue = e.target.value.replace(/\D/g, "");
-    setLocalState(prev => ({
+    setLocalState((prev) => ({
       ...prev,
-      tempAmount: numericValue
+      tempAmount: numericValue,
     }));
   }
 
   // Handle cost change with Rupiah formatting
   function handleCostChange(e) {
     const numericValue = e.target.value.replace(/\D/g, "");
-    setLocalState(prev => ({
+    setLocalState((prev) => ({
       ...prev,
-      tempCost: formatRupiah(numericValue)
+      tempCost: formatRupiah(numericValue),
     }));
   }
 
   // Handle pieces per box change
   function handlePiecesPerBoxChange(e) {
     const numeric = e.target.value.replace(/\D/g, "");
-    setLocalState(prev => ({
+    setLocalState((prev) => ({
       ...prev,
-      piecesPerBox: numeric
+      piecesPerBox: numeric,
     }));
   }
 
   // Handle toggling alternate units
   function handleToggleAltSatuan(unit) {
     if (unit === localState.tempDefaultSatuan) return; // Prevent adding default satuan
-    
+
     // Update local state
-    setLocalState(prev => {
+    setLocalState((prev) => {
       const updatedTempAltSatuan = prev.tempAltSatuan.includes(unit)
-        ? prev.tempAltSatuan.filter(u => u !== unit)
+        ? prev.tempAltSatuan.filter((u) => u !== unit)
         : [...prev.tempAltSatuan, unit];
-        
+
       return {
         ...prev,
-        tempAltSatuan: updatedTempAltSatuan
+        tempAltSatuan: updatedTempAltSatuan,
       };
     });
   }
@@ -247,20 +268,20 @@ function StockModal({
     try {
       // Allow only numeric input first
       const numericValue = val.replace(/\D/g, "");
-      
+
       // Format the number
       const formatted = numericValue ? formatRupiah(numericValue) : "";
-      
+
       // Update the local state
-      setLocalState(prev => {
+      setLocalState((prev) => {
         const newPricePerUnit = {
           ...prev.tempPricePerUnit,
-          [unit]: formatted
+          [unit]: formatted,
         };
-        
+
         return {
           ...prev,
-          tempPricePerUnit: newPricePerUnit
+          tempPricePerUnit: newPricePerUnit,
         };
       });
     } catch (error) {
@@ -284,10 +305,10 @@ function StockModal({
       subKategori = "";
     }
 
-    setLocalState(prev => ({
+    setLocalState((prev) => ({
       ...prev,
       tempKategori: kategori,
-      tempSubKategori: subKategori
+      tempSubKategori: subKategori,
     }));
   }
 
@@ -300,9 +321,9 @@ function StockModal({
   } else if (localState.tempKategori === "Kesehatan") {
     subKategoriChoices = SUBKATEGORI_KESEHATAN;
   } else if (localState.tempKategori === "Perawatan Diri") {
-      subKategoriChoices = SUBKATEGORI_PERAWATAN_DIRI;
+    subKategoriChoices = SUBKATEGORI_PERAWATAN_DIRI;
   } else if (localState.tempKategori === "ATK") {
-      subKategoriChoices = SUBKATEGORI_ATK;
+    subKategoriChoices = SUBKATEGORI_ATK;
   }
 
   // Delete Confirmation Dialog
@@ -336,23 +357,29 @@ function StockModal({
                 ref={firstFieldRef}
                 type="text"
                 value={localState.tempName}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempName: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempName: e.target.value,
+                  }))
+                }
                 className={formErrors.tempName ? "error" : ""}
               />
-              {formErrors.tempName && <div className="error-message">{formErrors.tempName}</div>}
+              {formErrors.tempName && (
+                <div className="error-message">{formErrors.tempName}</div>
+              )}
             </div>
             <div className="form-group">
               <label>Doc ID (optional)</label>
               <input
                 type="text"
                 value={localState.tempDocId}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempDocId: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempDocId: e.target.value,
+                  }))
+                }
               />
             </div>
             <div className="form-group">
@@ -362,7 +389,9 @@ function StockModal({
                 onChange={handleKategoriChange}
                 className={formErrors.tempKategori ? "error" : ""}
               >
-                {formErrors.tempKategori && <div className="error-message">{formErrors.tempKategori}</div>}
+                {formErrors.tempKategori && (
+                  <div className="error-message">{formErrors.tempKategori}</div>
+                )}
                 <option value="">-- Pilih Kategori --</option>
                 {KATEGORI_CHOICES.map((kat) => (
                   <option key={kat} value={kat}>
@@ -380,10 +409,12 @@ function StockModal({
                 <label>Sub Kategori</label>
                 <select
                   value={localState.tempSubKategori}
-                  onChange={(e) => setLocalState(prev => ({
-                    ...prev,
-                    tempSubKategori: e.target.value
-                  }))}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempSubKategori: e.target.value,
+                    }))
+                  }
                 >
                   <option value="">-- Pilih SubKategori --</option>
                   {subKategoriChoices.map((sub) => (
@@ -396,20 +427,30 @@ function StockModal({
             ) : (
               <div className="form-group">
                 <label>Sub Kategori</label>
-                <input type="text" value={localState.tempSubKategori} readOnly />
+                <input
+                  type="text"
+                  value={localState.tempSubKategori}
+                  readOnly
+                />
               </div>
             )}
             <div className="form-group">
               <label>Sumber Pasokan</label>
               <select
                 value={localState.tempTipeStock}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempTipeStock: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempTipeStock: e.target.value,
+                  }))
+                }
                 className={formErrors.tempTipeStock ? "error" : ""}
               >
-                {formErrors.tempTipeStock && <div className="error-message">{formErrors.tempTipeStock}</div>}
+                {formErrors.tempTipeStock && (
+                  <div className="error-message">
+                    {formErrors.tempTipeStock}
+                  </div>
+                )}
                 <option value="">-- Pilih Sumber Pemasok --</option>
                 {TIPE_STOCK_CHOICES.map((tipe) => (
                   <option key={tipe} value={tipe}>
@@ -418,37 +459,49 @@ function StockModal({
                 ))}
               </select>
             </div>
-              <div className="form-group">
-                  <label>Nama Pemasok</label>
-                  <select
-                      value={localState.tempNamaPemasok}
-                      onChange={(e) => setLocalState(prev => ({
-                          ...prev,
-                          tempNamaPemasok: e.target.value
-                      }))}
-                      className={formErrors.tempNamaPemasok ? "error" : ""}
-                  >
-                      {formErrors.tempNamaPemasok && <div className="error-message">{formErrors.tempTipeStock}</div>}
-                      <option value="">-- Pilih Nama Pemasok --</option>
-                      {NAMA_PEMASOK_CHOICES.map((tipe) => (
-                          <option key={tipe} value={tipe}>
-                              {tipe}
-                          </option>
-                      ))}
-                  </select>
-              </div>
+            <div className="form-group">
+              <label>Nama Pemasok</label>
+              <select
+                value={localState.tempNamaPemasok}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempNamaPemasok: e.target.value,
+                  }))
+                }
+                className={formErrors.tempNamaPemasok ? "error" : ""}
+              >
+                {formErrors.tempNamaPemasok && (
+                  <div className="error-message">
+                    {formErrors.tempTipeStock}
+                  </div>
+                )}
+                <option value="">-- Pilih Nama Pemasok --</option>
+                {NAMA_PEMASOK_CHOICES.map((tipe) => (
+                  <option key={tipe} value={tipe}>
+                    {tipe}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="form-group">
               <label>Unit Terkecil (Wajib)</label>
               <select
                 value={localState.tempDefaultSatuan}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempDefaultSatuan: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempDefaultSatuan: e.target.value,
+                  }))
+                }
                 className={formErrors.tempDefaultSatuan ? "error" : ""}
                 required
               >
-                {formErrors.tempDefaultSatuan && <div className="error-message">{formErrors.tempDefaultSatuan}</div>}
+                {formErrors.tempDefaultSatuan && (
+                  <div className="error-message">
+                    {formErrors.tempDefaultSatuan}
+                  </div>
+                )}
                 <option value="">-- Pilih Unit Terkecil --</option>
                 {SMALLEST_UNITS.map((unit) => (
                   <option key={unit} value={unit}>
@@ -460,21 +513,23 @@ function StockModal({
             <div className="form-group">
               <label>Satuan Alternatif (Opsional)</label>
               <div className="checkbox-group">
-                {ALT_UNITS.filter((unit) => unit !== localState.tempDefaultSatuan).map(
-                  (unit) => {
-                    const selected = localState.tempAltSatuan.includes(unit);
-                    return (
-                      <button
-                        type="button"
-                        key={unit}
-                        className={`pseudo-checkbox ${selected ? "selected" : ""}`}
-                        onClick={() => handleToggleAltSatuan(unit)}
-                      >
-                        {unit}
-                      </button>
-                    );
-                  }
-                )}
+                {ALT_UNITS.filter(
+                  (unit) => unit !== localState.tempDefaultSatuan
+                ).map((unit) => {
+                  const selected = localState.tempAltSatuan.includes(unit);
+                  return (
+                    <button
+                      type="button"
+                      key={unit}
+                      className={`pseudo-checkbox ${
+                        selected ? "selected" : ""
+                      }`}
+                      onClick={() => handleToggleAltSatuan(unit)}
+                    >
+                      {unit}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {localState.tempAltSatuan.includes("box") && (
@@ -489,7 +544,9 @@ function StockModal({
                   className={formErrors.piecesPerBox ? "error" : ""}
                   required
                 />
-                {formErrors.piecesPerBox && <div className="error-message">{formErrors.piecesPerBox}</div>}
+                {formErrors.piecesPerBox && (
+                  <div className="error-message">{formErrors.piecesPerBox}</div>
+                )}
               </div>
             )}
             <div className="form-group">
@@ -497,7 +554,10 @@ function StockModal({
               <div className="price-field-list">
                 {Array.from(
                   new Set(
-                    [localState.tempDefaultSatuan, ...localState.tempAltSatuan].filter(Boolean)
+                    [
+                      localState.tempDefaultSatuan,
+                      ...localState.tempAltSatuan,
+                    ].filter(Boolean)
                   )
                 ).map((u) => (
                   <div key={u} className="price-field">
@@ -517,11 +577,15 @@ function StockModal({
           </div>
           <div className="stockmodal-buttons">
             <button onClick={onClose}>Batal</button>
-            <button onClick={() => {
-              if (validateForm("addNew")) {
-                onSave("addNew");
-              }
-            }}>Simpan</button>
+            <button
+              onClick={() => {
+                if (validateForm("addNew")) {
+                  onSave("addNew");
+                }
+              }}
+            >
+              Simpan
+            </button>
           </div>
         </div>
       </div>
@@ -529,7 +593,11 @@ function StockModal({
   }
 
   // Edit Stock Modal
-  if (dialogType === "edit" && selectedProductId && products[selectedProductId]) {
+  if (
+    dialogType === "edit" &&
+    selectedProductId &&
+    products[selectedProductId]
+  ) {
     return (
       <div className="stockmodal-overlay">
         <div className="stockmodal-content">
@@ -541,23 +609,29 @@ function StockModal({
                 ref={firstFieldRef}
                 type="text"
                 value={localState.tempName}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempName: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempName: e.target.value,
+                  }))
+                }
                 className={formErrors.tempName ? "error" : ""}
               />
-              {formErrors.tempName && <div className="error-message">{formErrors.tempName}</div>}
+              {formErrors.tempName && (
+                <div className="error-message">{formErrors.tempName}</div>
+              )}
             </div>
             <div className="form-group">
               <label>Item ID (Barcode)</label>
               <input
                 type="text"
                 value={localState.tempItemId}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempItemId: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempItemId: e.target.value,
+                  }))
+                }
                 placeholder="Enter barcode ID"
               />
             </div>
@@ -568,10 +642,14 @@ function StockModal({
                 onChange={handleKategoriChange}
                 className={formErrors.tempKategori ? "error" : ""}
               >
-                {formErrors.tempKategori && <div className="error-message">{formErrors.tempKategori}</div>}
+                {formErrors.tempKategori && (
+                  <div className="error-message">{formErrors.tempKategori}</div>
+                )}
                 <option value="">-- Pilih Kategori --</option>
                 {KATEGORI_CHOICES.map((kat) => (
-                  <option key={kat} value={kat}>{kat}</option>
+                  <option key={kat} value={kat}>
+                    {kat}
+                  </option>
                 ))}
               </select>
             </div>
@@ -584,95 +662,127 @@ function StockModal({
                 <label>Sub Kategori</label>
                 <select
                   value={localState.tempSubKategori}
-                  onChange={(e) => setLocalState(prev => ({
-                    ...prev,
-                    tempSubKategori: e.target.value
-                  }))}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempSubKategori: e.target.value,
+                    }))
+                  }
                 >
                   <option value="">-- Pilih SubKategori --</option>
                   {subKategoriChoices.map((sub) => (
-                    <option key={sub} value={sub}>{sub}</option>
+                    <option key={sub} value={sub}>
+                      {sub}
+                    </option>
                   ))}
                 </select>
               </div>
             ) : (
               <div className="form-group">
                 <label>Sub Kategori</label>
-                <input type="text" value={localState.tempSubKategori} readOnly />
+                <input
+                  type="text"
+                  value={localState.tempSubKategori}
+                  readOnly
+                />
               </div>
             )}
             <div className="form-group">
               <label>Sumber Pasokan</label>
               <select
                 value={localState.tempTipeStock}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempTipeStock: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempTipeStock: e.target.value,
+                  }))
+                }
                 className={formErrors.tempTipeStock ? "error" : ""}
               >
-                {formErrors.tempTipeStock && <div className="error-message">{formErrors.tempTipeStock}</div>}
+                {formErrors.tempTipeStock && (
+                  <div className="error-message">
+                    {formErrors.tempTipeStock}
+                  </div>
+                )}
                 <option value="">-- Pilih Tipe --</option>
                 {TIPE_STOCK_CHOICES.map((tipe) => (
-                  <option key={tipe} value={tipe}>{tipe}</option>
+                  <option key={tipe} value={tipe}>
+                    {tipe}
+                  </option>
                 ))}
               </select>
             </div>
-              <div className="form-group">
-                  <label>Nama Pemasok</label>
-                  <select
-                      value={localState.tempNamaPemasok}
-                      onChange={(e) => setLocalState(prev => ({
-                          ...prev,
-                          tempNamaPemasok: e.target.value
-                      }))}
-                      className={formErrors.tempNamaPemasok ? "error" : ""}
-                  >
-                      {formErrors.tempNamaPemasok && <div className="error-message">{formErrors.tempTipeStock}</div>}
-                      <option value="">-- Pilih Nama Pemasok --</option>
-                      {NAMA_PEMASOK_CHOICES.map((tipe) => (
-                          <option key={tipe} value={tipe}>
-                              {tipe}
-                          </option>
-                      ))}
-                  </select>
-              </div>
+            <div className="form-group">
+              <label>Nama Pemasok</label>
+              <select
+                value={localState.tempNamaPemasok}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempNamaPemasok: e.target.value,
+                  }))
+                }
+                className={formErrors.tempNamaPemasok ? "error" : ""}
+              >
+                {formErrors.tempNamaPemasok && (
+                  <div className="error-message">
+                    {formErrors.tempTipeStock}
+                  </div>
+                )}
+                <option value="">-- Pilih Nama Pemasok --</option>
+                {NAMA_PEMASOK_CHOICES.map((tipe) => (
+                  <option key={tipe} value={tipe}>
+                    {tipe}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="form-group">
               <label>Satuan Terkecil (Wajib)</label>
               <select
                 value={localState.tempDefaultSatuan}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempDefaultSatuan: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempDefaultSatuan: e.target.value,
+                  }))
+                }
                 className={formErrors.tempDefaultSatuan ? "error" : ""}
                 required
               >
-                {formErrors.tempDefaultSatuan && <div className="error-message">{formErrors.tempDefaultSatuan}</div>}
+                {formErrors.tempDefaultSatuan && (
+                  <div className="error-message">
+                    {formErrors.tempDefaultSatuan}
+                  </div>
+                )}
                 <option value="">-- Pilih Satuan Terkecil --</option>
                 {SMALLEST_UNITS.map((unit) => (
-                  <option key={unit} value={unit}>{unit}</option>
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
                 ))}
               </select>
             </div>
             <div className="form-group">
               <label>Satuan Alternatif (Opsional)</label>
               <div className="checkbox-group">
-                {ALT_UNITS.filter((unit) => unit !== localState.tempDefaultSatuan).map(
-                  (unit) => {
-                    const selected = localState.tempAltSatuan.includes(unit);
-                    return (
-                      <button
-                        type="button"
-                        key={unit}
-                        className={`pseudo-checkbox ${selected ? "selected" : ""}`}
-                        onClick={() => handleToggleAltSatuan(unit)}
-                      >
-                        {unit}
-                      </button>
-                    );
-                  }
-                )}
+                {ALT_UNITS.filter(
+                  (unit) => unit !== localState.tempDefaultSatuan
+                ).map((unit) => {
+                  const selected = localState.tempAltSatuan.includes(unit);
+                  return (
+                    <button
+                      type="button"
+                      key={unit}
+                      className={`pseudo-checkbox ${
+                        selected ? "selected" : ""
+                      }`}
+                      onClick={() => handleToggleAltSatuan(unit)}
+                    >
+                      {unit}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {boxIsSelected && (
@@ -691,7 +801,10 @@ function StockModal({
               <div className="price-field-list">
                 {Array.from(
                   new Set(
-                    [localState.tempDefaultSatuan, ...localState.tempAltSatuan].filter(Boolean)
+                    [
+                      localState.tempDefaultSatuan,
+                      ...localState.tempAltSatuan,
+                    ].filter(Boolean)
                   )
                 ).map((u) => (
                   <div key={u} className="price-field">
@@ -711,11 +824,15 @@ function StockModal({
           </div>
           <div className="stockmodal-buttons">
             <button onClick={onClose}>Batal</button>
-            <button onClick={() => {
-              if (validateForm("edit")) {
-                onSave("edit");
-              }
-            }}>Simpan</button>
+            <button
+              onClick={() => {
+                if (validateForm("edit")) {
+                  onSave("edit");
+                }
+              }}
+            >
+              Simpan
+            </button>
           </div>
         </div>
       </div>
@@ -723,7 +840,11 @@ function StockModal({
   }
 
   // Tambah Stock Modal
-  if (dialogType === "tambah" && selectedProductId && products[selectedProductId]) {
+  if (
+    dialogType === "tambah" &&
+    selectedProductId &&
+    products[selectedProductId]
+  ) {
     return (
       <div className="stockmodal-overlay">
         <div className="stockmodal-content">
@@ -742,21 +863,33 @@ function StockModal({
                   type="text"
                   value={localState.tempAmount}
                   onChange={handleAmountChange}
-                  className={`quantity-input ${formErrors.tempAmount ? "error" : ""}`}
+                  className={`quantity-input ${
+                    formErrors.tempAmount ? "error" : ""
+                  }`}
                   placeholder="Jumlah"
                 />
-                {formErrors.tempAmount && <div className="error-message">{formErrors.tempAmount}</div>}
+                {formErrors.tempAmount && (
+                  <div className="error-message">{formErrors.tempAmount}</div>
+                )}
                 <select
                   value={localState.tempSatuan}
-                  onChange={(e) => setLocalState(prev => ({
-                    ...prev,
-                    tempSatuan: e.target.value
-                  }))}
-                  className={`unit-select ${formErrors.tempSatuan ? "error" : ""}`}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempSatuan: e.target.value,
+                    }))
+                  }
+                  className={`unit-select ${
+                    formErrors.tempSatuan ? "error" : ""
+                  }`}
                 >
-                  {formErrors.tempSatuan && <div className="error-message">{formErrors.tempSatuan}</div>}
+                  {formErrors.tempSatuan && (
+                    <div className="error-message">{formErrors.tempSatuan}</div>
+                  )}
                   {(products[selectedProductId]?.satuan || []).map((unit) => (
-                    <option key={unit} value={unit}>{unit}</option>
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -776,11 +909,15 @@ function StockModal({
           </div>
           <div className="stockmodal-buttons">
             <button onClick={onClose}>Batal</button>
-            <button onClick={() => {
-              if (validateForm("tambah")) {
-                onSave("tambah");
-              }
-            }}>Simpan</button>
+            <button
+              onClick={() => {
+                if (validateForm("tambah")) {
+                  onSave("tambah");
+                }
+              }}
+            >
+              Simpan
+            </button>
           </div>
         </div>
       </div>
@@ -788,7 +925,11 @@ function StockModal({
   }
 
   // Tetapkan Stock Modal
-  if (dialogType === "tetapkan" && selectedProductId && products[selectedProductId]) {
+  if (
+    dialogType === "tetapkan" &&
+    selectedProductId &&
+    products[selectedProductId]
+  ) {
     return (
       <div className="stockmodal-overlay">
         <div className="stockmodal-content">
@@ -808,21 +949,29 @@ function StockModal({
                 onChange={handleAmountChange}
                 className={formErrors.tempAmount ? "error" : ""}
               />
-              {formErrors.tempAmount && <div className="error-message">{formErrors.tempAmount}</div>}
+              {formErrors.tempAmount && (
+                <div className="error-message">{formErrors.tempAmount}</div>
+              )}
             </div>
             <div className="form-group">
               <label>Satuan</label>
               <select
                 value={localState.tempSatuan}
-                onChange={(e) => setLocalState(prev => ({
-                  ...prev,
-                  tempSatuan: e.target.value
-                }))}
+                onChange={(e) =>
+                  setLocalState((prev) => ({
+                    ...prev,
+                    tempSatuan: e.target.value,
+                  }))
+                }
                 className={formErrors.tempSatuan ? "error" : ""}
               >
-                {formErrors.tempSatuan && <div className="error-message">{formErrors.tempSatuan}</div>}
+                {formErrors.tempSatuan && (
+                  <div className="error-message">{formErrors.tempSatuan}</div>
+                )}
                 {products[selectedProductId].satuan.map((unit) => (
-                  <option key={unit} value={unit}>{unit}</option>
+                  <option key={unit} value={unit}>
+                    {unit}
+                  </option>
                 ))}
               </select>
             </div>
@@ -837,11 +986,15 @@ function StockModal({
           </div>
           <div className="stockmodal-buttons">
             <button onClick={onClose}>Batal</button>
-            <button onClick={() => {
-              if (validateForm("tetapkan")) {
-                onSave("tetapkan");
-              }
-            }}>Simpan</button>
+            <button
+              onClick={() => {
+                if (validateForm("tetapkan")) {
+                  onSave("tetapkan");
+                }
+              }}
+            >
+              Simpan
+            </button>
           </div>
         </div>
       </div>

@@ -5,6 +5,113 @@
   margin: 0 auto;
 }
 
+/* Container to allow scrolling on small screens */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  background-color: white;
+}
+
+.voucher-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px; /* Ensures table doesn't squish too much */
+}
+
+.voucher-table th,
+.voucher-table td {
+  padding: 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.voucher-table th {
+  background-color: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+/* Row Styling */
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-row:hover {
+  background-color: #f1f7ff; /* Light blue hover effect */
+}
+
+/* Column specific tweaks */
+.fw-bold {
+  font-weight: 600;
+  color: #333;
+}
+
+.text-muted {
+  color: #999;
+  font-size: 12px;
+}
+
+/* Status Badge adjustments for table context */
+.status-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 80px;
+}
+
+.status-badge.active {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+.status-badge.inactive {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+.status-badge.pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+.status-badge.expired {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Type Badge Styles */
+.type-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 70px;
+}
+
+.type-badge.member {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.type-badge.print {
+  background-color: #fce7f3;
+  color: #9d174d;
+}
+
+.type-badge.campaign {
+  background-color: #fef3c7;
+  color: #b45309;
+}
+
 .voucher-header {
   display: flex;
   justify-content: space-between;
@@ -22,7 +129,7 @@
 }
 
 .btn-create-voucher {
-  background: linear-gradient(135deg, #4CAF50, #45a049);
+  background: linear-gradient(135deg, #4caf50, #45a049);
   color: white;
   border: none;
   padding: 15px 30px;
@@ -35,7 +142,7 @@
 }
 
 .btn-create-voucher:hover {
-  background: linear-gradient(135deg, #45a049, #4CAF50);
+  background: linear-gradient(135deg, #45a049, #4caf50);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
 }
@@ -57,15 +164,19 @@
   width: 40px;
   height: 40px;
   border: 4px solid #f3f3f3;
-  border-top: 4px solid #4CAF50;
+  border-top: 4px solid #4caf50;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 20px;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error-message {
@@ -136,7 +247,7 @@
 .voucher-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-  border-color: #4CAF50;
+  border-color: #4caf50;
 }
 
 .voucher-card-header {
@@ -230,42 +341,42 @@
   .voucher-page {
     padding: 15px;
   }
-  
+
   .voucher-header {
     flex-direction: column;
     gap: 15px;
     align-items: stretch;
   }
-  
+
   .voucher-header h1 {
     font-size: 2rem;
     text-align: center;
   }
-  
+
   .btn-create-voucher {
     width: 100%;
     padding: 18px;
   }
-  
+
   .voucher-grid {
     grid-template-columns: 1fr;
     gap: 20px;
   }
-  
+
   .voucher-card {
     padding: 20px;
   }
-  
+
   .voucher-card-header {
     flex-direction: column;
     gap: 15px;
   }
-  
+
   .voucher-card-header h3 {
     margin-right: 0;
     text-align: center;
   }
-  
+
   .status-badge {
     align-self: center;
   }

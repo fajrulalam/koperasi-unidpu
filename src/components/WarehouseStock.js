@@ -202,6 +202,9 @@ export default function WarehouseStock() {
       ons: 100, // 1 ons = 100 grams
       gram: 1, // base unit
       pcs: 1, // for piece-based items
+      kardus: 1,
+      karton: 1,
+      pack: 1,
     };
 
     // If the unit or product's smallest unit isn't in our conversion table

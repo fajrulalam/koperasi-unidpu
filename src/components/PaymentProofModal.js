@@ -1,5 +1,17 @@
 import React, { useState } from "react";
 import "../styles/AdminPanel.css";
+import "../styles/RestrukturisasiReviewModal.css";
+
+const calculateFee = (jumlahPinjaman) => {
+  if (jumlahPinjaman > 8000000) return 500000;
+  if (jumlahPinjaman > 6000000) return 400000;
+  if (jumlahPinjaman > 4000000) return 300000;
+  if (jumlahPinjaman > 2000000) return 200000;
+  if (jumlahPinjaman >= 1000000) return 100000;
+  return 0;
+};
+
+const formatRupiah = (n) => `Rp ${(n || 0).toLocaleString("id-ID")}`;
 
 const PaymentProofModal = ({ loan, onClose, onUploadProof }) => {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -8,11 +20,20 @@ const PaymentProofModal = ({ loan, onClose, onUploadProof }) => {
 
   if (!loan) return null;
 
+  const isRestrukturisasi = !!loan.restructuredFromLoanId;
+  const jumlahPinjaman = loan.jumlahPinjaman || 0;
+  const biayaAdmin = loan.biayaAdmin ?? calculateFee(jumlahPinjaman);
+  const sisaHutangLama = loan.sisaPinjamanSebelumnya || 0;
+  const pinjamanBaru = loan.pinjamanBaru || 0;
+  const jumlahTransfer = isRestrukturisasi
+    ? pinjamanBaru - biayaAdmin
+    : jumlahPinjaman - biayaAdmin;
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
-      
+
       // Create a preview for the selected file
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -41,18 +62,72 @@ const PaymentProofModal = ({ loan, onClose, onUploadProof }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <h3>Upload Bukti Transfer</h3>
-        <div className="loan-summary">
-          <p>
-            <strong>ID:</strong> {loan.id.substring(0, 8)}
-          </p>
-          <p>
-            <strong>Nama:</strong> {loan.userData?.namaLengkap || "N/A"}
-          </p>
-          <p>
-            <strong>Jumlah:</strong> Rp{" "}
-            {loan.jumlahPinjaman?.toLocaleString("id-ID") || "0"}
-          </p>
+
+        <div className="rrm-info-row">
+          <span className="rrm-info-label">ID Pinjaman</span>
+          <span className="rrm-info-value">#{loan.id.substring(0, 8)}</span>
         </div>
+        <div className="rrm-info-row">
+          <span className="rrm-info-label">Nama</span>
+          <span className="rrm-info-value">{loan.userData?.namaLengkap || "N/A"}</span>
+        </div>
+        <div className="rrm-info-row">
+          <span className="rrm-info-label">Rekening</span>
+          <span className="rrm-info-value">
+            {loan.bankDetails?.bank || "N/A"} — {loan.bankDetails?.nomorRekening || "N/A"}
+          </span>
+        </div>
+
+        {isRestrukturisasi ? (
+          <div className="rrm-calc-table" style={{ marginTop: 16 }}>
+            <div className="rrm-calc-row">
+              <span>Sisa hutang lama (#{loan.restructuredFromLoanId?.substring(0, 8)})</span>
+              <span>{formatRupiah(sisaHutangLama)}</span>
+            </div>
+            <div className="rrm-calc-row">
+              <span>Pinjaman tambahan</span>
+              <span>+ {formatRupiah(pinjamanBaru)}</span>
+            </div>
+            <div className="rrm-calc-row rrm-calc-total">
+              <span>Total pinjaman baru</span>
+              <span>{formatRupiah(jumlahPinjaman)}</span>
+            </div>
+            <div className="rrm-calc-divider" />
+            <div className="rrm-calc-row">
+              <span>Biaya administrasi</span>
+              <span>{formatRupiah(biayaAdmin)}</span>
+            </div>
+            <div className="rrm-calc-divider" />
+            <div className="rrm-calc-row" style={{ fontSize: "0.82rem", color: "#6b7280" }}>
+              <span>Pinjaman tambahan</span>
+              <span>{formatRupiah(pinjamanBaru)}</span>
+            </div>
+            <div className="rrm-calc-row" style={{ fontSize: "0.82rem", color: "#6b7280" }}>
+              <span>Biaya administrasi</span>
+              <span>- {formatRupiah(biayaAdmin)}</span>
+            </div>
+            <div className="rrm-calc-row rrm-calc-transfer">
+              <span>Jumlah transfer ke anggota</span>
+              <span>{formatRupiah(jumlahTransfer)}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="rrm-calc-table" style={{ marginTop: 16 }}>
+            <div className="rrm-calc-row">
+              <span>Jumlah Pinjaman</span>
+              <span>{formatRupiah(jumlahPinjaman)}</span>
+            </div>
+            <div className="rrm-calc-row">
+              <span>Biaya administrasi</span>
+              <span>- {formatRupiah(biayaAdmin)}</span>
+            </div>
+            <div className="rrm-calc-divider" />
+            <div className="rrm-calc-row rrm-calc-transfer">
+              <span>Jumlah transfer ke anggota</span>
+              <span>{formatRupiah(jumlahTransfer)}</span>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">

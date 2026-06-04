@@ -9,7 +9,6 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { useEnvironment } from "./EnvironmentContext";
@@ -19,7 +18,7 @@ const DatabaseContext = createContext();
 
 // Provider component that wraps the app
 export const DatabaseProvider = ({ children }) => {
-  const { getCollectionPath, isProduction, environment } = useEnvironment();
+  const { getCollectionPath, environment } = useEnvironment();
 
   // Get a reference to a collection with environment awareness
   const getCollection = (baseName) => {

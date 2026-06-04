@@ -8,6 +8,7 @@ import {
   FaCheck,
   FaClock,
   FaExclamationTriangle,
+  FaEdit,
 } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
 import { jsPDF } from "jspdf";
@@ -16,6 +17,7 @@ import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { uploadFile } from "../firebase";
 import WarehouseExitModal from "./WarehouseExitModal";
+import logoImage from "../assets/logo-koperasi-unipdu-removebg-preview.png";
 
 // Helper function for currency formatting
 function formatRupiah(value) {
@@ -87,6 +89,9 @@ function convertToSmallestUnit(quantity, unit, product) {
     ons: 100, // 1 ons = 100 grams
     gram: 1, // base unit
     pcs: 1, // for piece-based items
+    kardus: 1,
+    karton: 1,
+    pack: 1,
   };
 
   // If the unit or product's smallest unit isn't in our conversion table
@@ -114,12 +119,15 @@ const WarehouseExit = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 10;
 
+  const [editingRecord, setEditingRecord] = useState(null);
+
   // Check if user can create new records
   const canCreateRecord =
     userRole === "Director" ||
     userRole === "Wakil Rektor 2" ||
     userRole === "Admin" ||
     userRole === "superAdmin";
+  const canEdit = userRole === "Director" || userRole === "Wakil Rektor 2";
   const canUploadPO = userRole === "Mitra";
   const canUploadPayment = userRole === "BAK";
 
@@ -279,74 +287,419 @@ const WarehouseExit = () => {
     }
   };
 
+  // Handle update from modal (edit mode)
+  const handleUpdate = async (transactionData, validRows) => {
+    try {
+      const record = editingRecord;
+
+      // Fetch old stock transactions for this record
+      const allStockTxns = await queryCollection("stockTransactions_b2b");
+      const oldStockTxns = allStockTxns.filter(
+        (t) =>
+          t.transactionDetailId === record.transactionDetailId && !t.isDeleted
+      );
+
+      // Fetch fresh product data to work with current stock values
+      const freshStocksData = await queryCollection("stocks_b2b");
+      const freshProductsMap = {};
+      freshStocksData.forEach((item) => {
+        if (!item.isDeleted) freshProductsMap[item.id] = item;
+      });
+
+      // Reverse old stock transactions
+      for (const txn of oldStockTxns) {
+        const productId =
+          freshProductsMap[txn.itemId] != null
+            ? txn.itemId
+            : Object.keys(freshProductsMap).find(
+                (key) => freshProductsMap[key].itemId === txn.itemId
+              );
+        if (productId) {
+          const product = freshProductsMap[productId];
+          const restoredStock = product.stock + txn.quantity;
+          const restoredValue =
+            (product.stockValue || 0) + (txn.stockWorth || 0);
+          await updateDoc("stocks_b2b", productId, {
+            stock: restoredStock,
+            stockValue: restoredValue,
+          });
+          freshProductsMap[productId] = {
+            ...product,
+            stock: restoredStock,
+            stockValue: restoredValue,
+          };
+        }
+        await updateDoc("stockTransactions_b2b", txn.id, { isDeleted: true });
+      }
+
+      // Apply new stock changes
+      for (const row of validRows) {
+        const product =
+          freshProductsMap[row.product.id] || row.product;
+        const quantity = parseFloat(row.quantity);
+
+        const convertedQty = convertToSmallestUnit(quantity, row.unit, {
+          smallestUnit: row.product.smallestUnit,
+          piecesPerBox: row.product.piecesPerBox,
+        });
+
+        const stockWorth =
+          product.stock > 0
+            ? ((product.stockValue || 0) / product.stock) * convertedQty
+            : 0;
+
+        const stockTransactionId = uuidv4();
+        await createDoc(
+          "stockTransactions_b2b",
+          {
+            itemId: row.product.itemId || row.product.id,
+            itemName: row.product.name,
+            kategori: row.product.kategori || "",
+            subKategori: row.product.subKategori || "",
+            price: parseRupiah(row.unitPrice),
+            quantity: convertedQty,
+            unit: row.product.smallestUnit,
+            originalQuantity: quantity,
+            originalUnit: row.unit,
+            isDeleted: false,
+            transactionType: "penjualan",
+            transactionVia: "warehouseExit",
+            stockWorth,
+            transactionDetailId: record.transactionDetailId,
+            createdBy: currentUser ? currentUser.email : "unknown",
+          },
+          stockTransactionId
+        );
+
+        const newStock = product.stock - convertedQty;
+        const newStockValue = Math.max(
+          0,
+          (product.stockValue || 0) - stockWorth
+        );
+        await updateDoc("stocks_b2b", row.product.id, {
+          stock: newStock,
+          stockValue: newStockValue,
+        });
+        freshProductsMap[row.product.id] = {
+          ...product,
+          stock: newStock,
+          stockValue: newStockValue,
+        };
+      }
+
+      // Update transactionDetail_b2b
+      await updateDoc("transactionDetail_b2b", record.transactionDetailId, {
+        items: transactionData.items,
+        total: transactionData.total,
+        customerDetail: transactionData.customerDetail,
+      });
+
+      // Update warehouseExit document
+      await updateDoc("warehouseExit", record.id, {
+        customerDetail: transactionData.customerDetail,
+        items: transactionData.items,
+        total: transactionData.total,
+      });
+
+      await fetchRecords();
+      await fetchProducts();
+      setEditingRecord(null);
+
+      setSnackbar({ open: true, message: "Record berhasil diperbarui!" });
+      setTimeout(() => setSnackbar({ open: false, message: "" }), 3000);
+    } catch (error) {
+      console.error("Error updating warehouse exit record:", error);
+      throw error;
+    }
+  };
+
   // Generate quotation PDF
-  const generateQuotationPDF = (record) => {
+  const generateQuotationPDF = async (record) => {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const maxY = pageHeight - 40; // Leave space for footer
 
-    // Header
-    doc.setFontSize(20);
+    // Brand color - coral/red theme
+    const brandColor = [230, 106, 106];
+    const lightBrandColor = [255, 235, 235]; // Very light coral for backgrounds
+    const mediumBrandColor = [250, 200, 200]; // Medium coral for alternating rows
+
+    // Load logo image
+    let logoDataUrl = null;
+    try {
+      const logoPath = "/logo koperasi URG.png";
+      const img = new Image();
+      img.src = process.env.PUBLIC_URL + logoPath;
+      await new Promise((resolve, reject) => {
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0);
+          logoDataUrl = canvas.toDataURL("image/png");
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn("Logo not found, continuing without it");
+          resolve();
+        };
+      });
+    } catch (error) {
+      console.warn("Could not load logo:", error);
+    }
+
+    // Helper function to add watermark to current page
+    const addWatermark = () => {
+      if (logoDataUrl) {
+        const watermarkSize = 80;
+        const watermarkX = (pageWidth - watermarkSize) / 2;
+        const watermarkY = (pageHeight - watermarkSize) / 2;
+        doc.setGState(new doc.GState({ opacity: 0.2 }));
+        doc.addImage(
+          logoDataUrl,
+          "PNG",
+          watermarkX,
+          watermarkY,
+          watermarkSize,
+          watermarkSize
+        );
+        doc.setGState(new doc.GState({ opacity: 1.0 }));
+      }
+    };
+
+    // Helper function to add a new page with header
+    const addPageWithHeader = (isFirstPage = false) => {
+      if (!isFirstPage) {
+        doc.addPage();
+      }
+
+      // Add watermark first (so it's behind everything)
+      addWatermark();
+
+      // Add decorative header background with brand color
+      doc.setFillColor(...brandColor);
+      doc.rect(0, 0, pageWidth, 50, "F");
+
+      // Add logo to header if available
+      if (logoDataUrl && isFirstPage) {
+        const logoSize = 35;
+        const logoX = margin;
+        const logoY = 7.5;
+        doc.addImage(logoDataUrl, "PNG", logoX, logoY, logoSize, logoSize);
+      }
+
+      // Company name and title
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      const titleX = logoDataUrl && isFirstPage ? margin + 42 : pageWidth / 2;
+      const titleAlign = logoDataUrl && isFirstPage ? "left" : "center";
+
+      if (isFirstPage) {
+        doc.text("UNIPDU REJOSO GEMILANG", titleX, 18, { align: titleAlign });
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "normal");
+        doc.text("Koperasi", titleX, 26, { align: titleAlign });
+      }
+
+      // KWITANSI title
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text("KWITANSI", titleX, isFirstPage ? 38 : 30, {
+        align: titleAlign,
+      });
+
+      // Reset text color
+      doc.setTextColor(0, 0, 0);
+
+      return isFirstPage ? 60 : 60; // Return starting Y position for content
+    };
+
+    // First page header
+    let yPos = addPageWithHeader(true);
+
+    // Document info box with border
+    doc.setDrawColor(...brandColor);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(margin, yPos, pageWidth - 2 * margin, 25, 3, 3, "S");
+
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("QUOTATION", 105, 30, { align: "center" });
-
-    // Document info
-    doc.setFontSize(12);
+    doc.text("Nomor Nota:", margin + 5, yPos + 8);
     doc.setFont("helvetica", "normal");
-    doc.text(`Document ID: ${record.id}`, 20, 50);
+    doc.text(record.id, margin + 5, yPos + 15);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Tanggal:", margin + 105, yPos + 8);
+    doc.setFont("helvetica", "normal");
+    doc.text(formatIndonesianDate(record.createdAt), margin + 105, yPos + 15);
+
+    yPos += 35;
+
+    // Customer details box
+    doc.setFillColor(...lightBrandColor); // Light coral background
+    doc.setDrawColor(...brandColor);
+    doc.roundedRect(margin, yPos, pageWidth - 2 * margin, 25, 3, 3, "FD");
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Kepada:", margin + 5, yPos + 8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(record.customerDetail.customerName, margin + 5, yPos + 15);
     doc.text(
-      `Date: ${new Date(record.createdAt).toLocaleDateString("id-ID")}`,
-      20,
-      60
+      `Jenis Usaha: ${record.customerDetail.businessType}`,
+      margin + 5,
+      yPos + 21
     );
 
-    // Customer details
-    doc.setFont("helvetica", "bold");
-    doc.text("Customer Details:", 20, 80);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Name: ${record.customerDetail.customerName}`, 20, 90);
-    doc.text(`Business Type: ${record.customerDetail.businessType}`, 20, 100);
+    yPos += 35;
 
     // Items table header
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text("Items:", 20, 120);
+    doc.text("Rincian Barang:", margin, yPos);
+    yPos += 8;
 
-    // Table headers
-    let yPos = 135;
+    // Table header with background
+    doc.setFillColor(...brandColor);
+    doc.rect(margin, yPos, pageWidth - 2 * margin, 10, "F");
+
     doc.setFontSize(10);
-    doc.text("Item Name", 20, yPos);
-    doc.text("Quantity", 80, yPos);
-    doc.text("Unit Price", 120, yPos);
-    doc.text("Subtotal", 160, yPos);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("Nama Barang", margin + 3, yPos + 4.5);
+    doc.text("Jumlah", margin + 90, yPos + 4.5);
+    doc.text("Harga Satuan", margin + 115, yPos + 4.5);
+    doc.text("Subtotal", margin + 155, yPos + 4.5, { align: "right" });
 
-    // Draw line under headers
-    doc.line(20, yPos + 2, 190, yPos + 2);
-    yPos += 10;
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
+    yPos += 12;
 
-    // Table content
+    // Table content with alternating row colors
     doc.setFont("helvetica", "normal");
-    record.items.forEach((item) => {
-      doc.text(item.itemName.substring(0, 25), 20, yPos); // Truncate long names
-      doc.text(`${item.quantity} ${item.unit}`, 80, yPos);
-      doc.text(`Rp ${formatRupiah(item.unitPrice.toString())}`, 120, yPos);
-      doc.text(`Rp ${formatRupiah(item.subtotal.toString())}`, 160, yPos);
+    doc.setFontSize(9);
+    let rowIndex = 0;
+
+    const drawTableRow = (item, currentY) => {
+      // Alternating row background with coral theme
+      if (rowIndex % 2 === 0) {
+        doc.setFillColor(...mediumBrandColor);
+        doc.rect(margin, currentY - 5, pageWidth - 2 * margin, 8, "F");
+      }
+
+      // Text content
+      const itemName =
+        item.itemName.length > 35
+          ? item.itemName.substring(0, 32) + "..."
+          : item.itemName;
+      doc.text(itemName, margin + 3, currentY);
+      doc.text(`${item.quantity} ${item.unit}`, margin + 90, currentY);
+      doc.text(
+        `Rp ${formatRupiah(item.unitPrice.toString())}`,
+        margin + 115,
+        currentY
+      );
+      doc.text(
+        `Rp ${formatRupiah(item.subtotal.toString())}`,
+        margin + 155,
+        currentY,
+        { align: "right" }
+      );
+
+      rowIndex++;
+    };
+
+    // Draw items with pagination support
+    for (let i = 0; i < record.items.length; i++) {
+      const item = record.items[i];
+
+      // Check if we need a new page
+      if (yPos > maxY) {
+        // Add footer to current page
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(128, 128, 128);
+        doc.text(
+          "Bersambung ke halaman berikutnya...",
+          pageWidth / 2,
+          pageHeight - 15,
+          { align: "center" }
+        );
+        doc.setTextColor(0, 0, 0);
+
+        // Create new page with header
+        yPos = addPageWithHeader(false);
+
+        // Redraw table header
+        doc.setFillColor(...brandColor);
+        doc.rect(margin, yPos, pageWidth - 2 * margin, 10, "F");
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text("Nama Barang", margin + 3, yPos + 4.5);
+        doc.text("Jumlah", margin + 90, yPos + 4.5);
+        doc.text("Harga Satuan", margin + 115, yPos + 4.5);
+        doc.text("Subtotal", margin + 155, yPos + 4.5, { align: "right" });
+        doc.setTextColor(0, 0, 0);
+        yPos += 12;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+      }
+
+      drawTableRow(item, yPos);
       yPos += 8;
-    });
+    }
+
+    // Check if we need a new page for total
+    if (yPos > maxY - 30) {
+      yPos = addPageWithHeader(false);
+    }
 
     // Draw line above total
     yPos += 5;
-    doc.line(20, yPos, 190, yPos);
+    doc.setDrawColor(...brandColor);
+    doc.setLineWidth(1);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 10;
 
-    // Total
+    // Total with highlight box
+    doc.setFillColor(...brandColor);
+    doc.roundedRect(pageWidth - margin - 80, yPos - 8, 80, 15, 2, 2, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text(`Total: Rp ${formatRupiah(record.total.toString())}`, 160, yPos);
+    doc.setTextColor(255, 255, 255);
+    doc.text("TOTAL", pageWidth - margin - 75, yPos);
+    doc.setFontSize(12);
+    doc.text(
+      `Rp ${formatRupiah(record.total.toString())}`,
+      pageWidth - margin - 5,
+      yPos,
+      { align: "right" }
+    );
+    doc.setTextColor(0, 0, 0);
 
     // Footer
-    doc.setFontSize(10);
+    const footerY = pageHeight - 20;
+    doc.setFontSize(9);
     doc.setFont("helvetica", "italic");
-    doc.text("This is a system-generated quotation.", 105, 280, {
-      align: "center",
-    });
+    doc.setTextColor(128, 128, 128);
+    doc.text(
+      "Dokumen ini dibuat secara otomatis oleh sistem",
+      pageWidth / 2,
+      footerY,
+      { align: "center" }
+    );
+    doc.text(
+      `Dicetak pada: ${new Date().toLocaleString("id-ID")}`,
+      pageWidth / 2,
+      footerY + 5,
+      { align: "center" }
+    );
 
     // Open in new tab
     const pdfBlob = doc.output("blob");
@@ -554,10 +907,39 @@ const WarehouseExit = () => {
                   </div>
 
                   <div className="action-row">
+                    {/* Edit button */}
+                    {canEdit ? (
+                      <button
+                        className="action-btn edit-btn"
+                        onClick={() => {
+                          setEditingRecord(record);
+                          setShowModal(true);
+                        }}
+                      >
+                        <FaEdit /> Edit
+                      </button>
+                    ) : (
+                      <div className="action-btn-tooltip-wrapper">
+                        <button className="action-btn disabled" disabled>
+                          <FaEdit /> Edit
+                        </button>
+                        <span className="action-btn-tooltip">
+                          Hanya Director/Wakil Rektor 2 yang bisa mengedit
+                        </span>
+                      </div>
+                    )}
+
                     {/* Always show Nota Tagihan - always available */}
                     <button
                       className="action-btn completed"
-                      onClick={() => generateQuotationPDF(record)}
+                      onClick={async () => {
+                        try {
+                          await generateQuotationPDF(record);
+                        } catch (error) {
+                          console.error("Error generating PDF:", error);
+                          alert("Error generating PDF. Please try again.");
+                        }
+                      }}
                     >
                       <FaFileInvoice /> Nota Tagihan
                     </button>
@@ -714,10 +1096,15 @@ const WarehouseExit = () => {
       {/* Modal */}
       <WarehouseExitModal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        onSave={handleSave}
+        onClose={() => {
+          setShowModal(false);
+          setEditingRecord(null);
+        }}
+        onSave={editingRecord ? handleUpdate : handleSave}
         products={products}
         currentUser={currentUser}
+        isEditMode={!!editingRecord}
+        initialData={editingRecord}
       />
 
       {/* Snackbar */}

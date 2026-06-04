@@ -1,12 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { useEnvironment } from '../context/EnvironmentContext';
-import { voucherService } from '../services/voucherService';
-import { auth, db } from '../firebase';
-import { doc, getDoc, query, collection, where, getDocs } from "firebase/firestore";
-import MemberVoucherTile from './MemberVoucherTile';
-import '../styles/MemberVoucherList.css';
+import React, { useState, useEffect } from "react";
+import { useEnvironment } from "../context/EnvironmentContext";
+import { voucherService } from "../services/voucherService";
+import { auth, db } from "../firebase";
+import {
+  doc,
+  getDoc,
+  query,
+  collection,
+  where,
+  getDocs,
+} from "firebase/firestore";
+import MemberVoucherTile from "./MemberVoucherTile";
+import "../styles/MemberVoucherList.css";
 
-const MemberVoucherList = ({ onVoucherClick }) => {
+const MemberVoucherList = ({ onVoucherClick, refreshTrigger }) => {
   const { isProduction } = useEnvironment();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,14 +21,14 @@ const MemberVoucherList = ({ onVoucherClick }) => {
 
   useEffect(() => {
     fetchUserVouchers();
-  }, [isProduction]);
+  }, [isProduction, refreshTrigger]);
 
   const getUserDocumentId = async (currentUser) => {
     try {
       // Try direct document match first
       const docRef = doc(db, "users", currentUser.uid);
       const snapshot = await getDoc(docRef);
-      
+
       if (snapshot.exists()) {
         return currentUser.uid;
       } else {
@@ -31,14 +38,14 @@ const MemberVoucherList = ({ onVoucherClick }) => {
           where("uid", "==", currentUser.uid)
         );
         const querySnapshot = await getDocs(q);
-        
+
         if (!querySnapshot.empty) {
           return querySnapshot.docs[0].id;
         }
       }
       return null;
     } catch (error) {
-      console.error('Error getting user document ID:', error);
+      console.error("Error getting user document ID:", error);
       return null;
     }
   };
@@ -47,44 +54,60 @@ const MemberVoucherList = ({ onVoucherClick }) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const currentUser = auth.currentUser;
       if (!currentUser) {
-        setError('User not authenticated');
+        setError("User not authenticated");
         return;
       }
 
       // Get user's document ID
       const userDocId = await getUserDocumentId(currentUser);
       if (!userDocId) {
-        setError('User document not found');
+        setError("User document not found");
         return;
       }
 
       // Try both methods to get vouchers
       let allVouchers = [];
       try {
-        allVouchers = await voucherService.getAllVouchersByUserDocId(userDocId, isProduction);
+        allVouchers = await voucherService.getAllVouchersByUserDocId(
+          userDocId,
+          isProduction
+        );
       } catch (error1) {
         try {
-          allVouchers = await voucherService.getAllVouchersByUserId(currentUser.uid, isProduction);
+          allVouchers = await voucherService.getAllVouchersByUserId(
+            currentUser.uid,
+            isProduction
+          );
         } catch (error2) {
-          console.error('Both voucher fetch methods failed:', error1, error2);
+          console.error("Both voucher fetch methods failed:", error1, error2);
           throw error2;
         }
       }
-      
+
       // Filter for active vouchers that haven't expired
       const now = new Date();
-      const activeVouchers = allVouchers.filter(voucher => {
-        const expireDate = voucher.expireDate?.toDate ? voucher.expireDate.toDate() : new Date(voucher.expireDate);
-        return voucher.isActive && expireDate > now;
+      const activeVouchers = allVouchers.filter((voucher) => {
+        const expireDate = voucher.expireDate?.toDate
+          ? voucher.expireDate.toDate()
+          : new Date(voucher.expireDate);
+        if (!voucher.isActive || expireDate <= now) return false;
+
+        // Multi-use vouchers: show as long as they have remaining balance
+        if (voucher.isOneTimeUse === false) {
+          const remaining = voucher.value - (voucher.amountSpent || 0);
+          return remaining > 0;
+        }
+
+        return !voucher.isClaimed;
       });
 
       setVouchers(activeVouchers);
     } catch (error) {
-      console.error('Error fetching user vouchers:', error);
-      setError('Gagal memuat voucher');
+      console.error("Error fetching user vouchers:", error);
+      setError("Gagal memuat voucher");
     } finally {
       setLoading(false);
     }
@@ -112,10 +135,7 @@ const MemberVoucherList = ({ onVoucherClick }) => {
         </div>
         <div className="error-state">
           <p className="error-message">{error}</p>
-          <button 
-            className="retry-button"
-            onClick={fetchUserVouchers}
-          >
+          <button className="retry-button" onClick={fetchUserVouchers}>
             Coba Lagi
           </button>
         </div>
@@ -139,9 +159,9 @@ const MemberVoucherList = ({ onVoucherClick }) => {
       ) : (
         <div className="vouchers-container">
           {vouchers.map((voucher) => (
-            <MemberVoucherTile 
-              key={voucher.id} 
-              voucher={voucher} 
+            <MemberVoucherTile
+              key={voucher.id}
+              voucher={voucher}
               onClick={onVoucherClick}
             />
           ))}

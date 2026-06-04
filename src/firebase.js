@@ -7,7 +7,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
   sendPasswordResetEmail as firebaseSendPasswordResetEmail,
 } from "firebase/auth";
 import { getNextMemberNumber } from "./utils/memberNumberUtils";
@@ -30,7 +29,7 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+void getAnalytics(app);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);

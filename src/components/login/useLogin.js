@@ -146,7 +146,7 @@ export const useLogin = () => {
       });
     } else if (name === "nama") {
       // Allow only letters, spaces, dots, and dashes
-      const validNameChars = value.replace(/[^a-zA-Z\s.\-]/g, "");
+      const validNameChars = value.replace(/[^a-zA-Z\s.-]/g, "");
       setFormData({
         ...formData,
         [name]: validNameChars,

@@ -72,7 +72,7 @@ export const LoginForm = ({
 
         <div className="forgot-password">
           <a 
-            href="#" 
+            href="#/" 
             onClick={(e) => {
               e.preventDefault();
               setShowResetPasswordModal(true);

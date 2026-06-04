@@ -442,6 +442,16 @@
   transform: none;
 }
 
+/* Tooltip for disabled submit button */
+.submit-button-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.submit-button-wrapper:hover .submit-tooltip {
+  visibility: visible !important;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .bulk-modal-content {

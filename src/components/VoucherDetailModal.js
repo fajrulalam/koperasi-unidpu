@@ -8,7 +8,7 @@ import {
   FaEdit 
 } from "react-icons/fa";
 import "../styles/VoucherDetailModal.css";
-import { db, getEnvironmentDoc } from "../firebase";
+import { db, getEnvironmentDoc, getEnvironmentCollectionPath } from "../firebase";
 import { 
   doc, 
   updateDoc, 
@@ -16,6 +16,7 @@ import {
   serverTimestamp,
   setDoc 
 } from "firebase/firestore";
+import { useEnvironment } from "../context/EnvironmentContext";
 
 const VoucherDetailModal = ({
   voucherGroup,
@@ -26,6 +27,9 @@ const VoucherDetailModal = ({
   formatCurrency,
   parseCurrency
 }) => {
+  const { isProduction } = useEnvironment();
+  const vgPath = getEnvironmentCollectionPath("voucherGroup", isProduction);
+  const vPath = getEnvironmentCollectionPath("vouchers", isProduction);
   // State
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -211,12 +215,12 @@ const VoucherDetailModal = ({
       };
       
       // Update voucher group and all related vouchers
-      const groupRef = doc(db, "voucherGroup", voucherGroup.id);
+      const groupRef = doc(db, vgPath, voucherGroup.id);
       await updateDoc(groupRef, updatedData);
       
       // Update all vouchers in this group
       const updatePromises = vouchers.map(voucher => {
-        const voucherRef = doc(db, "vouchers", voucher.id);
+        const voucherRef = doc(db, vPath, voucher.id);
         return updateDoc(voucherRef, {
           voucherName: updatedData.voucherName,
           value: updatedData.value,
@@ -249,14 +253,14 @@ const VoucherDetailModal = ({
     }
     
     try {
-      const voucherRef = doc(db, "vouchers", voucherId);
+      const voucherRef = doc(db, vPath, voucherId);
       await deleteDoc(voucherRef);
       
       // Update vouchers list
       setVouchers(vouchers.filter(v => v.id !== voucherId));
       
       // Update total count in voucher group
-      const groupRef = doc(db, "voucherGroup", voucherGroup.id);
+      const groupRef = doc(db, vgPath, voucherGroup.id);
       await updateDoc(groupRef, {
         totalVouchers: (voucherGroup.totalVouchers || vouchers.length) - 1,
         updatedAt: serverTimestamp()
@@ -347,7 +351,7 @@ const VoucherDetailModal = ({
         };
         
         // Add to vouchers collection
-        const voucherRef = doc(db, "vouchers", `${voucherGroup.voucherGroupId}_${member.id}`);
+        const voucherRef = doc(db, vPath, `${voucherGroup.voucherGroupId}_${member.id}`);
         await setDoc(voucherRef, voucherData);
         
         // Update progress
@@ -359,7 +363,7 @@ const VoucherDetailModal = ({
       }
       
       // Update total count in voucher group
-      const groupRef = doc(db, "voucherGroup", voucherGroup.id);
+      const groupRef = doc(db, vgPath, voucherGroup.id);
       await updateDoc(groupRef, {
         totalVouchers: (voucherGroup.totalVouchers || vouchers.length) + selectedMembers.length,
         updatedAt: serverTimestamp()

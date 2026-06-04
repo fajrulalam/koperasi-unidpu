@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { auth } from "../firebase";
-import LoanHistoryModal from "../components/LoanHistoryModal";
+import { auth, getEnvironmentCollection } from "../firebase";
+import { query, where, orderBy, onSnapshot } from "firebase/firestore";
+import LoanDetailModalMember from "../components/LoanDetailModalMember";
 import MemberVoucherList from "../components/MemberVoucherList";
 import BarcodeExpandedView from "../components/BarcodeExpandedView";
+import CampaignCard from "../components/CampaignCard";
+import CampaignTutorialModal from "../components/CampaignTutorialModal";
+import { voucherService } from "../services/voucherService";
+import { useEnvironment } from "../context/EnvironmentContext";
 import {
   setupUserDataListener,
   setupActiveLoansListener,
@@ -18,8 +23,10 @@ import {
 } from "../utils/memberBerandaUtils";
 import "../styles/Member.css";
 import "../styles/MemberLoanStyles.css";
+import "../styles/CampaignCards.css";
 
 const MemberBeranda = ({ setActivePage }) => {
+  const { isProduction } = useEnvironment();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAllTransactions, setShowAllTransactions] = useState(false);
@@ -32,6 +39,14 @@ const MemberBeranda = ({ setActivePage }) => {
   const [userDocRef, setUserDocRef] = useState(null);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [showBarcodeExpanded, setShowBarcodeExpanded] = useState(false);
+
+  // Campaign states
+  const [activeCampaigns, setActiveCampaigns] = useState([]);
+  const [campaignProgress, setCampaignProgress] = useState({});
+  const [loadingCampaigns, setLoadingCampaigns] = useState(true);
+  const [claimingVoucher, setClaimingVoucher] = useState(null);
+  const [voucherRefreshTrigger, setVoucherRefreshTrigger] = useState(0);
+  const [showTutorialModal, setShowTutorialModal] = useState(false);
 
   // Setup user data listener
   useEffect(() => {
@@ -53,14 +68,120 @@ const MemberBeranda = ({ setActivePage }) => {
 
     const unsubscribe = setupActiveLoansListener(
       setActiveLoans,
-      setLoadingLoans
+      setLoadingLoans,
+      isProduction
     );
     return () => {
       if (unsubscribe && typeof unsubscribe === "function") {
         unsubscribe();
       }
     };
-  }, []);
+  }, [isProduction]);
+
+  // Setup active campaigns listener
+  useEffect(() => {
+    const currentTime = new Date();
+    const voucherGroupsRef = getEnvironmentCollection(
+      "voucherGroups",
+      isProduction
+    );
+
+    // Query for active cashback campaigns
+    const q = query(
+      voucherGroupsRef,
+      where("type", "==", "cashbackCampaign"),
+      where("isActive", "==", true),
+      where("expireDate", ">", currentTime),
+      orderBy("expireDate", "asc")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const campaigns = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter((campaign) => {
+            // Filter for campaigns that have started
+            const activeDate = campaign.activeDate?.toDate
+              ? campaign.activeDate.toDate()
+              : new Date(campaign.activeDate);
+            return activeDate <= currentTime;
+          });
+
+        setActiveCampaigns(campaigns);
+        setLoadingCampaigns(false);
+      },
+      (error) => {
+        console.error("Error listening to campaigns:", error);
+        setLoadingCampaigns(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [isProduction]);
+
+  // Setup user campaign progress listener
+  useEffect(() => {
+    if (!userData || activeCampaigns.length === 0) return;
+
+    const vouchersRef = getEnvironmentCollection("vouchers", isProduction);
+    const userDocId = userDocRef?.id;
+
+    if (!userDocId) return;
+
+    // Listen to user's voucher documents for all active campaigns
+    const campaignIds = activeCampaigns.map((c) => c.voucherGroupId);
+
+    const q = query(
+      vouchersRef,
+      where("userId", "==", userDocId),
+      where("type", "==", "cashbackCampaign")
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const progressMap = {};
+        snapshot.docs.forEach((doc) => {
+          const data = doc.data();
+          if (campaignIds.includes(data.voucherGroupId)) {
+            progressMap[data.voucherGroupId] = {
+              id: doc.id,
+              ...data,
+            };
+          }
+        });
+        setCampaignProgress(progressMap);
+      },
+      (error) => {
+        console.error("Error listening to campaign progress:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userData, activeCampaigns, userDocRef, isProduction]);
+
+  // Handle claiming a campaign voucher
+  const handleClaimCampaignVoucher = async (campaignId) => {
+    const progress = campaignProgress[campaignId];
+    if (!progress || !progress.id) return;
+
+    setClaimingVoucher(campaignId);
+
+    try {
+      await voucherService.claimCampaignVoucher(progress.id, isProduction);
+      // Trigger refresh on "Voucher Saya" section to show the newly claimed voucher
+      setVoucherRefreshTrigger((prev) => prev + 1);
+    } catch (error) {
+      console.error("Error claiming voucher:", error);
+      alert("Gagal klaim voucher. Silakan coba lagi.");
+    } finally {
+      setClaimingVoucher(null);
+    }
+  };
 
   // Handle membership status update
   const handleMembershipUpdate = () => {
@@ -79,11 +200,21 @@ const MemberBeranda = ({ setActivePage }) => {
     setSelectedLoanForHistory(loanMember);
     setShowLoanHistoryModal(true);
   };
-  
+
   // Handle voucher click for expanded barcode view
   const handleVoucherClick = (voucher) => {
     setSelectedVoucher(voucher);
     setShowBarcodeExpanded(true);
+  };
+
+  // Handle opening campaign tutorial modal
+  const handleOpenTutorial = () => {
+    setShowTutorialModal(true);
+  };
+
+  // Handle closing campaign tutorial modal
+  const handleCloseTutorial = () => {
+    setShowTutorialModal(false);
   };
 
   if (loading) {
@@ -129,11 +260,17 @@ const MemberBeranda = ({ setActivePage }) => {
 
           <div className="balance-card">
             <span className="balance-label">Saldo Simpanan</span>
-            <span className="balance-amount">{balanceDisplay.currentBalance}</span>
+            <span className="balance-amount">
+              {balanceDisplay.currentBalance}
+            </span>
             {balanceDisplay.nextPayment && (
               <div className="next-payment-info">
                 <span className="next-payment-text">
-                  <span className="next-payment-amount">+{balanceDisplay.nextPayment.amount}</span> pada tanggal {balanceDisplay.nextPayment.date} {balanceDisplay.nextPayment.description}
+                  <span className="next-payment-amount">
+                    +{balanceDisplay.nextPayment.amount}
+                  </span>{" "}
+                  pada tanggal {balanceDisplay.nextPayment.date}{" "}
+                  {balanceDisplay.nextPayment.description}
                 </span>
               </div>
             )}
@@ -141,7 +278,65 @@ const MemberBeranda = ({ setActivePage }) => {
         </div>
       </div>
 
-      {isApproved && <MemberVoucherList onVoucherClick={handleVoucherClick} />}
+      {/* Campaign Points Section */}
+      {isApproved && !loadingCampaigns && activeCampaigns.length > 0 && (
+        <div className="campaign-section">
+          <div className="campaign-section-header">
+            <h3 className="campaign-section-title">
+              🎯 Kumpulkan poin untuk dapatkan voucher!
+            </h3>
+            <button
+              className="campaign-tutorial-btn"
+              onClick={handleOpenTutorial}
+              aria-label="Cara ikutan kampanye"
+            >
+              <span className="tutorial-btn-icon">?</span>
+              <span className="tutorial-btn-text">Cara Ikutan</span>
+            </button>
+          </div>
+          <div className="campaign-cards-container">
+            {activeCampaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.voucherGroupId}
+                campaign={campaign}
+                progress={campaignProgress[campaign.voucherGroupId]}
+                claimingVoucher={claimingVoucher}
+                onClaim={handleClaimCampaignVoucher}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isApproved &&
+        activeLoans.some((l) => l.status === "Disetujui dan Aktif") && (
+        <div className="restructure-nudge" onClick={() => setActivePage("simpanpinjam")}>
+          <div className="restructure-nudge-content">
+            <p className="restructure-nudge-headline">
+              Butuh dana tambahan? Nggak perlu nunggu lunas!
+            </p>
+            <p className="restructure-nudge-sub">
+              Cairkan pinjaman baru dengan restrukturisasi — cepat, mudah, tanpa ribet.
+            </p>
+          </div>
+          <button
+            className="brutal-button restructure-nudge-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setActivePage("simpanpinjam");
+            }}
+          >
+            Restrukturisasi
+          </button>
+        </div>
+      )}
+
+      {isApproved && (
+        <MemberVoucherList
+          onVoucherClick={handleVoucherClick}
+          refreshTrigger={voucherRefreshTrigger}
+        />
+      )}
 
       <div className="info-card">
         <h3 className="section-title">Informasi Anggota</h3>
@@ -409,17 +604,23 @@ const MemberBeranda = ({ setActivePage }) => {
       )}
 
       {/* Loan History Modal */}
-      <LoanHistoryModal
+      <LoanDetailModalMember
         isOpen={showLoanHistoryModal}
         onClose={() => setShowLoanHistoryModal(false)}
         selectedLoan={selectedLoanForHistory}
       />
-      
+
       {/* Expanded Barcode View */}
       <BarcodeExpandedView
         isOpen={showBarcodeExpanded}
         onClose={() => setShowBarcodeExpanded(false)}
         voucher={selectedVoucher}
+      />
+
+      {/* Campaign Tutorial Modal */}
+      <CampaignTutorialModal
+        isOpen={showTutorialModal}
+        onClose={handleCloseTutorial}
       />
     </div>
   );

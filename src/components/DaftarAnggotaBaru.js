@@ -10,10 +10,10 @@ import DeleteConfirmationModal from "./DeleteConfirmationModal";
 import NominalTabunganTooltip from "./NominalTabunganTooltip";
 import EditNominalTabunganModal from "./EditNominalTabunganModal";
 import { updateAllUsersWithMemberNumbers } from "../utils/memberNumberUtils";
-import { 
-  getNext5thOfMonth, 
-  getIndonesianMonthName, 
-  getNextPaymentInfo 
+import {
+  getNext5thOfMonth,
+  getIndonesianMonthName,
+  getNextPaymentInfo,
 } from "../utils/memberBerandaUtils";
 import { exportMembersToExcel } from "../utils/exportUtils";
 import { useAuth } from "../context/AuthContext";
@@ -22,11 +22,11 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
   const [tooltipState, setTooltipState] = useState({
     isVisible: false,
     position: { x: 0, y: 0 },
-    member: null
+    member: null,
   });
   const [editNominalTabunganModal, setEditNominalTabunganModal] = useState({
     isOpen: false,
-    member: null
+    member: null,
   });
   const [successMessage, setSuccessMessage] = useState("");
   const { hasAccess, userRole } = useAuth();
@@ -38,9 +38,9 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
       isVisible: true,
       position: {
         x: rect.left + rect.width / 2,
-        y: rect.top
+        y: rect.top,
       },
-      member
+      member,
     });
   };
 
@@ -48,7 +48,7 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
     setTooltipState({
       isVisible: false,
       position: { x: 0, y: 0 },
-      member: null
+      member: null,
     });
   };
 
@@ -59,7 +59,7 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
       return {
         amount: "Tidak ada",
         date: "-",
-        description: "(bukan potong gaji)"
+        description: "(bukan potong gaji)",
       };
     }
 
@@ -67,18 +67,18 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
       return {
         amount: "Tidak ada",
         date: "-",
-        description: "(subsidi yayasan)"
+        description: "(subsidi yayasan)",
       };
     }
 
     const next5th = getNext5thOfMonth();
     const monthName = getIndonesianMonthName(next5th);
     const nextPaymentInfo = getNextPaymentInfo(member);
-    
+
     return {
       amount: formatCurrency(nextPaymentInfo.amount),
       date: `5 ${monthName}`,
-      description: nextPaymentInfo.description
+      description: nextPaymentInfo.description,
     };
   };
 
@@ -153,7 +153,9 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
           </button>
           <button
             className="export-excel-button"
-            onClick={() => exportMembersToExcel(filteredMembers, formatDate, formatCurrency)}
+            onClick={() =>
+              exportMembersToExcel(filteredMembers, formatDate, formatCurrency)
+            }
           >
             Export Excel
           </button>
@@ -267,33 +269,49 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
                   <td>{member.satuanKerja || "-"}</td>
                   <td>{member.nomorWhatsapp || "-"}</td>
                   <td>{member.email || "-"}</td>
-                  <td 
+                  <td
                     className="nominal-tabungan-cell"
-                    onMouseEnter={(e) => member.membershipStatus === "approved" ? handleMouseEnter(e, member) : null}
+                    onMouseEnter={(e) =>
+                      member.membershipStatus === "approved"
+                        ? handleMouseEnter(e, member)
+                        : null
+                    }
                     onMouseLeave={handleMouseLeave}
                     onClick={() => {
-                      if (member.membershipStatus === "approved" && (userRole === "Wakil Rektor 2" || userRole === "Director")) {
+                      if (
+                        member.membershipStatus === "approved" &&
+                        (userRole === "Wakil Rektor 2" ||
+                          userRole === "Director")
+                      ) {
                         setEditNominalTabunganModal({
                           isOpen: true,
-                          member: member
+                          member: member,
                         });
                       }
                     }}
-                    style={{ cursor: member.membershipStatus === "approved" && (userRole === "Wakil Rektor 2" || userRole === "Director") ? "pointer" : "default" }}
+                    style={{
+                      cursor:
+                        member.membershipStatus === "approved" &&
+                        (userRole === "Wakil Rektor 2" ||
+                          userRole === "Director")
+                          ? "pointer"
+                          : "default",
+                    }}
                   >
                     {member.membershipStatus === "approved" ? (
                       <div className="nominal-tabungan-container">
                         <span className="nominal-tabungan-amount">
                           {formatCurrency(member.nominalTabungan || 0)}
                         </span>
-                        {(userRole === "Wakil Rektor 2" || userRole === "Director") && (
-                          <button 
-                            className="edit-nominal-tabungan-btn" 
+                        {(userRole === "Wakil Rektor 2" ||
+                          userRole === "Director") && (
+                          <button
+                            className="edit-nominal-tabungan-btn"
                             onClick={(e) => {
                               e.stopPropagation();
                               setEditNominalTabunganModal({
                                 isOpen: true,
-                                member: member
+                                member: member,
                               });
                             }}
                             title="Edit Nominal Tabungan"
@@ -405,30 +423,36 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
           member={tooltipState.member}
         />
       )}
-      
+
       {/* Success message */}
       {successMessage && (
         <div className="success-message">{successMessage}</div>
       )}
-      
+
       {/* Edit Nominal Tabungan Modal */}
       {editNominalTabunganModal.isOpen && (
         <EditNominalTabunganModal
           member={editNominalTabunganModal.member}
-          onClose={() => setEditNominalTabunganModal({ isOpen: false, member: null })}
+          onClose={() =>
+            setEditNominalTabunganModal({ isOpen: false, member: null })
+          }
           onSuccess={(newValue) => {
             // Update the local state immediately
-            setMembers(prev => prev.map(member => 
-              member.id === editNominalTabunganModal.member.id 
-                ? { ...member, nominalTabungan: newValue }
-                : member
-            ));
-            
+            setMembers((prev) =>
+              prev.map((member) =>
+                member.id === editNominalTabunganModal.member.id
+                  ? { ...member, nominalTabungan: newValue }
+                  : member,
+              ),
+            );
+
             // Close the modal
             setEditNominalTabunganModal({ isOpen: false, member: null });
-            
+
             // Show success message
-            setSuccessMessage(`Nominal tabungan untuk ${editNominalTabunganModal.member.nama} berhasil diperbarui`);
+            setSuccessMessage(
+              `Nominal tabungan untuk ${editNominalTabunganModal.member.nama} berhasil diperbarui`,
+            );
             setTimeout(() => setSuccessMessage(""), 3000);
           }}
         />

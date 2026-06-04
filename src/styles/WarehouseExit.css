@@ -274,6 +274,57 @@
   }
 }
 
+/* Edit button */
+.action-btn.edit-btn {
+  background: transparent;
+  color: #2563eb;
+  border-color: #2563eb;
+}
+
+.action-btn.edit-btn:hover {
+  background: #eff6ff;
+  transform: translateY(-1px);
+}
+
+/* Tooltip wrapper for disabled edit button */
+.action-btn-tooltip-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.action-btn-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: #fff;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 20;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.action-btn-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1f2937;
+}
+
+.action-btn-tooltip-wrapper:hover .action-btn-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .warehouse-exit-container {

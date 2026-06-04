@@ -1,5 +1,6 @@
 import React from "react";
 import "../styles/LoanHistoryModal.css";
+import "../styles/RestrukturisasiReviewModal.css";
 import {
   FaRegClock,
   FaUserCheck,
@@ -10,6 +11,7 @@ import {
   FaCheckCircle,
   FaLandmark,
   FaFileSignature,
+  FaLink,
 } from "react-icons/fa";
 import {
   formatCurrency,
@@ -17,13 +19,42 @@ import {
   formatDetailedDate,
 } from "../utils/memberBerandaUtils";
 
-const LoanHistoryModal = ({ isOpen, onClose, selectedLoan }) => {
+const LoanHistoryModal = ({ isOpen, onClose, selectedLoan, onViewLoan }) => {
   if (!isOpen || !selectedLoan) return null;
+
+  const renderNotesWithLinks = (notes) => {
+    if (!notes || !onViewLoan) return notes;
+    const parts = notes.split(/(#[a-zA-Z0-9]{8})/g);
+    return parts.map((part, i) => {
+      const match = part.match(/^#([a-zA-Z0-9]{8})$/);
+      if (match) {
+        const shortId = match[1];
+        const fullId =
+          selectedLoan.restructuredFromLoanId?.startsWith(shortId)
+            ? selectedLoan.restructuredFromLoanId
+            : selectedLoan.restructuredToLoanId?.startsWith(shortId)
+              ? selectedLoan.restructuredToLoanId
+              : null;
+        if (fullId) {
+          return (
+            <span
+              key={i}
+              className="loan-id-link-LoanHistoryModal"
+              onClick={() => onViewLoan(fullId)}
+            >
+              #{shortId}
+            </span>
+          );
+        }
+      }
+      return part;
+    });
+  };
 
   const getStatusBadge = (status) => {
     let colorClass = "";
     switch (status) {
-      case "Menunggu Persetujuaan BAK":
+      case "Menunggu Persetujuan BAK":
       case "Menunggu Persetujuan Wakil Rektor 1":
         colorClass = "status-pending";
         break;
@@ -42,6 +73,12 @@ const LoanHistoryModal = ({ isOpen, onClose, selectedLoan }) => {
       case "Ditolak BAK":
       case "Ditolak Wakil Rektor 1":
         colorClass = "status-rejected";
+        break;
+      case "Menunggu Persetujuan Restrukturisasi":
+        colorClass = "status-restructuring-pending";
+        break;
+      case "Direstrukturisasi":
+        colorClass = "status-restructured";
         break;
       default:
         colorClass = "status-default";
@@ -63,19 +100,34 @@ const LoanHistoryModal = ({ isOpen, onClose, selectedLoan }) => {
     if (status.includes("Cicilan")) return <FaFileInvoiceDollar />;
     if (status.includes("Lunas")) return <FaCheckCircle />;
     if (status.includes("Pengajuan")) return <FaFileSignature />;
+    if (status.includes("Menunggu Persetujuan Restrukturisasi"))
+      return <FaLink />;
+    if (status.includes("Direstrukturisasi")) return <FaLink />;
     return <FaRegClock />;
   };
 
   const getHistoryStatusClass = (status) => {
-    if (status.includes("Disetujui") || status.includes("Persetujuan") || status.includes("Transfer")) return "history-status-approved";
-    if (status.includes("Ditolak")) return "history-status-rejected";
+    if (status.includes("Menunggu Transfer BAK")) return "history-status-waiting";
+    if (status.includes("Menunggu Persetujuan Restrukturisasi"))
+      return "history-status-restructuring-pending";
+    if (status.includes("Menunggu Persetujuan")) return "history-status-pending";
     if (status.includes("Direvisi")) return "history-status-revision";
-    if (status.includes("Menunggu Transfer")) return "history-status-waiting";
-    if (status.includes("Lunas") || status.includes("completed")) return "history-status-completed";
+    if (
+      status.includes("Disetujui dan Aktif") ||
+      status.includes("Disetujui") ||
+      status.includes("Persetujuan") ||
+      status.includes("Transfer")
+    )
+      return "history-status-approved";
+    if (status.includes("Ditolak")) return "history-status-rejected";
+    if (status.includes("Lunas") || status.includes("completed"))
+      return "history-status-completed";
     if (status.includes("Cicilan")) return "history-status-payment";
-    if (status.includes("Pengajuan")) return "history-status-pending";
+    if (status.includes("Direstrukturisasi")) return "history-status-restructured";
     return "history-status-default";
   };
+
+  const isRestructured = selectedLoan.status === "Direstrukturisasi";
 
   return (
     <div className="modal-overlay-LoanHistoryModal" onClick={onClose}>
@@ -84,13 +136,43 @@ const LoanHistoryModal = ({ isOpen, onClose, selectedLoan }) => {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header-LoanHistoryModal">
-          <h3>Riwayat Pinjaman #{selectedLoan.id.substring(0, 8)}</h3>
+          <div>
+            <h3>
+              Riwayat Pinjaman #{selectedLoan.id.substring(0, 8)}
+              {isRestructured && (
+                <span className="restructured-label-LoanHistoryModal">Direstrukturisasi</span>
+              )}
+            </h3>
+            {(selectedLoan.restructuredFromLoanId || selectedLoan.restructuredToLoanId) && (
+              <p className="restructure-nav-hint-LoanHistoryModal">
+                {selectedLoan.restructuredFromLoanId && (
+                  <span
+                    className="loan-nav-link-LoanHistoryModal"
+                    onClick={() => onViewLoan && onViewLoan(selectedLoan.restructuredFromLoanId)}
+                  >
+                    ← Pinjaman Sebelumnya
+                  </span>
+                )}
+                {selectedLoan.restructuredFromLoanId && selectedLoan.restructuredToLoanId && (
+                  <span className="nav-separator-LoanHistoryModal">&nbsp;&nbsp;·&nbsp;&nbsp;</span>
+                )}
+                {selectedLoan.restructuredToLoanId && (
+                  <span
+                    className="loan-nav-link-LoanHistoryModal"
+                    onClick={() => onViewLoan && onViewLoan(selectedLoan.restructuredToLoanId)}
+                  >
+                    Pinjaman Baru →
+                  </span>
+                )}
+              </p>
+            )}
+          </div>
           <button className="modal-close-LoanHistoryModal" onClick={onClose}>
             ✕
           </button>
         </div>
         <div className="modal-body-LoanHistoryModal">
-          <div className="detail-section-LoanHistoryModal">
+          <div className={`detail-section-LoanHistoryModal${isRestructured ? " section-greyed-out-LoanHistoryModal" : ""}`}>
             <h4>Informasi Pinjaman</h4>
             <div className="detail-grid-LoanHistoryModal">
               <div className="detail-item-LoanHistoryModal">
@@ -109,6 +191,43 @@ const LoanHistoryModal = ({ isOpen, onClose, selectedLoan }) => {
                 <span>Status</span>
                 <strong>{getStatusBadge(selectedLoan.status)}</strong>
               </div>
+              {selectedLoan.restructuredFromLoanId && selectedLoan.sisaPinjamanSebelumnya != null && (
+                <div className="detail-item-LoanHistoryModal">
+                  <span>Sisa Hutang Sebelum Restrukturisasi</span>
+                  <strong>{formatCurrency(selectedLoan.sisaPinjamanSebelumnya)}</strong>
+                </div>
+              )}
+              {selectedLoan.restructuredFromLoanId && selectedLoan.pinjamanBaru != null && (
+                <div className="detail-item-LoanHistoryModal">
+                  <span>Pinjaman Tambahan</span>
+                  <strong>{formatCurrency(selectedLoan.pinjamanBaru)}</strong>
+                </div>
+              )}
+              {selectedLoan.catatanTambahan && selectedLoan.catatanTambahan.length > 0 && (
+                <div className="detail-item-LoanHistoryModal" style={{ gridColumn: "1 / -1" }}>
+                  <span>Catatan Tambahan</span>
+                  <strong>
+                    {selectedLoan.catatanTambahan.map((note, i) => (
+                      <span key={i}>
+                        {renderNotesWithLinks(note)}
+                        {i < selectedLoan.catatanTambahan.length - 1 && <br />}
+                      </span>
+                    ))}
+                  </strong>
+                </div>
+              )}
+              {selectedLoan.biayaAdmin != null && (
+                <div className="detail-item-LoanHistoryModal">
+                  <span>Biaya Admin</span>
+                  <strong>{formatCurrency(selectedLoan.biayaAdmin)}</strong>
+                </div>
+              )}
+              {selectedLoan.sisaHutang != null && (
+                <div className="detail-item-LoanHistoryModal">
+                  <span>Sisa Hutang</span>
+                  <strong>{formatCurrency(selectedLoan.sisaHutang)}</strong>
+                </div>
+              )}
               <div className="detail-item-LoanHistoryModal">
                 <span>Tanggal Pengajuan</span>
                 <strong>{formatDate(selectedLoan.tanggalPengajuan)}</strong>
@@ -164,7 +283,7 @@ const LoanHistoryModal = ({ isOpen, onClose, selectedLoan }) => {
                       </p>
                       {entry.notes && (
                         <div className="notes-LoanHistoryModal">
-                          {entry.notes}
+                          {renderNotesWithLinks(entry.notes)}
                         </div>
                       )}
                     </div>
@@ -177,7 +296,7 @@ const LoanHistoryModal = ({ isOpen, onClose, selectedLoan }) => {
           </div>
         </div>
         <div className="modal-footer-LoanHistoryModal">
-          <button className="button-secondary-loanDetailModal" onClick={onClose}>
+          <button className="rrm-btn rrm-btn-secondary" onClick={onClose}>
             Tutup
           </button>
         </div>

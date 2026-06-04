@@ -73,9 +73,11 @@ const BulkPurchaseModal = ({
   onSave,
   products,
   currentUser,
-  collectionPrefix = "", // "stocks" or "stocks_b2b"
-  transactionCollection = "stockTransactions", // "stockTransactions" or "stockTransactions_b2b"
-  isWarehouse = false, // true if accessed from warehouse menu, false if from unimart
+  collectionPrefix = "",
+  transactionCollection = "stockTransactions",
+  isWarehouse = false,
+  isEditMode = false,
+  initialData = null,
 }) => {
   const [rows, setRows] = useState([
     {
@@ -113,6 +115,7 @@ const BulkPurchaseModal = ({
   const [uploadingNota, setUploadingNota] = useState(false);
   const [supplierName, setSupplierName] = useState("");
   const [adminFee, setAdminFee] = useState("10000");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dropdownRefs = useRef({});
 
@@ -408,118 +411,138 @@ const BulkPurchaseModal = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  // Build the items array from current rows + admin fee
+  const buildItemsPayload = (validRows) => {
+    const items = validRows.map((row) => ({
+      itemId: row.product.itemId || row.product.id,
+      itemName: row.product.name,
+      price: parseRupiah(row.hargaSatuan),
+      quantity: parseFloat(row.quantity),
+      subtotal: parseRupiah(row.subtotal),
+      unit: row.unit,
+    }));
+
+    const adminFeeAmount = parseRupiah(adminFee);
+    if (adminFeeAmount > 0) {
+      items.push({
+        itemId: "admin_fee",
+        itemName: "Biaya Admin",
+        price: -adminFeeAmount,
+        quantity: 1,
+        subtotal: -adminFeeAmount,
+        unit: "pcs",
+      });
+    }
+
+    return items;
+  };
+
   // Handle submit
   const handleSubmit = async () => {
+    if (isSubmitting) return;
     if (!validateForm()) {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const validRows = rows.filter(
         (row) => row.product && row.quantity && row.subtotal
       );
 
-      // Build items array
-      const items = validRows.map((row) => ({
-        itemId: row.product.itemId || row.product.id,
-        itemName: row.product.name,
-        price: parseRupiah(row.hargaSatuan),
-        quantity: parseFloat(row.quantity),
-        subtotal: parseRupiah(row.subtotal),
-        unit: row.unit,
-      }));
+      const items = buildItemsPayload(validRows);
 
-      // Add admin fee as a separate item
-      const adminFeeAmount = parseRupiah(adminFee);
-      if (adminFeeAmount > 0) {
-        items.push({
-          itemId: "admin_fee",
-          itemName: "Biaya Admin",
-          price: -adminFeeAmount,
-          quantity: 1,
-          subtotal: -adminFeeAmount,
-          unit: "pcs",
-        });
-      }
-
-      for (const row of validRows) {
-        const quantity = parseFloat(row.quantity);
-        const subtotal = parseRupiah(row.subtotal);
-        const hargaSatuan = parseRupiah(row.hargaSatuan);
-
-        // Create transaction record with items array
-        const transactionDoc = {
-          itemId: row.product.itemId || row.product.id,
-          itemName: row.product.name,
-          kategori: row.product.kategori || "",
-          subKategori: row.product.subKategori || "",
-          unit: row.unit,
-          cost: subtotal,
-          quantity: quantity,
-          originalQuantity: quantity,
-          originalUnit: row.unit,
-          transactionType: "pengadaan",
-          transactionVia: "bulkPurchase",
-          isDeleted: false,
-          createdBy: currentUser ? currentUser.email : "unknown",
-          items: items, // Add items array to transaction
-        };
-
-        const txId = uuidv4();
-        await onSave("createTransaction", transactionDoc, txId);
-
-        // Update stock
-        const newStock = (row.product.stock || 0) + quantity;
-        const newStockValue = (row.product.stockValue || 0) + subtotal;
-
-        await onSave("updateStock", {
-          id: row.product.id,
-          stock: newStock,
-          stockValue: newStockValue,
-        });
-      }
-
-      // Create nota belanja record if file was uploaded
-      if (uploadedNota && supplierName.trim()) {
-        const now = new Date();
-        const yyyy = String(now.getFullYear());
-        const mm = String(now.getMonth() + 1).padStart(2, "0");
-        const dd = String(now.getDate()).padStart(2, "0");
-
-        const notaDoc = {
-          fileName: uploadedNota.fileName,
-          downloadURL: uploadedNota.downloadURL,
+      if (isEditMode) {
+        // In edit mode, pass all data to the parent for full reversal + re-application
+        await onSave("editBulkPurchase", {
+          items,
+          validRows,
           supplierName: supplierName.trim(),
-          items: items, // Include items array
-          uploadedBy: {
-            uid: currentUser?.uid || "unknown",
-            email: currentUser?.email || "unknown",
-          },
-          createdAt: new Date().toISOString(),
-          process: {
-            notaDibuat: {
-              completed: true,
-              completedAt: new Date(),
-            },
-            transferBAK: {
-              completed: false,
-            },
-          },
-          status: "nota_dibuat",
-        };
+          uploadedNota,
+          adminFee,
+          currentUser,
+        });
+      } else {
+        // Create mode: process each row individually
+        const bulkPurchaseId = uuidv4();
 
-        const collectionName = isWarehouse ? "notaBelanja_b2b" : "notaBelanja";
-        const docId = `${yyyy}-${mm}-${dd}_${uploadedNota.timestamp}`;
+        for (const row of validRows) {
+          const quantity = parseFloat(row.quantity);
+          const subtotal = parseRupiah(row.subtotal);
 
-        // Save to Firestore via onSave callback
-        await onSave("createNotaBelanja", notaDoc, docId, collectionName);
+          const transactionDoc = {
+            itemId: row.product.itemId || row.product.id,
+            itemName: row.product.name,
+            kategori: row.product.kategori || "",
+            subKategori: row.product.subKategori || "",
+            unit: row.unit,
+            cost: subtotal,
+            quantity: quantity,
+            originalQuantity: quantity,
+            originalUnit: row.unit,
+            transactionType: "pengadaan",
+            transactionVia: "bulkPurchase",
+            isDeleted: false,
+            createdBy: currentUser ? currentUser.email : "unknown",
+            bulkPurchaseId: bulkPurchaseId,
+            items: items,
+          };
+
+          const txId = uuidv4();
+          await onSave("createTransaction", transactionDoc, txId);
+
+          const newStock = (row.product.stock || 0) + quantity;
+          const newStockValue = (row.product.stockValue || 0) + subtotal;
+
+          await onSave("updateStock", {
+            id: row.product.id,
+            stock: newStock,
+            stockValue: newStockValue,
+          });
+        }
+
+        if (uploadedNota && supplierName.trim()) {
+          const now = new Date();
+          const yyyy = String(now.getFullYear());
+          const mm = String(now.getMonth() + 1).padStart(2, "0");
+          const dd = String(now.getDate()).padStart(2, "0");
+
+          const notaDoc = {
+            fileName: uploadedNota.fileName,
+            downloadURL: uploadedNota.downloadURL,
+            supplierName: supplierName.trim(),
+            bulkPurchaseId: bulkPurchaseId,
+            items: items,
+            uploadedBy: {
+              uid: currentUser?.uid || "unknown",
+              email: currentUser?.email || "unknown",
+            },
+            createdAt: new Date().toISOString(),
+            process: {
+              notaDibuat: {
+                completed: true,
+                completedAt: new Date(),
+              },
+              transferBAK: {
+                completed: false,
+              },
+            },
+            status: "nota_dibuat",
+          };
+
+          const collectionName = isWarehouse ? "notaBelanja_b2b" : "notaBelanja";
+          const docId = `${yyyy}-${mm}-${dd}_${uploadedNota.timestamp}`;
+
+          await onSave("createNotaBelanja", notaDoc, docId, collectionName);
+        }
       }
 
-      // Close modal and reset
       handleClose();
     } catch (error) {
       console.error("Error processing bulk purchase:", error);
       alert("Error processing bulk purchase: " + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -560,6 +583,7 @@ const BulkPurchaseModal = ({
     setUploadingNota(false);
     setSupplierName("");
     setAdminFee("10000");
+    setIsSubmitting(false);
     onClose();
   };
 
@@ -580,6 +604,81 @@ const BulkPurchaseModal = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Pre-fill form data in edit mode
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (isEditMode && initialData) {
+      setSupplierName(initialData.supplierName || "");
+
+      // Extract admin fee from items
+      const adminFeeItem = (initialData.items || []).find(
+        (item) => item.itemId === "admin_fee"
+      );
+      if (adminFeeItem) {
+        setAdminFee(formatRupiah(Math.abs(adminFeeItem.subtotal).toString()));
+      } else {
+        setAdminFee("0");
+      }
+
+      // Filter product items (exclude admin fee)
+      const productItems = (initialData.items || []).filter(
+        (item) => item.itemId !== "admin_fee"
+      );
+
+      const productsArr = Object.values(products || {});
+      const populatedRows = productItems.map((item, index) => {
+        const product =
+          productsArr.find(
+            (p) => (p.itemId || p.id) === item.itemId
+          ) || null;
+        return {
+          id: index + 1,
+          product,
+          quantity: item.quantity.toString(),
+          unit: item.unit,
+          hargaSatuan: formatRupiah(Math.abs(item.price).toString()),
+          subtotal: formatRupiah(Math.abs(item.subtotal).toString()),
+        };
+      });
+
+      setRows(populatedRows.length > 0 ? populatedRows : [
+        { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+      ]);
+      setNextId((populatedRows.length || 0) + 1);
+
+      const terms = {};
+      populatedRows.forEach((row) => {
+        terms[row.id] = row.product ? row.product.name : "";
+      });
+      setSearchTerms(terms);
+
+      // Pre-set nota info so submit button is enabled without re-upload
+      if (initialData.downloadURL) {
+        setUploadedNota({
+          fileName: initialData.fileName || "Nota sebelumnya",
+          downloadURL: initialData.downloadURL,
+          originalFile: null,
+          timestamp: null,
+          isExisting: true,
+        });
+      }
+    } else if (!isEditMode) {
+      // Reset to defaults for create mode
+      setRows([
+        { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        { id: 2, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        { id: 3, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+      ]);
+      setNextId(4);
+      setSearchTerms({});
+      setSupplierName("");
+      setAdminFee("10000");
+      setUploadedNota(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   // Calculate total
   const calculateTotal = () => {
     const itemsTotal = rows.reduce((total, row) => {
@@ -588,7 +687,7 @@ const BulkPurchaseModal = ({
       }
       return total;
     }, 0);
-    
+
     const adminFeeAmount = parseRupiah(adminFee);
     return itemsTotal - adminFeeAmount;
   };
@@ -597,28 +696,43 @@ const BulkPurchaseModal = ({
 
   return (
     <div className="bulk-modal-overlay">
-      <div className="bulk-modal-content" style={{ overflow: "visible", maxHeight: "90vh", display: "flex", flexDirection: "column" }}>
+      <div
+        className="bulk-modal-content"
+        style={{
+          overflow: "visible",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
         <div className="bulk-modal-header">
-          <h2>Bulk Purchase</h2>
+          <h2>{isEditMode ? "Edit Nota Belanja" : "Bulk Purchase"}</h2>
           <button className="bulk-modal-close" onClick={handleClose}>
             <FaTimes />
           </button>
         </div>
 
-        <div className="bulk-modal-body" style={{ overflow: "auto", flex: 1, padding: "20px" }}>
+        <div
+          className="bulk-modal-body"
+          style={{ overflow: "auto", flex: 1, padding: "20px" }}
+        >
           {/* Nota Upload Section */}
           <div className="nota-upload-section">
             <div className="nota-upload-header">
-              <h3>Upload Nota dari Supplier</h3>
+              <h3>
+                Upload Nota dari Supplier <span className="required">*</span>
+              </h3>
               <p>
-                Upload nota pembelian dari supplier. Nama supplier dapat diisi setelah upload.
+                Upload nota pembelian dari supplier. Nama supplier dapat diisi
+                setelah upload.
               </p>
             </div>
 
             {/* Supplier Name Input */}
             <div className="supplier-input-container">
               <label className="supplier-label">
-                Nama Supplier {uploadedNota && <span className="required">*</span>}
+                Nama Supplier{" "}
+                {uploadedNota && <span className="required">*</span>}
               </label>
               <input
                 type="text"
@@ -629,7 +743,8 @@ const BulkPurchaseModal = ({
               />
               {uploadedNota && !supplierName.trim() && (
                 <div className="supplier-warning">
-                  Nama supplier diperlukan untuk menyimpan nota yang sudah diupload
+                  Nama supplier diperlukan untuk menyimpan nota yang sudah
+                  diupload
                 </div>
               )}
             </div>
@@ -909,9 +1024,7 @@ const BulkPurchaseModal = ({
           {/* Admin Fee and Total Section */}
           <div className="bulk-summary-section">
             <div className="admin-fee-container">
-              <label className="admin-fee-label">
-                Biaya Admin (IDR):
-              </label>
+              <label className="admin-fee-label">Biaya Admin (IDR):</label>
               <input
                 type="text"
                 className="admin-fee-input"
@@ -920,24 +1033,37 @@ const BulkPurchaseModal = ({
                 onChange={(e) => setAdminFee(formatRupiah(e.target.value))}
               />
             </div>
-            
+
             <div className="total-calculation">
               <div className="total-row">
                 <span>Subtotal Barang:</span>
-                <span>Rp {formatRupiah(rows.reduce((total, row) => {
-                  if (row.subtotal && parseRupiah(row.subtotal) > 0) {
-                    return total + parseRupiah(row.subtotal);
-                  }
-                  return total;
-                }, 0).toString())}</span>
+                <span>
+                  Rp{" "}
+                  {formatRupiah(
+                    rows
+                      .reduce((total, row) => {
+                        if (row.subtotal && parseRupiah(row.subtotal) > 0) {
+                          return total + parseRupiah(row.subtotal);
+                        }
+                        return total;
+                      }, 0)
+                      .toString()
+                  )}
+                </span>
               </div>
               <div className="total-row admin-fee-row">
                 <span>Biaya Admin:</span>
                 <span>- Rp {formatRupiah(adminFee)}</span>
               </div>
               <div className="total-row final-total">
-                <span><strong>Total:</strong></span>
-                <span><strong>Rp {formatRupiah(calculateTotal().toString())}</strong></span>
+                <span>
+                  <strong>Total:</strong>
+                </span>
+                <span>
+                  <strong>
+                    Rp {formatRupiah(calculateTotal().toString())}
+                  </strong>
+                </span>
               </div>
             </div>
           </div>
@@ -947,9 +1073,58 @@ const BulkPurchaseModal = ({
           <button className="bulk-cancel-btn" onClick={handleClose}>
             Cancel
           </button>
-          <button className="bulk-submit-btn" onClick={handleSubmit}>
-            Submit
-          </button>
+          <div
+            className="submit-button-wrapper"
+            style={{ position: "relative", display: "inline-block" }}
+          >
+            <button
+              className="bulk-submit-btn"
+              onClick={handleSubmit}
+              disabled={(!isEditMode && !uploadedNota) || isSubmitting}
+              style={{
+                opacity: (!isEditMode && !uploadedNota) || isSubmitting ? 0.5 : 1,
+                cursor: (!isEditMode && !uploadedNota) || isSubmitting ? "not-allowed" : "pointer",
+              }}
+            >
+              {isSubmitting ? "Menyimpan..." : isEditMode ? "Simpan Perubahan" : "Submit"}
+            </button>
+            {!isEditMode && !uploadedNota && !isSubmitting && (
+              <div
+                className="submit-tooltip"
+                style={{
+                  visibility: "hidden",
+                  position: "absolute",
+                  bottom: "100%",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  marginBottom: "8px",
+                  padding: "8px 12px",
+                  backgroundColor: "#333",
+                  color: "white",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                  whiteSpace: "nowrap",
+                  zIndex: 1000,
+                  pointerEvents: "none",
+                }}
+              >
+                Mohon unggah nota Supplier terlebih dahulu
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    width: 0,
+                    height: 0,
+                    borderLeft: "6px solid transparent",
+                    borderRight: "6px solid transparent",
+                    borderTop: "6px solid #333",
+                  }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

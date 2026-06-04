@@ -12,6 +12,7 @@ import SejarahTransaksiWarehouse from "./SejarahTransaksiWarehouse";
 import NotaBelanjaB2B from "./NotaBelanjaB2B";
 import AdminPanel from "./AdminPanel";
 import AdminSettings from "./AdminSettings";
+import Finance from "./Finance";
 import LoginTailwind from "./LoginTailwind";
 
 // Wrap all components with the environment prefix HOC
@@ -32,6 +33,7 @@ export const SejarahTransaksiWarehouseWithEnv = withEnvironmentPrefix(
 );
 export const NotaBelanjaB2BWithEnv = withEnvironmentPrefix(NotaBelanjaB2B);
 export const AdminPanelWithEnv = withEnvironmentPrefix(AdminPanel);
+export const FinanceWithEnv = withEnvironmentPrefix(Finance);
 // Don't wrap AdminSettings since it's used to control the environment
 export { AdminSettings };
 

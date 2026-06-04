@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { auth, db } from "../firebase";
+import { auth, db, getEnvironmentCollectionPath } from "../firebase";
 import {
   doc,
   getDoc,
@@ -12,8 +12,20 @@ import {
   serverTimestamp,
   onSnapshot,
 } from "firebase/firestore";
+import { useEnvironment } from "../context/EnvironmentContext";
+
+const calculateFee = (jumlahPinjaman) => {
+  if (jumlahPinjaman > 8000000) return 500000;
+  if (jumlahPinjaman > 6000000) return 400000;
+  if (jumlahPinjaman > 4000000) return 300000;
+  if (jumlahPinjaman > 2000000) return 200000;
+  if (jumlahPinjaman >= 1000000) return 100000;
+  return 0;
+};
 
 export const useMemberSimpanPinjam = () => {
+  const { isProduction } = useEnvironment();
+  const spPath = getEnvironmentCollectionPath("simpanPinjam", isProduction);
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userDocRef, setUserDocRef] = useState(null);
@@ -54,12 +66,14 @@ export const useMemberSimpanPinjam = () => {
       setShowPinjamanModal(false);
     }
   };
-  const [currentLoan, setCurrentLoan] = useState(null);
+  const [currentLoan] = useState(null);
   const [loans, setLoans] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [showLoanHistoryModal, setShowLoanHistoryModal] = useState(false);
   const [selectedLoanForHistory, setSelectedLoanForHistory] = useState(null);
+  const [showRestrukturisasiModal, setShowRestrukturisasiModal] = useState(false);
+  const [selectedLoanForRestruktur, setSelectedLoanForRestruktur] = useState(null);
 
   // Define loan status categories
   const activeLoanStatuses = [
@@ -68,6 +82,7 @@ export const useMemberSimpanPinjam = () => {
     "Direvisi BAK",
     "Disetujui dan Aktif",
     "Menunggu Transfer BAK",
+    "Menunggu Persetujuan Restrukturisasi",
   ];
 
   const pastLoanStatuses = [
@@ -76,23 +91,25 @@ export const useMemberSimpanPinjam = () => {
     "Ditolak Wakil Rektor 2",
     "Dibatalkan",
     "Revisi Ditolak Anggota",
+    "Direstrukturisasi",
   ];
 
-  // Filter loans
-  const activeLoans = loans.filter((loan) =>
-    activeLoanStatuses.includes(loan.status)
-  );
+  const sortByPengajuanDesc = (a, b) => {
+    const aTime = a.tanggalPengajuan?.toDate
+      ? a.tanggalPengajuan.toDate()
+      : new Date(a.tanggalPengajuan || 0);
+    const bTime = b.tanggalPengajuan?.toDate
+      ? b.tanggalPengajuan.toDate()
+      : new Date(b.tanggalPengajuan || 0);
+    return bTime - aTime;
+  };
+
+  const activeLoans = loans
+    .filter((loan) => activeLoanStatuses.includes(loan.status))
+    .sort(sortByPengajuanDesc);
   const pastLoans = loans
     .filter((loan) => pastLoanStatuses.includes(loan.status))
-    .sort((a, b) => {
-      const aTime = a.updatedAt?.toDate
-        ? a.updatedAt.toDate()
-        : new Date(a.updatedAt);
-      const bTime = b.updatedAt?.toDate
-        ? b.updatedAt.toDate()
-        : new Date(b.updatedAt);
-      return bTime - aTime;
-    });
+    .sort(sortByPengajuanDesc);
 
   // Fetch user data
   useEffect(() => {
@@ -134,7 +151,7 @@ export const useMemberSimpanPinjam = () => {
     if (!userData?.uid) return;
 
     const q = query(
-      collection(db, "simpanPinjam"),
+      collection(db, spPath),
       where("userId", "==", userData.uid)
     );
 
@@ -147,7 +164,7 @@ export const useMemberSimpanPinjam = () => {
     });
 
     return () => unsubscribe();
-  }, [userData]);
+  }, [userData, spPath]);
 
   const handleSimpananChange = (e) => {
     const { name, value } = e.target;
@@ -287,6 +304,10 @@ export const useMemberSimpanPinjam = () => {
       case "Direvisi BAK":
       case "Menunggu Transfer BAK":
         return "status-badge warning";
+      case "Menunggu Persetujuan Restrukturisasi":
+        return "status-badge restructuring-pending";
+      case "Direstrukturisasi":
+        return "status-badge restructured";
       default:
         return "status-badge info";
     }
@@ -315,8 +336,8 @@ export const useMemberSimpanPinjam = () => {
           "Jumlah pinjaman harus antara Rp 1.000.000 - Rp 10.000.000"
         );
       }
-      if (![3, 6, 12].includes(tenor)) {
-        throw new Error("Pilih tenor yang valid (3, 6, atau 12 bulan)");
+      if (tenor < 3 || tenor > 12) {
+        throw new Error("Pilih tenor antara 3 - 12 bulan");
       }
       // Validate bank details
       if (!pinjamanForm.bank) {
@@ -335,6 +356,8 @@ export const useMemberSimpanPinjam = () => {
         status: "Menunggu Persetujuan BAK",
         tanggalPengajuan: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        biayaAdmin: calculateFee(jumlah),
+        sisaHutang: jumlah,
         bankDetails: {
           bank: pinjamanForm.bank,
           nomorRekening: pinjamanForm.nomorRekening,
@@ -358,7 +381,7 @@ export const useMemberSimpanPinjam = () => {
         ],
       };
 
-      await addDoc(collection(db, "simpanPinjam"), loanData);
+      await addDoc(collection(db, spPath), loanData);
 
       setPinjamanForm({
         jumlah: "",
@@ -381,7 +404,7 @@ export const useMemberSimpanPinjam = () => {
   // Handle accept revision
   const handleTerimaRevisi = async (loanId) => {
     try {
-      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanRef = doc(db, spPath, loanId);
       const loanSnap = await getDoc(loanRef);
 
       if (!loanSnap.exists()) {
@@ -391,22 +414,73 @@ export const useMemberSimpanPinjam = () => {
       const loanData = loanSnap.data();
       const currentHistory = loanData.history || [];
 
+      const updateData = {
+        status: "Menunggu Persetujuan Wakil Rektor 2",
+        jumlahPinjaman: loanData.revisiJumlah || loanData.jumlahPinjaman,
+        updatedAt: serverTimestamp(),
+      };
+
+      const historyNotes = ["Anggota menerima revisi dari BAK"];
+
+      // For restructured loans, re-fetch the old loan's latest sisaHutang
+      if (loanData.restructuredFromLoanId) {
+        const oldLoanRef = doc(db, spPath, loanData.restructuredFromLoanId);
+        const oldLoanSnap = await getDoc(oldLoanRef);
+
+        if (oldLoanSnap.exists()) {
+          const oldLoanData = oldLoanSnap.data();
+          const latestSisaHutang = oldLoanData.sisaHutang ?? (() => {
+            const j = oldLoanData.jumlahPinjaman || 0;
+            const m = oldLoanData.jumlahMenyicil || 0;
+            const t = oldLoanData.tenor || 1;
+            return Math.max(0, j - m * Math.round(j / t));
+          })();
+
+          const previousSisa = loanData.sisaPinjamanSebelumnya || 0;
+
+          if (latestSisaHutang !== previousSisa) {
+            const jumlahPinjaman = updateData.jumlahPinjaman;
+            const newPinjamanBaru = jumlahPinjaman - latestSisaHutang;
+
+            // Recalculate with fresh sisaHutang but keep the revised total
+            // If the old loan's debt decreased, the "pinjaman tambahan" portion increases
+            updateData.sisaPinjamanSebelumnya = latestSisaHutang;
+            updateData.pinjamanBaru = newPinjamanBaru;
+            updateData.biayaAdmin = calculateFee(jumlahPinjaman);
+            updateData.sisaHutang = jumlahPinjaman;
+
+            // Recalculate remaining tenor from old loan
+            const oldRemainingTenor = (oldLoanData.tenor || 0) - (oldLoanData.jumlahMenyicil || 0);
+            const currentTenor = loanData.tenor || 0;
+            const currentAdditionalTenor = loanData.additionalTenor || 0;
+            const previousRemainingTenor = currentTenor - currentAdditionalTenor;
+
+            if (oldRemainingTenor !== previousRemainingTenor) {
+              const newTenor = oldRemainingTenor + currentAdditionalTenor;
+              updateData.tenor = newTenor;
+            }
+
+            updateData.catatanTambahan = [
+              `Restrukturisasi dari pinjaman #${loanData.restructuredFromLoanId.substring(0, 8)}. Sisa hutang saat pengajuan: Rp ${latestSisaHutang.toLocaleString("id-ID")}, Pinjaman tambahan: Rp ${newPinjamanBaru.toLocaleString("id-ID")}`,
+            ];
+
+            historyNotes.push(
+              `Sisa hutang lama diperbarui dari Rp ${previousSisa.toLocaleString("id-ID")} menjadi Rp ${latestSisaHutang.toLocaleString("id-ID")} (ada cicilan terbayar selama proses revisi)`
+            );
+          }
+        }
+      }
+
       const newHistoryEntry = {
         status: "Menunggu Persetujuan Wakil Rektor 2",
         timestamp: new Date(),
         updatedBy: userData.uid,
-        notes: "Anggota menerima revisi dari BAK",
+        notes: historyNotes.join(". "),
       };
 
-      await updateDoc(loanRef, {
-        status: "Menunggu Persetujuan Wakil Rektor 2",
-        jumlahPinjaman: loanData.revisiJumlah || loanData.jumlahPinjaman,
-        updatedAt: serverTimestamp(),
-      });
+      updateData.history = [...currentHistory, newHistoryEntry];
 
-      await updateDoc(loanRef, {
-        history: [...currentHistory, newHistoryEntry],
-      });
+      await updateDoc(loanRef, updateData);
 
       alert(
         "Revisi berhasil diterima. Pengajuan pinjaman menunggu persetujuan Wakil Rektor 2."
@@ -428,7 +502,7 @@ export const useMemberSimpanPinjam = () => {
     }
 
     try {
-      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanRef = doc(db, spPath, loanId);
       const loanSnap = await getDoc(loanRef);
 
       if (!loanSnap.exists()) {
@@ -451,10 +525,128 @@ export const useMemberSimpanPinjam = () => {
         history: [...currentHistory, newHistoryEntry],
       });
 
+      // If this was a restructured loan, revert the old loan back to active
+      if (loanData.restructuredFromLoanId) {
+        const oldLoanRef = doc(db, spPath, loanData.restructuredFromLoanId);
+        const oldLoanSnap = await getDoc(oldLoanRef);
+
+        if (oldLoanSnap.exists()) {
+          const oldLoanData = oldLoanSnap.data();
+          if (oldLoanData.status === "Menunggu Persetujuan Restrukturisasi") {
+            await updateDoc(oldLoanRef, {
+              status: "Disetujui dan Aktif",
+              restructuredToLoanId: null,
+              updatedAt: serverTimestamp(),
+              history: [
+                ...(oldLoanData.history || []),
+                {
+                  status: "Disetujui dan Aktif",
+                  timestamp: new Date(),
+                  updatedBy: userData.uid,
+                  notes: `Pengajuan restrukturisasi #${loanId.substring(0, 8)} ditolak anggota. Pinjaman dikembalikan ke status aktif.`,
+                },
+              ],
+            });
+          }
+        }
+      }
+
       alert("Revisi berhasil ditolak. Pengajuan pinjaman telah ditolak.");
     } catch (error) {
       console.error("Error declining revision:", error);
       alert("Gagal menolak revisi. Silakan coba lagi.");
+    }
+  };
+
+  const hasPendingRestrukturisasi = (loan) => {
+    return loan.status === "Menunggu Persetujuan Restrukturisasi";
+  };
+
+  // Handle restructuring submission
+  const handleRestrukturisasi = async (data) => {
+    setIsSubmitting(true);
+    setError("");
+    try {
+      const {
+        oldLoanId,
+        sisaPinjamanSebelumnya,
+        pinjamanBaru,
+        jumlahPinjaman,
+        tenor,
+        additionalTenor,
+        biayaAdmin,
+        bank,
+        nomorRekening,
+      } = data;
+
+      const loanData = {
+        userId: userData.uid,
+        jumlahPinjaman,
+        tenor,
+        additionalTenor,
+        tujuanPinjaman: "Restrukturisasi pinjaman",
+        catatanTambahan: [
+          `Restrukturisasi dari pinjaman #${oldLoanId.substring(0, 8)}. Sisa hutang saat pengajuan: Rp ${sisaPinjamanSebelumnya.toLocaleString("id-ID")}, Pinjaman tambahan: Rp ${pinjamanBaru.toLocaleString("id-ID")}`,
+        ],
+        status: "Menunggu Persetujuan BAK",
+        tanggalPengajuan: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        biayaAdmin,
+        sisaHutang: jumlahPinjaman,
+        restructuredFromLoanId: oldLoanId,
+        sisaPinjamanSebelumnya,
+        pinjamanBaru,
+        bankDetails: { bank, nomorRekening },
+        userData: {
+          email: userData.email || "",
+          namaLengkap: userData.nama || "",
+          nik: userData.nik || "",
+          nomorWhatsapp: userData.nomorWhatsapp || "",
+          kantor: userData.kantor || "",
+          satuanKerja: userData.satuanKerja || "",
+          nomorAnggota: userData.nomorAnggota || "",
+        },
+        history: [
+          {
+            status: "Menunggu Persetujuan BAK",
+            timestamp: new Date(),
+            updatedBy: userData.uid,
+            notes: `Pengajuan restrukturisasi dari pinjaman #${oldLoanId.substring(0, 8)}`,
+          },
+        ],
+      };
+
+      const newLoanRef = await addDoc(collection(db, spPath), loanData);
+
+      // Update old loan status to indicate pending restructuring
+      const oldLoanRef = doc(db, spPath, oldLoanId);
+      const oldLoanSnap = await getDoc(oldLoanRef);
+      if (oldLoanSnap.exists()) {
+        const oldLoanData = oldLoanSnap.data();
+        const oldHistory = oldLoanData.history || [];
+
+        await updateDoc(oldLoanRef, {
+          status: "Menunggu Persetujuan Restrukturisasi",
+          restructuredToLoanId: newLoanRef.id,
+          updatedAt: serverTimestamp(),
+          history: [
+            ...oldHistory,
+            {
+              status: "Menunggu Persetujuan Restrukturisasi",
+              timestamp: new Date(),
+              updatedBy: userData.uid,
+              notes: `Pengajuan restrukturisasi ke pinjaman baru #${newLoanRef.id.substring(0, 8)}. Sisa hutang saat pengajuan: Rp ${sisaPinjamanSebelumnya.toLocaleString("id-ID")}`,
+            },
+          ],
+        });
+      }
+
+    } catch (error) {
+      console.error("Error submitting restructuring:", error);
+      setError("Gagal mengajukan restrukturisasi. Silakan coba lagi.");
+      throw error;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -469,7 +661,7 @@ export const useMemberSimpanPinjam = () => {
     }
 
     try {
-      const loanRef = doc(db, "simpanPinjam", loanId);
+      const loanRef = doc(db, spPath, loanId);
       const loanSnap = await getDoc(loanRef);
 
       if (!loanSnap.exists()) {
@@ -491,6 +683,33 @@ export const useMemberSimpanPinjam = () => {
         updatedAt: serverTimestamp(),
         history: [...currentHistory, newHistoryEntry],
       });
+
+      // If this was a restructuring request, revert the old loan back to active
+      if (loanData.restructuredFromLoanId) {
+        const oldLoanRef = doc(db, spPath, loanData.restructuredFromLoanId);
+        const oldLoanSnap = await getDoc(oldLoanRef);
+
+        if (oldLoanSnap.exists()) {
+          const oldLoanData = oldLoanSnap.data();
+          if (oldLoanData.status === "Menunggu Persetujuan Restrukturisasi") {
+            const oldHistory = oldLoanData.history || [];
+            await updateDoc(oldLoanRef, {
+              status: "Disetujui dan Aktif",
+              restructuredToLoanId: null,
+              updatedAt: serverTimestamp(),
+              history: [
+                ...oldHistory,
+                {
+                  status: "Disetujui dan Aktif",
+                  timestamp: new Date(),
+                  updatedBy: userData.uid,
+                  notes: `Pengajuan restrukturisasi #${loanId.substring(0, 8)} dibatalkan oleh anggota. Pinjaman dikembalikan ke status aktif.`,
+                },
+              ],
+            });
+          }
+        }
+      }
 
       alert("Pengajuan pinjaman berhasil dibatalkan");
     } catch (error) {
@@ -519,6 +738,8 @@ export const useMemberSimpanPinjam = () => {
     selectedLoanForHistory,
     activeLoans,
     pastLoans,
+    showRestrukturisasiModal,
+    selectedLoanForRestruktur,
 
     // Setters
     setActiveTab,
@@ -529,6 +750,8 @@ export const useMemberSimpanPinjam = () => {
     setShowLoanHistoryModal,
     setSelectedLoanForHistory,
     setPinjamanForm,
+    setShowRestrukturisasiModal,
+    setSelectedLoanForRestruktur,
 
     // Handlers
     handleSimpananChange,
@@ -539,6 +762,7 @@ export const useMemberSimpanPinjam = () => {
     handleTerimaRevisi,
     handleTolakRevisi,
     handleCancelLoan,
+    handleRestrukturisasi,
 
     // Utilities
     formatCurrency,
@@ -546,5 +770,6 @@ export const useMemberSimpanPinjam = () => {
     formatDetailedDate,
     getStatusBadgeClass,
     canApplyForLoan,
+    hasPendingRestrukturisasi,
   };
 };

@@ -1,0 +1,286 @@
+.restrukturisasi-modal {
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.restruktur-modal-header {
+  border-bottom: 3px solid var(--border-color, #222);
+}
+
+.restruktur-modal-header h3 {
+  color: #7c3aed;
+}
+
+.restruktur-intro-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #faf5ff;
+  border: 2px solid #e9d5ff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 10px 0 20px 0;
+}
+
+.restruktur-intro-emoji {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.restruktur-intro-banner p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #6d28d9;
+  line-height: 1.4;
+}
+
+.restruktur-current-summary {
+  background-color: var(--secondary-bg, #f8f9fa);
+  border: 2px solid var(--border-color, #222);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.restruktur-current-summary h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.restruktur-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.restruktur-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.restruktur-summary-item.highlight {
+  background-color: #f5f3ff;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1.5px solid #a78bfa;
+}
+
+.restruktur-summary-item.highlight .restruktur-value {
+  color: #7c3aed;
+}
+
+.restruktur-label {
+  font-size: 12px;
+  color: var(--placeholder-text-color, #888);
+}
+
+.restruktur-value {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.tenor-chips {
+  display: flex;
+  gap: 10px;
+}
+
+.tenor-chip {
+  flex: 1;
+  padding: 10px;
+  border: 2px solid var(--border-color, #222);
+  border-radius: 8px;
+  background: var(--card-bg-color, #fff);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+
+.tenor-chip:hover {
+  background-color: #f5f3ff;
+  border-color: #7c3aed;
+}
+
+.tenor-chip.active {
+  background-color: #7c3aed;
+  color: #fff;
+  border-color: #1f2937;
+  box-shadow: 2px 2px 0 #1f2937;
+}
+
+.tenor-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.restruktur-preview {
+  background-color: #faf5ff;
+  border: 2px solid #c4b5fd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.restruktur-preview h4 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #5b21b6;
+}
+
+.restruktur-preview-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.restruktur-preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+
+.restruktur-preview-item.total {
+  font-weight: 700;
+  font-size: 15px;
+  padding-top: 8px;
+  border-top: 2px solid #c4b5fd;
+  color: #5b21b6;
+}
+
+.restruktur-preview-divider {
+  height: 1px;
+  background-color: #e9d5ff;
+  margin: 4px 0;
+}
+
+.restruktur-submit-btn {
+  background-color: #7c3aed !important;
+  color: #fff !important;
+  border-color: #1f2937 !important;
+  box-shadow: 3px 3px 0 #1f2937;
+  transition: all 0.15s ease;
+}
+
+.restruktur-submit-btn:hover:not(:disabled) {
+  background-color: #6d28d9 !important;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #1f2937;
+}
+
+.restruktur-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Success modal */
+.restruktur-success-modal {
+  text-align: center;
+  max-width: 420px;
+}
+
+.restruktur-success-content {
+  padding: 32px 20px;
+}
+
+.restruktur-success-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+  animation: restruktur-bounce 0.6s ease;
+}
+
+@keyframes restruktur-bounce {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.restruktur-success-content h3 {
+  font-size: 22px;
+  font-weight: 800;
+  color: #5b21b6;
+  margin: 0 0 8px 0;
+}
+
+.restruktur-success-content > p {
+  font-size: 14px;
+  color: var(--placeholder-text-color, #666);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+.restruktur-success-summary {
+  background-color: #faf5ff;
+  border: 2px solid #c4b5fd;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.restruktur-success-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.restruktur-success-row + .restruktur-success-row {
+  border-top: 1px solid #e9d5ff;
+}
+
+.restruktur-success-amount {
+  font-weight: 800;
+  color: #5b21b6;
+  font-size: 16px;
+}
+
+.restruktur-success-btn {
+  background-color: #7c3aed !important;
+  color: #fff !important;
+  border-color: #1f2937 !important;
+  box-shadow: 3px 3px 0 #1f2937;
+  padding: 12px 40px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.restruktur-success-btn:hover {
+  background-color: #6d28d9 !important;
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #1f2937;
+}
+
+.field-error {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 4px;
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .restrukturisasi-modal {
+    max-width: 100%;
+    margin: 10px;
+  }
+
+  .restruktur-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tenor-chips {
+    flex-wrap: wrap;
+  }
+
+  .restruktur-success-modal {
+    max-width: 100%;
+    margin: 10px;
+  }
+}

@@ -45,12 +45,17 @@ const MemberVoucherTile = ({ voucher, onClick }) => {
     });
   };
 
+  const isMultiUse = voucher.isOneTimeUse === false;
+  const remaining = isMultiUse ? voucher.value - (voucher.amountSpent || 0) : voucher.value;
+
   const getStatusText = () => {
     const now = new Date();
     const activeDate = voucher.activeDate?.toDate ? voucher.activeDate.toDate() : new Date(voucher.activeDate);
     const expireDate = voucher.expireDate?.toDate ? voucher.expireDate.toDate() : new Date(voucher.expireDate);
-    
-    if (voucher.isClaimed) {
+
+    if (isMultiUse && remaining <= 0) {
+      return { text: 'SALDO HABIS', className: 'claimed' };
+    } else if (voucher.isClaimed) {
       return { text: 'SUDAH DICLAIM', className: 'claimed' };
     } else if (!voucher.isActive) {
       return { text: 'TIDAK AKTIF', className: 'inactive' };
@@ -89,6 +94,20 @@ const MemberVoucherTile = ({ voucher, onClick }) => {
           {status.text}
         </div>
       </div>
+
+      {isMultiUse && (
+        <div className="voucher-balance-section">
+          <div className="voucher-balance-bar">
+            <div
+              className="voucher-balance-fill"
+              style={{ width: `${Math.max(0, (remaining / voucher.value) * 100)}%` }}
+            ></div>
+          </div>
+          <div className="voucher-balance-text">
+            Sisa: {formatCurrency(remaining)} / {formatCurrency(voucher.value)}
+          </div>
+        </div>
+      )}
 
       <div className="voucher-barcode-section">
         <svg ref={barcodeRef} className="voucher-barcode"></svg>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { db } from "../firebase";
+import { db, getEnvironmentCollectionPath } from "../firebase";
 import {
   collection,
   getDocs,
@@ -13,11 +13,15 @@ import {
   getDoc,
   setDoc,
 } from "firebase/firestore";
+import { useEnvironment } from "../context/EnvironmentContext";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import "../styles/TabunganLogs.css";
 
 const TabunganLogs = () => {
+  const { isProduction } = useEnvironment();
+  const tlPath = getEnvironmentCollectionPath("tabunganLogs", isProduction);
+  const tlpuPath = getEnvironmentCollectionPath("tabunganLogsPerUser", isProduction);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,7 +46,7 @@ const TabunganLogs = () => {
     try {
       setLoading(true);
       const logsQuery = query(
-        collection(db, "tabunganLogs"),
+        collection(db, tlPath),
         orderBy("timestamp", "desc")
       );
       const querySnapshot = await getDocs(logsQuery);
@@ -177,7 +181,7 @@ const TabunganLogs = () => {
 
           // Create a tabungan log per user record
           const tabunganLogsPerUserRef = doc(
-            collection(db, "tabunganLogsPerUser")
+            collection(db, tlpuPath)
           );
           await setDoc(tabunganLogsPerUserRef, {
             userId: userId,
@@ -229,7 +233,7 @@ const TabunganLogs = () => {
           status: "Menyelesaikan...",
         }));
 
-        const logRef = doc(db, "tabunganLogs", logDocumentName);
+        const logRef = doc(db, tlPath, logDocumentName);
         await setDoc(logRef, {
           type: "tabunganBulanan",
           date: logDate,
@@ -592,7 +596,7 @@ const TabunganLogs = () => {
       }));
 
       const tabunganLogsPerUserQuery = query(
-        collection(db, "tabunganLogsPerUser"),
+        collection(db, tlpuPath),
         where("tabunganLogId", "==", log.id)
       );
       const tabunganLogsPerUserSnapshot = await getDocs(
@@ -617,7 +621,7 @@ const TabunganLogs = () => {
         status: "Menyelesaikan...",
       }));
 
-      await deleteDoc(doc(db, "tabunganLogs", log.id));
+      await deleteDoc(doc(db, tlPath, log.id));
 
       setProgressModal({
         isVisible: true,

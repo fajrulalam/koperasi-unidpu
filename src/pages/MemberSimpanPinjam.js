@@ -1,12 +1,13 @@
 import React from "react";
 import { useMemberSimpanPinjam } from "../hooks/useMemberSimpanPinjam";
-import LoanHistoryModal from "../components/LoanHistoryModal";
+import LoanDetailModalMember from "../components/LoanDetailModalMember";
 import PinjamanModal from "../components/PinjamanModal";
+import RestrukturisasiModal from "../components/RestrukturisasiModal";
 import RegistrationModal from "../components/RegistrationModal";
 import "../styles/Member.css";
 import "../styles/MemberLoanStyles.css";
 
-const MemberSimpanPinjam = () => {
+const MemberSimpanPinjam = ({ setActivePage }) => {
   const {
     // State
     userData,
@@ -23,7 +24,10 @@ const MemberSimpanPinjam = () => {
     selectedLoanForHistory,
     activeLoans,
     pastLoans,
-    
+    loans,
+    showRestrukturisasiModal,
+    selectedLoanForRestruktur,
+
     // Setters
     setActiveTab,
     setShowPastLoans,
@@ -33,7 +37,9 @@ const MemberSimpanPinjam = () => {
     setShowLoanHistoryModal,
     setSelectedLoanForHistory,
     setPinjamanForm,
-    
+    setShowRestrukturisasiModal,
+    setSelectedLoanForRestruktur,
+
     // Handlers
     handleUpdateToActiveStatus,
     handlePinjamanSubmit,
@@ -41,12 +47,14 @@ const MemberSimpanPinjam = () => {
     handleTolakRevisi,
     handleCancelLoan,
     handlePinjamanChange,
-    
+    handleRestrukturisasi,
+
     // Utilities
     formatCurrency,
     formatDate,
     getStatusBadgeClass,
     canApplyForLoan,
+    hasPendingRestrukturisasi,
   } = useMemberSimpanPinjam();
 
   if (loading) {
@@ -92,6 +100,11 @@ const MemberSimpanPinjam = () => {
   return (
     <div className="member-content">
       <h2 className="page-title">Simpan/Pinjam</h2>
+      {setActivePage && (
+        <button className="back-link" onClick={() => setActivePage("beranda")}>
+          ← Kembali
+        </button>
+      )}
 
       <div className="tab-container">
         <div
@@ -118,8 +131,8 @@ const MemberSimpanPinjam = () => {
                 onClick={() => setShowPastLoans(!showPastLoans)}
               >
                 {showPastLoans
-                  ? "Sembunyikan Riwayat"
-                  : "Lihat Riwayat Pinjaman"}
+                  ? "Sembunyikan"
+                  : "Lihat Pinjaman yang sudah tidak aktif"}
               </button>
             )}
           </div>
@@ -127,14 +140,62 @@ const MemberSimpanPinjam = () => {
           {!showPastLoans ? (
             activeLoans.length > 0 ? (
               <div className="loan-list">
-                {activeLoans.map((loan) => (
+                {activeLoans.map((loan) => {
+                  const isPendingRestruktur = hasPendingRestrukturisasi(loan);
+                  const canRestruktur = loan.status === "Disetujui dan Aktif" && !isPendingRestruktur;
+
+                  return (
                   <div key={loan.id} className="loan-card">
                     <div className="loan-header">
-                      <h4>Pinjaman #{loan.id.substring(0, 8)}</h4>
+                      <h4>
+                        Pinjaman #{loan.id.substring(0, 8)}
+                        {loan.restructuredFromLoanId && (
+                          <span className="restruktur-badge">Restrukturisasi</span>
+                        )}
+                      </h4>
                       <span className={getStatusBadgeClass(loan.status)}>
                         {loan.status}
                       </span>
                     </div>
+
+                    {isPendingRestruktur && (
+                      <div className="restruktur-pending-banner">
+                        Restrukturisasi dalam proses
+                        {loan.restructuredToLoanId && (
+                          <button
+                            className="linked-loan-link"
+                            style={{ marginLeft: 8 }}
+                            onClick={() => {
+                              const newLoan = loans.find(l => l.id === loan.restructuredToLoanId);
+                              if (newLoan) {
+                                setSelectedLoanForHistory(newLoan);
+                                setShowLoanHistoryModal(true);
+                              }
+                            }}
+                          >
+                            Lihat pengajuan #{loan.restructuredToLoanId.substring(0, 8)} →
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {loan.restructuredFromLoanId && (
+                      <div className="linked-loan-banner">
+                        <button
+                          className="linked-loan-link"
+                          onClick={() => {
+                            const prevLoan = loans.find(l => l.id === loan.restructuredFromLoanId);
+                            if (prevLoan) {
+                              setSelectedLoanForHistory(prevLoan);
+                              setShowLoanHistoryModal(true);
+                            }
+                          }}
+                        >
+                          ← Lihat pinjaman sebelumnya #{loan.restructuredFromLoanId.substring(0, 8)}
+                        </button>
+                      </div>
+                    )}
+
                     <div className="loan-details">
                       <div className="loan-detail">
                         <span className="detail-label">Jumlah Pinjaman:</span>
@@ -152,7 +213,7 @@ const MemberSimpanPinjam = () => {
                           {loan.tujuanPinjaman}
                         </span>
                       </div>
-                      {loan.status === "Disetujui dan Aktif" && (
+                      {(loan.status === "Disetujui dan Aktif" || loan.status === "Menunggu Persetujuan Restrukturisasi") && (
                         <>
                           <div className="loan-detail">
                             <span className="detail-label">
@@ -174,6 +235,18 @@ const MemberSimpanPinjam = () => {
                                 }}
                               ></div>
                             </div>
+                          </div>
+                          <div className="loan-detail">
+                            <span className="detail-label">Sisa Hutang:</span>
+                            <span className="detail-value">
+                              Rp {(loan.sisaHutang ?? loan.jumlahPinjaman)?.toLocaleString("id-ID")}
+                            </span>
+                          </div>
+                          <div className="loan-detail">
+                            <span className="detail-label">Biaya Admin:</span>
+                            <span className="detail-value">
+                              Rp {(loan.biayaAdmin || 0)?.toLocaleString("id-ID")}
+                            </span>
                           </div>
                         </>
                       )}
@@ -237,6 +310,17 @@ const MemberSimpanPinjam = () => {
                           Batalkan
                         </button>
                       )}
+                      {canRestruktur && (
+                        <button
+                          className="brutal-button restruktur-purple-btn"
+                          onClick={() => {
+                            setSelectedLoanForRestruktur(loan);
+                            setShowRestrukturisasiModal(true);
+                          }}
+                        >
+                          Restrukturisasi
+                        </button>
+                      )}
                       <button
                         className="brutal-button info-button"
                         onClick={() => {
@@ -244,11 +328,12 @@ const MemberSimpanPinjam = () => {
                           setShowLoanHistoryModal(true);
                         }}
                       >
-                        Lihat Riwayat
+                        Lihat Detail
                       </button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="no-loans text-center py-8">
@@ -267,7 +352,7 @@ const MemberSimpanPinjam = () => {
                       className="brutal-button secondary-button"
                       onClick={() => setShowPastLoans(true)}
                     >
-                      Lihat Riwayat Pinjaman
+                      Lihat Pinjaman yang sudah tidak aktif
                     </button>
                   )}
                 </div>
@@ -312,46 +397,46 @@ const MemberSimpanPinjam = () => {
                           <tr>
                             <td className="border border-gray-300 p-2">1</td>
                             <td className="border border-gray-300 p-2">
-                              Rp.1 - 2 JT
+                              Rp 1 JT - 2 JT
                             </td>
                             <td className="border border-gray-300 p-2">
-                              Rp. 100.000
+                              Rp 100.000
                             </td>
                           </tr>
                           <tr>
                             <td className="border border-gray-300 p-2">2</td>
                             <td className="border border-gray-300 p-2">
-                              Rp.3 - 4 JT
+                              &gt; Rp 2 JT - 4 JT
                             </td>
                             <td className="border border-gray-300 p-2">
-                              Rp. 200.000
+                              Rp 200.000
                             </td>
                           </tr>
                           <tr>
                             <td className="border border-gray-300 p-2">3</td>
                             <td className="border border-gray-300 p-2">
-                              Rp.5 - 6 JT
+                              &gt; Rp 4 JT - 6 JT
                             </td>
                             <td className="border border-gray-300 p-2">
-                              Rp. 300.000
+                              Rp 300.000
                             </td>
                           </tr>
                           <tr>
                             <td className="border border-gray-300 p-2">4</td>
                             <td className="border border-gray-300 p-2">
-                              Rp.7 - 8 JT
+                              &gt; Rp 6 JT - 8 JT
                             </td>
                             <td className="border border-gray-300 p-2">
-                              Rp. 400.000
+                              Rp 400.000
                             </td>
                           </tr>
                           <tr>
                             <td className="border border-gray-300 p-2">5</td>
                             <td className="border border-gray-300 p-2">
-                              Rp.9 - 10 JT
+                              &gt; Rp 8 JT - 10 JT
                             </td>
                             <td className="border border-gray-300 p-2">
-                              Rp. 500.000
+                              Rp 500.000
                             </td>
                           </tr>
                         </tbody>
@@ -376,6 +461,25 @@ const MemberSimpanPinjam = () => {
                         {loan.status}
                       </span>
                     </div>
+
+                    {loan.status === "Direstrukturisasi" && loan.restructuredToLoanId && (
+                      <div className="linked-loan-banner linked-loan-banner-success">
+                        <button
+                          className="linked-loan-link"
+                          onClick={() => {
+                            const newLoan = loans.find(l => l.id === loan.restructuredToLoanId);
+                            if (newLoan) {
+                              setShowPastLoans(false);
+                              setSelectedLoanForHistory(newLoan);
+                              setShowLoanHistoryModal(true);
+                            }
+                          }}
+                        >
+                          Lihat pinjaman baru #{loan.restructuredToLoanId.substring(0, 8)} →
+                        </button>
+                      </div>
+                    )}
+
                     <div className="loan-details">
                       <div className="loan-detail">
                         <span className="detail-label">Jumlah Pinjaman:</span>
@@ -457,46 +561,46 @@ const MemberSimpanPinjam = () => {
                         <tr>
                           <td className="border border-gray-300 p-2">1</td>
                           <td className="border border-gray-300 p-2">
-                            Rp.1 - 2 JT
+                            Rp 1 JT - 2 JT
                           </td>
                           <td className="border border-gray-300 p-2">
-                            Rp. 100.000
+                            Rp 100.000
                           </td>
                         </tr>
                         <tr>
                           <td className="border border-gray-300 p-2">2</td>
                           <td className="border border-gray-300 p-2">
-                            Rp.3 - 4 JT
+                            &gt; Rp 2 JT - 4 JT
                           </td>
                           <td className="border border-gray-300 p-2">
-                            Rp. 200.000
+                            Rp 200.000
                           </td>
                         </tr>
                         <tr>
                           <td className="border border-gray-300 p-2">3</td>
                           <td className="border border-gray-300 p-2">
-                            Rp.5 - 6 JT
+                            &gt; Rp 4 JT - 6 JT
                           </td>
                           <td className="border border-gray-300 p-2">
-                            Rp. 300.000
+                            Rp 300.000
                           </td>
                         </tr>
                         <tr>
                           <td className="border border-gray-300 p-2">4</td>
                           <td className="border border-gray-300 p-2">
-                            Rp.7 - 8 JT
+                            &gt; Rp 6 JT - 8 JT
                           </td>
                           <td className="border border-gray-300 p-2">
-                            Rp. 400.000
+                            Rp 400.000
                           </td>
                         </tr>
                         <tr>
                           <td className="border border-gray-300 p-2">5</td>
                           <td className="border border-gray-300 p-2">
-                            Rp.9 - 10 JT
+                            &gt; Rp 8 JT - 10 JT
                           </td>
                           <td className="border border-gray-300 p-2">
-                            Rp. 500.000
+                            Rp 500.000
                           </td>
                         </tr>
                       </tbody>
@@ -538,10 +642,28 @@ const MemberSimpanPinjam = () => {
         isSubmitting={isSubmitting}
       />
 
-      <LoanHistoryModal
+      <LoanDetailModalMember
         isOpen={showLoanHistoryModal}
         onClose={() => setShowLoanHistoryModal(false)}
         selectedLoan={selectedLoanForHistory}
+        onViewLoan={(loanId) => {
+          const targetLoan = loans.find((l) => l.id === loanId);
+          if (targetLoan) {
+            setSelectedLoanForHistory(targetLoan);
+          }
+        }}
+      />
+
+      <RestrukturisasiModal
+        isOpen={showRestrukturisasiModal}
+        onClose={() => {
+          setShowRestrukturisasiModal(false);
+          setSelectedLoanForRestruktur(null);
+        }}
+        loan={selectedLoanForRestruktur}
+        onSubmit={handleRestrukturisasi}
+        isSubmitting={isSubmitting}
+        error={error}
       />
     </div>
   );
