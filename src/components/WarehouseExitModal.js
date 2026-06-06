@@ -150,6 +150,54 @@ const WarehouseExitModal = ({
     setShowDropdowns((prev) => ({ ...prev, [rowId]: false }));
   };
 
+  // Handle unit change
+  const handleUnitChange = (rowId, newUnit) => {
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.id === rowId) {
+          let updatedUnitPrice = row.unitPrice;
+          let updatedSubtotal = row.subtotal;
+          let updatedHargaKulak = row.hargaKulak;
+
+          if (row.product) {
+            const unitPrice = row.product.pricePerUnit?.[newUnit] || 0;
+            updatedUnitPrice = formatRupiah(unitPrice.toString());
+
+            const smallestUnit = row.product.smallestUnit;
+            const smallestUnitPrice = row.product.pricePerUnit?.[smallestUnit] || 0;
+            
+            let avgKulakPrice = 0;
+            if (row.product.stock && row.product.stock > 0 && row.product.stockValue) {
+              avgKulakPrice = Math.round(row.product.stockValue / row.product.stock);
+            }
+            
+            let newHargaKulak = avgKulakPrice;
+            if (smallestUnitPrice > 0 && unitPrice > 0) {
+              newHargaKulak = Math.round(avgKulakPrice * (unitPrice / smallestUnitPrice));
+            }
+            updatedHargaKulak = formatRupiah(newHargaKulak.toString());
+
+            if (row.quantity && parseFloat(row.quantity) > 0) {
+              const subtotal = Math.round(parseFloat(row.quantity) * unitPrice);
+              updatedSubtotal = formatRupiah(subtotal.toString());
+            } else {
+              updatedSubtotal = "";
+            }
+          }
+
+          return {
+            ...row,
+            unit: newUnit,
+            unitPrice: updatedUnitPrice,
+            hargaKulak: updatedHargaKulak,
+            subtotal: updatedSubtotal,
+          };
+        }
+        return row;
+      })
+    );
+  };
+
   // Handle quantity change
   const handleQuantityChange = (rowId, value) => {
     // Only allow numbers and decimal point
@@ -666,12 +714,20 @@ const WarehouseExitModal = ({
                       )}
                     </td>
                     <td>
-                      <input
-                        type="text"
+                      <select
                         className="warehouse-exit-input"
                         value={row.unit}
-                        readOnly
-                      />
+                        onChange={(e) => handleUnitChange(row.id, e.target.value)}
+                      >
+                        <option value="">-- Pilih Satuan Terkecil --</option>
+                        <option value="pcs">pcs</option>
+                        <option value="gram">gram</option>
+                        <option value="ons">ons</option>
+                        <option value="kg">kg</option>
+                        <option value="kardus">kardus</option>
+                        <option value="karton">karton</option>
+                        <option value="pack">pack</option>
+                      </select>
                     </td>
                     <td>
                       <input
