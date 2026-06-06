@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Deploy Firebase Functions only
-cd /Users/fajmac/Downloads/koperasi-unipdu/koperasi-unipdu
+cd "$(dirname "$0")"
 echo "Deploying Firebase Function..."
-firebase deploy --only functions:printReceipt
+npx firebase-tools deploy --only functions:printReceipt
 
 echo "Firebase function deployment complete!"
