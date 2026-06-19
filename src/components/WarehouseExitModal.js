@@ -121,15 +121,11 @@ const WarehouseExitModal = ({
 
   // Handle product selection
   const handleProductSelect = (rowId, product) => {
-    const unitPrice = product.pricePerUnit?.[product.smallestUnit] || 0;
+    const unitPrice = product.price || 0;
     const formattedUnitPrice = formatRupiah(unitPrice.toString());
 
-    // Calculate average kulak price
-    let avgKulakPrice = 0;
-    if (product.stock && product.stock > 0 && product.stockValue) {
-      avgKulakPrice = Math.round(product.stockValue / product.stock);
-    }
-    const formattedHargaKulak = formatRupiah(avgKulakPrice.toString());
+    const costPrice = product.cost_price || 0;
+    const formattedHargaKulak = formatRupiah(costPrice.toString());
 
     setRows((prev) =>
       prev.map((row) =>
@@ -137,7 +133,7 @@ const WarehouseExitModal = ({
           ? {
               ...row,
               product,
-              unit: product.smallestUnit,
+              unit: product.base_unit || product.smallestUnit || "pcs",
               hargaKulak: formattedHargaKulak,
               unitPrice: formattedUnitPrice,
               subtotal: "", // Will be calculated when quantity is entered
@@ -160,22 +156,14 @@ const WarehouseExitModal = ({
           let updatedHargaKulak = row.hargaKulak;
 
           if (row.product) {
-            const unitPrice = row.product.pricePerUnit?.[newUnit] || 0;
+            const isBulk = row.product.bulk_unit_name && newUnit === row.product.bulk_unit_name;
+            const conversion = isBulk ? (row.product.bulk_unit_conversion || 1) : 1;
+
+            const unitPrice = (row.product.price || 0) * conversion;
             updatedUnitPrice = formatRupiah(unitPrice.toString());
 
-            const smallestUnit = row.product.smallestUnit;
-            const smallestUnitPrice = row.product.pricePerUnit?.[smallestUnit] || 0;
-            
-            let avgKulakPrice = 0;
-            if (row.product.stock && row.product.stock > 0 && row.product.stockValue) {
-              avgKulakPrice = Math.round(row.product.stockValue / row.product.stock);
-            }
-            
-            let newHargaKulak = avgKulakPrice;
-            if (smallestUnitPrice > 0 && unitPrice > 0) {
-              newHargaKulak = Math.round(avgKulakPrice * (unitPrice / smallestUnitPrice));
-            }
-            updatedHargaKulak = formatRupiah(newHargaKulak.toString());
+            const costPrice = (row.product.cost_price || 0) * conversion;
+            updatedHargaKulak = formatRupiah(costPrice.toString());
 
             if (row.quantity && parseFloat(row.quantity) > 0) {
               const subtotal = Math.round(parseFloat(row.quantity) * unitPrice);
@@ -320,11 +308,6 @@ const WarehouseExitModal = ({
         return newFiltered;
       });
     }
-  };
-
-  // Toggle dropdown
-  const toggleDropdown = (rowId) => {
-    setShowDropdowns((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
   };
 
   // Handle keyboard navigation
@@ -719,14 +702,16 @@ const WarehouseExitModal = ({
                         value={row.unit}
                         onChange={(e) => handleUnitChange(row.id, e.target.value)}
                       >
-                        <option value="">-- Pilih Satuan Terkecil --</option>
-                        <option value="pcs">pcs</option>
-                        <option value="gram">gram</option>
-                        <option value="ons">ons</option>
-                        <option value="kg">kg</option>
-                        <option value="kardus">kardus</option>
-                        <option value="karton">karton</option>
-                        <option value="pack">pack</option>
+                        <option value="">-- Satuan --</option>
+                        {row.product ? (
+                          [row.product.base_unit || row.product.smallestUnit, row.product.bulk_unit_name].filter(Boolean).map((u) => (
+                            <option key={u} value={u}>
+                              {u}
+                            </option>
+                          ))
+                        ) : (
+                          row.unit && <option value={row.unit}>{row.unit}</option>
+                        )}
                       </select>
                     </td>
                     <td>

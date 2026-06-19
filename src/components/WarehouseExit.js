@@ -20,7 +20,6 @@ import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { uploadFile } from "../firebase";
 import WarehouseExitModal from "./WarehouseExitModal";
-import logoImage from "../assets/logo-koperasi-unipdu-removebg-preview.png";
 
 // Helper function for currency formatting
 function formatRupiah(value) {
@@ -72,16 +71,20 @@ function parseRupiah(value) {
 
 // Helper function to convert to smallest unit (similar to Transaksi.js)
 function convertToSmallestUnit(quantity, unit, product) {
-  if (quantity == null || !unit || !product.smallestUnit) {
+  if (quantity == null || !unit || !product.base_unit) {
     throw new Error("Missing required parameters for conversion");
   }
 
-  // Handle box conversion first
-  if (unit === "box") {
-    if (!product.piecesPerBox) {
-      throw new Error("Pieces per box not defined for this product");
+  // Handle B2B bulk unit conversion first
+  if (product.bulk_unit_name && unit === product.bulk_unit_name) {
+    if (!product.bulk_unit_conversion) {
+      throw new Error("Bulk unit conversion factor not defined for this product");
     }
-    return quantity * product.piecesPerBox;
+    return quantity * product.bulk_unit_conversion;
+  }
+
+  if (unit === product.base_unit) {
+    return quantity;
   }
 
   // For weight-based conversions
@@ -97,14 +100,14 @@ function convertToSmallestUnit(quantity, unit, product) {
     pack: 1,
   };
 
-  // If the unit or product's smallest unit isn't in our conversion table
-  if (!weightConversions[unit] || !weightConversions[product.smallestUnit]) {
+  // If the unit or product's base unit isn't in our conversion table
+  if (!weightConversions[unit] || !weightConversions[product.base_unit]) {
     throw new Error("Invalid unit for conversion");
   }
 
   // Convert to grams first, then to target unit
   const valueInGrams = quantity * weightConversions[unit];
-  const result = valueInGrams / weightConversions[product.smallestUnit];
+  const result = valueInGrams / weightConversions[product.base_unit];
 
   return result;
 }
@@ -214,13 +217,14 @@ const WarehouseExit = () => {
 
         // Convert to smallest unit for stock calculation
         const convertedQty = convertToSmallestUnit(quantity, row.unit, {
-          smallestUnit: product.smallestUnit,
-          piecesPerBox: product.piecesPerBox,
+          base_unit: product.base_unit || product.smallestUnit,
+          bulk_unit_name: product.bulk_unit_name || null,
+          bulk_unit_conversion: product.bulk_unit_conversion || null,
         });
 
         let rowHargaKulakVal = parseRupiah(row.hargaKulak);
-        if (!rowHargaKulakVal && product.stock && product.stockValue) {
-          rowHargaKulakVal = Math.round(product.stockValue / product.stock);
+        if (!rowHargaKulakVal) {
+          rowHargaKulakVal = product.cost_price || 0;
         }
         const rowCost = quantity * rowHargaKulakVal;
 
@@ -235,7 +239,7 @@ const WarehouseExit = () => {
             subKategori: product.subKategori || "",
             price: parseRupiah(row.unitPrice),
             quantity: convertedQty,
-            unit: product.smallestUnit,
+            unit: product.base_unit || product.smallestUnit || "pcs",
             originalQuantity: quantity,
             originalUnit: row.unit,
             isDeleted: false,
@@ -251,27 +255,17 @@ const WarehouseExit = () => {
 
         // Update stock and prices (Harga Kulak & Harga Satuan) in stocks_b2b
         const newStock = product.stock - convertedQty;
+        const newStockValue = Math.max(0, newStock * (product.cost_price || 0));
 
-        let newHargaKulakVal = parseRupiah(row.hargaKulak);
-        if (!newHargaKulakVal && product.stock && product.stockValue) {
-          newHargaKulakVal = Math.round(product.stockValue / product.stock);
+        let baseUnitPriceVal = parseRupiah(row.unitPrice);
+        if (row.unit === product.bulk_unit_name && product.bulk_unit_conversion) {
+          baseUnitPriceVal = Math.round(baseUnitPriceVal / product.bulk_unit_conversion);
         }
-        const newStockValue = Math.max(0, newStock * newHargaKulakVal);
-
-        let newUnitPriceVal = parseRupiah(row.unitPrice);
-        if (!newUnitPriceVal && product.pricePerUnit?.[row.unit]) {
-          newUnitPriceVal = product.pricePerUnit[row.unit];
-        }
-
-        const newPricePerUnit = {
-          ...(product.pricePerUnit || {}),
-          [row.unit]: newUnitPriceVal,
-        };
 
         await updateDoc("stocks_b2b", product.id, {
           stock: newStock,
           stockValue: newStockValue,
-          pricePerUnit: newPricePerUnit,
+          price: baseUnitPriceVal,
         });
       }
 
@@ -369,8 +363,9 @@ const WarehouseExit = () => {
         const quantity = parseFloat(row.quantity);
 
         const convertedQty = convertToSmallestUnit(quantity, row.unit, {
-          smallestUnit: row.product.smallestUnit,
-          piecesPerBox: row.product.piecesPerBox,
+          base_unit: row.product.base_unit || row.product.smallestUnit,
+          bulk_unit_name: row.product.bulk_unit_name || null,
+          bulk_unit_conversion: row.product.bulk_unit_conversion || null,
         });
 
         const stockWorth =
@@ -388,7 +383,7 @@ const WarehouseExit = () => {
             subKategori: row.product.subKategori || "",
             price: parseRupiah(row.unitPrice),
             quantity: convertedQty,
-            unit: row.product.smallestUnit,
+            unit: row.product.base_unit || row.product.smallestUnit || "pcs",
             originalQuantity: quantity,
             originalUnit: row.unit,
             isDeleted: false,
@@ -406,14 +401,22 @@ const WarehouseExit = () => {
           0,
           (product.stockValue || 0) - stockWorth
         );
+
+        let baseUnitPriceVal = parseRupiah(row.unitPrice);
+        if (row.unit === row.product.bulk_unit_name && row.product.bulk_unit_conversion) {
+          baseUnitPriceVal = Math.round(baseUnitPriceVal / row.product.bulk_unit_conversion);
+        }
+
         await updateDoc("stocks_b2b", row.product.id, {
           stock: newStock,
           stockValue: newStockValue,
+          price: baseUnitPriceVal,
         });
         freshProductsMap[row.product.id] = {
           ...product,
           stock: newStock,
           stockValue: newStockValue,
+          price: baseUnitPriceVal,
         };
       }
 
@@ -1137,6 +1140,7 @@ const WarehouseExit = () => {
   useEffect(() => {
     fetchProducts();
     fetchRecords();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Get filtered records based on selected date range (or default to last 7)

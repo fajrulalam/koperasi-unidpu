@@ -7,13 +7,13 @@ import { v4 as uuidv4 } from "uuid";
 import "../styles/Stocks.css";
 import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
-import StockModal from "./StockModal";
+import WarehouseStockModal from "./WarehouseStockModal";
 import StockDiscrepancyModal from "./StockDiscrepancies/StockDiscrepancyModal";
 import BulkPurchaseModal from "./BulkPurchaseModal";
 
 // Helper function for currency formatting
 function formatRupiah(value) {
-  if (!value) return "";
+  if (value === undefined || value === null) return "";
   const numeric = value.toString().replace(/\D/g, "");
   if (!numeric) return "";
   return numeric.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -64,7 +64,7 @@ export default function WarehouseStock() {
     currentStockWorth: 0,
   });
 
-  const [originalSmallestUnit, setOriginalSmallestUnit] = useState("");
+  const [originalBaseUnit, setOriginalBaseUnit] = useState("");
   const [products, setProducts] = useState(initialProductData);
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredProducts, setFilteredProducts] = useState(
@@ -96,20 +96,23 @@ export default function WarehouseStock() {
   // Bulk purchase modal state
   const [showBulkPurchaseModal, setShowBulkPurchaseModal] = useState(false);
 
-  // Form related states
-  const [tempAmount, setTempAmount] = useState("");
-  const [tempSatuan, setTempSatuan] = useState("");
-  const [tempCost, setTempCost] = useState("");
+  // Form related states (SDRG Schema compatible)
   const [tempName, setTempName] = useState("");
-  const [tempDefaultSatuan, setTempDefaultSatuan] = useState("");
-  const [tempAltSatuan, setTempAltSatuan] = useState([]);
-  const [tempPricePerUnit, setTempPricePerUnit] = useState({});
+  const [tempItemId, setTempItemId] = useState("");
   const [tempKategori, setTempKategori] = useState("");
   const [tempSubKategori, setTempSubKategori] = useState("");
   const [tempTipeStock, setTempTipeStock] = useState("");
-  const [piecesPerBox, setPiecesPerBox] = useState("");
+  const [tempNamaPemasok, setTempNamaPemasok] = useState("");
+  const [base_unit, setBaseUnit] = useState("pcs");
+  const [bulk_unit_name, setBulkUnitName] = useState("");
+  const [bulk_unit_conversion, setBulkUnitConversion] = useState("");
+  const [cost_price, setCostPrice] = useState("");
+  const [price, setPrice] = useState("");
+
+  const [tempAmount, setTempAmount] = useState("");
+  const [tempSatuan, setTempSatuan] = useState("");
+  const [tempCost, setTempCost] = useState("");
   const [tempDocId, setTempDocId] = useState("");
-  const [tempItemId, setTempItemId] = useState("");
 
   // Three-dot action menu coordinates state
   const [openMenuId, setOpenMenuId] = useState(null);
@@ -121,17 +124,22 @@ export default function WarehouseStock() {
   // ***** UTILITY FUNCTIONS *****
 
   function convertToSmallestUnit(quantity, unit, product) {
-    if (quantity == null || !unit || !product.smallestUnit) {
+    if (quantity == null || !unit || !product.base_unit) {
       throw new Error("Missing required parameters for conversion");
     }
 
-    if (unit === "box") {
-      if (!product.piecesPerBox) {
-        throw new Error("Pieces per box not defined for this product");
+    if (product.bulk_unit_name && unit === product.bulk_unit_name) {
+      if (!product.bulk_unit_conversion) {
+        throw new Error("Bulk unit conversion factor not defined for this product");
       }
-      return quantity * product.piecesPerBox;
+      return quantity * product.bulk_unit_conversion;
     }
 
+    if (unit === product.base_unit) {
+      return quantity;
+    }
+
+    // fallback weight conversions (for safety with legacy database records or other components)
     const weightConversions = {
       ton: 1000000,
       kwintal: 100000,
@@ -144,33 +152,27 @@ export default function WarehouseStock() {
       pack: 1,
     };
 
-    if (!weightConversions[unit] || !weightConversions[product.smallestUnit]) {
+    if (!weightConversions[unit] || !weightConversions[product.base_unit]) {
       throw new Error("Invalid unit for conversion");
     }
 
     const valueInGrams = quantity * weightConversions[unit];
-    const result = valueInGrams / weightConversions[product.smallestUnit];
+    const result = valueInGrams / weightConversions[product.base_unit];
 
     return result;
   }
 
   function computeNilaiFormatted(prod) {
-    if (!prod.smallestUnit || !prod.pricePerUnit[prod.smallestUnit]) return "0";
-    return formatRupiah(Math.round(prod.stockValue));
+    return formatRupiah(Math.round(prod.stockValue || 0));
   }
 
   function computeAverageKulakPrice(prod) {
-    if (!prod.stock || prod.stock === 0 || !prod.stockValue) return "0";
-    const avgKulakPrice = Math.round(prod.stockValue / prod.stock);
-    return formatRupiah(avgKulakPrice);
+    const c = prod.cost_price || 0;
+    return formatRupiah(c);
   }
 
   function computeHargaFormatted(prod) {
-    if (!prod.smallestUnit || !prod.pricePerUnit[prod.smallestUnit]) return "0";
-    const p =
-      typeof prod.pricePerUnit[prod.smallestUnit] === "number"
-        ? prod.pricePerUnit[prod.smallestUnit]
-        : parseRupiah(prod.pricePerUnit[prod.smallestUnit]);
+    const p = prod.price || 0;
     return formatRupiah(p);
   }
 
@@ -189,9 +191,8 @@ export default function WarehouseStock() {
     if (type === "tambah" || type === "tetapkan") {
       const prod = productId ? products[productId] : null;
       setTempAmount("");
-      setTempSatuan(prod?.smallestUnit || prod?.satuan?.[0] || "");
+      setTempSatuan(prod?.base_unit || prod?.smallestUnit || "");
       setTempCost("");
-      setPiecesPerBox(prod?.piecesPerBox ? String(prod.piecesPerBox) : "");
       setTempKategori(prod?.kategori || "");
       setTempSubKategori(prod?.subKategori || "");
       setTempTipeStock(prod?.tipeStock || "");
@@ -203,29 +204,28 @@ export default function WarehouseStock() {
       setTempKategori(prod.kategori || "");
       setTempSubKategori(prod.subKategori || "");
       setTempTipeStock(prod.tipeStock || "");
-      setOriginalSmallestUnit(prod.smallestUnit);
-      const satuan = prod.satuan || [];
-      setTempDefaultSatuan(prod.smallestUnit || satuan[0]);
-      const alt = satuan.filter((u) => u !== prod.smallestUnit);
-      setTempAltSatuan(alt);
-      setTempPricePerUnit(
-        Object.keys(prod.pricePerUnit || {}).reduce((acc, key) => {
-          acc[key] = formatRupiah(prod.pricePerUnit[key]);
-          return acc;
-        }, {})
-      );
+      setTempNamaPemasok(prod.namaPemasok || "");
+      setOriginalBaseUnit(prod.base_unit || prod.smallestUnit || "");
+      setBaseUnit(prod.base_unit || prod.smallestUnit || "pcs");
+      setBulkUnitName(prod.bulk_unit_name || "");
+      setBulkUnitConversion(prod.bulk_unit_conversion ? String(prod.bulk_unit_conversion) : "");
+      setCostPrice(prod.cost_price ? formatRupiah(prod.cost_price) : "");
+      setPrice(prod.price ? formatRupiah(prod.price) : "");
     } else if (type === "addNew") {
       setTempName("");
-      setTempDefaultSatuan("");
-      setTempAltSatuan([]);
-      setTempPricePerUnit({});
+      setTempItemId("");
+      setBaseUnit("pcs");
+      setBulkUnitName("");
+      setBulkUnitConversion("");
+      setCostPrice("");
+      setPrice("");
       setTempAmount("");
       setTempSatuan("");
       setTempCost("");
       setTempKategori("");
       setTempSubKategori("");
       setTempTipeStock("");
-      setPiecesPerBox("");
+      setTempNamaPemasok("");
       setTempDocId("");
     }
   }
@@ -235,13 +235,15 @@ export default function WarehouseStock() {
     setTempKategori("");
     setTempSubKategori("");
     setTempTipeStock("");
-    setTempDefaultSatuan("");
-    setTempAltSatuan([]);
-    setTempPricePerUnit({});
+    setTempNamaPemasok("");
+    setBaseUnit("pcs");
+    setBulkUnitName("");
+    setBulkUnitConversion("");
+    setCostPrice("");
+    setPrice("");
     setTempAmount("");
     setTempSatuan("");
     setTempCost("");
-    setPiecesPerBox("");
     setTempDocId("");
     setTempItemId("");
 
@@ -256,9 +258,9 @@ export default function WarehouseStock() {
   };
 
   const requestSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key) {
-      direction = sortConfig.direction === "asc" ? "desc" : "asc";
+    let direction = "desc";
+    if (sortConfig.key === key && sortConfig.direction === "desc") {
+      direction = "asc";
     }
     setSortConfig({ key, direction });
     sortProductsBy(filteredProducts, key, direction);
@@ -368,44 +370,19 @@ export default function WarehouseStock() {
       let aValue, bValue;
 
       if (key === "profitMargin") {
-        const aMargin =
-          a.pricePerUnit &&
-          a.pricePerUnit[a.smallestUnit] &&
-          a.stock &&
-          a.stockValue
-            ? a.pricePerUnit[a.smallestUnit] -
-              Math.round(a.stockValue / a.stock)
-            : 0;
-
-        const bMargin =
-          b.pricePerUnit &&
-          b.pricePerUnit[b.smallestUnit] &&
-          b.stock &&
-          b.stockValue
-            ? b.pricePerUnit[b.smallestUnit] -
-              Math.round(b.stockValue / b.stock)
-            : 0;
-
+        const aMargin = (a.price || 0) - (a.cost_price || 0);
+        const bMargin = (b.price || 0) - (b.cost_price || 0);
         aValue = aMargin;
         bValue = bMargin;
       } else if (key === "pricePerUnit") {
-        aValue =
-          a.pricePerUnit && a.pricePerUnit[a.smallestUnit]
-            ? a.pricePerUnit[a.smallestUnit]
-            : 0;
-        bValue =
-          b.pricePerUnit && b.pricePerUnit[b.smallestUnit]
-            ? b.pricePerUnit[b.smallestUnit]
-            : 0;
+        aValue = a.price || 0;
+        bValue = b.price || 0;
       } else if (key === "averageKulak") {
-        aValue =
-          a.stock && a.stock > 0 && a.stockValue
-            ? Math.round(a.stockValue / a.stock)
-            : 0;
-        bValue =
-          b.stock && b.stock > 0 && b.stockValue
-            ? Math.round(b.stockValue / b.stock)
-            : 0;
+        aValue = a.cost_price || 0;
+        bValue = b.cost_price || 0;
+      } else if (key === "smallestUnit") {
+        aValue = a.base_unit || "";
+        bValue = b.base_unit || "";
       } else {
         aValue = a[key];
         bValue = b[key];
@@ -445,11 +422,11 @@ export default function WarehouseStock() {
       Kategori: p.kategori,
       SubKategori: p.subKategori,
       Tipe: p.tipeStock,
-      Stock: `${p.stock} ${p.smallestUnit}`,
-      Satuan: p.smallestUnit,
-      "Harga Jual": `Rp ${computeHargaFormatted(p)}/${p.smallestUnit}`,
-      "Harga Kulak (avg)": `Rp ${computeAverageKulakPrice(p)}/${
-        p.smallestUnit
+      Stock: `${p.stock} ${p.base_unit || ""}`,
+      Satuan: p.base_unit || "",
+      "Harga Jual": `Rp ${computeHargaFormatted(p)}/${p.base_unit || ""}`,
+      "Harga Beli": `Rp ${computeAverageKulakPrice(p)}/${
+        p.base_unit || ""
       }`,
       "Nilai Total Stock": `Rp ${computeNilaiFormatted(p)}`,
     }));
@@ -507,20 +484,10 @@ export default function WarehouseStock() {
       Kategori: p.kategori || "",
       SubKategori: p.subKategori || "",
       Tipe: p.tipeStock || "",
-      Stock: `${p.stock || 0} ${p.smallestUnit || ""}`,
-      Satuan: p.smallestUnit || "",
-      "Harga Jual":
-        p.pricePerUnit && p.smallestUnit && p.pricePerUnit[p.smallestUnit]
-          ? `Rp ${formatRupiah(p.pricePerUnit[p.smallestUnit])}/${
-              p.smallestUnit
-            }`
-          : "Rp 0",
-      "Harga Kulak (avg)":
-        p.stock && p.stock > 0 && p.stockValue
-          ? `Rp ${formatRupiah(Math.round(p.stockValue / p.stock))}/${
-              p.smallestUnit
-            }`
-          : "Rp 0",
+      Stock: `${p.stock || 0} ${p.base_unit || ""}`,
+      Satuan: p.base_unit || "",
+      "Harga Jual": p.price ? `Rp ${formatRupiah(p.price)}/${p.base_unit || ""}` : "Rp 0",
+      "Harga Beli": p.cost_price ? `Rp ${formatRupiah(p.cost_price)}/${p.base_unit || ""}` : "Rp 0",
       "Nilai Total Stock": p.stockValue
         ? `Rp ${formatRupiah(Math.round(p.stockValue))}`
         : "Rp 0",
@@ -549,10 +516,10 @@ export default function WarehouseStock() {
     const costValue = parseRupiah(tempCost);
 
     const createBaseTransactionDoc = (prod) => ({
-      itemId: prod.itemId,
+      itemId: prod.itemId || prod.id,
       itemName: prod.name,
-      kategori: prod.kategori,
-      subKategori: prod.subKategori,
+      kategori: prod.kategori || "",
+      subKategori: prod.subKategori || "",
       unit: tempSatuan,
       cost: costValue,
       isDeleted: false,
@@ -564,48 +531,45 @@ export default function WarehouseStock() {
         !tempName.trim() ||
         !tempKategori ||
         !tempTipeStock ||
-        !tempDefaultSatuan ||
-        (tempKategori === "Makanan" ||
-        tempKategori === "Minuman" ||
-        tempKategori === "Obat-Obatan"
-          ? !tempSubKategori
-          : false)
+        !base_unit ||
+        !price
       ) {
         alert("All mandatory fields must be filled!");
         return;
       }
-      const boxIsSelected =
-        tempDefaultSatuan === "box" || tempAltSatuan.includes("box");
-      if (boxIsSelected && !piecesPerBox) {
-        alert("Pieces per Box is required when 'box' is selected!");
-        return;
+      if (bulk_unit_name || bulk_unit_conversion) {
+        if (!bulk_unit_name || !bulk_unit_conversion) {
+          alert("Both Bulk Unit Name and Conversion are required if either is provided!");
+          return;
+        }
       }
       let docBase = tempDocId.trim();
       if (!docBase) {
         docBase = getTimestampString();
       }
       const finalDocId = `${tempName}_${docBase}`.replace(/\s+/g, "_");
+      
+      const parsedCostPrice = parseRupiah(cost_price);
+      const parsedPrice = parseRupiah(price);
+      const parsedConversion = bulk_unit_conversion ? parseInt(bulk_unit_conversion, 10) : null;
+
       const newDoc = {
         itemId: docBase,
         name: tempName.trim(),
         kategori: tempKategori,
         subKategori: tempSubKategori || tempKategori,
         tipeStock: tempTipeStock,
-        satuan: Array.from(
-          new Set([tempDefaultSatuan, ...tempAltSatuan].filter(Boolean))
-        ),
-        pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, key) => {
-          acc[key] = parseRupiah(tempPricePerUnit[key]);
-          return acc;
-        }, {}),
-        piecesPerBox: tempAltSatuan.includes("box")
-          ? parseInt(piecesPerBox, 10)
-          : null,
+        namaPemasok: tempNamaPemasok,
+        base_unit: base_unit,
+        bulk_unit_name: bulk_unit_name || null,
+        bulk_unit_conversion: parsedConversion,
+        cost_price: parsedCostPrice,
+        price: parsedPrice,
         stock: 0,
-        smallestUnit: tempDefaultSatuan,
         stockValue: 0,
         isDeleted: false,
       };
+
       await createDoc("stocks_b2b", newDoc, finalDocId);
       setProducts((prev) => {
         const clone = { ...prev };
@@ -649,9 +613,15 @@ export default function WarehouseStock() {
         await createDoc("stockTransactions_b2b", txDoc, txId);
 
         const newStock = (prod.stock || 0) + quantityInSmallestUnit;
+        const newStockValue = (prod.stockValue || 0) + costValue;
+        
+        // Dynamically compute/update average cost_price
+        const newCostPrice = newStock > 0 ? Math.round(newStockValue / newStock) : prod.cost_price;
+
         await updateDoc("stocks_b2b", selectedProductId, {
           stock: newStock,
-          stockValue: (prod.stockValue || 0) + costValue,
+          stockValue: newStockValue,
+          cost_price: newCostPrice,
         });
 
         setProducts((prev) => ({
@@ -659,7 +629,8 @@ export default function WarehouseStock() {
           [selectedProductId]: {
             ...prev[selectedProductId],
             stock: newStock,
-            stockValue: (prev[selectedProductId].stockValue || 0) + costValue,
+            stockValue: newStockValue,
+            cost_price: newCostPrice,
           },
         }));
 
@@ -680,7 +651,7 @@ export default function WarehouseStock() {
         const oldStock = prod.stock || 0;
         const oldVal = prod.stockValue || 0;
 
-        const originalQuantity = parseRupiah(tempAmount);
+        const originalQuantity = parseFloat(tempAmount);
         const originalUnit = tempSatuan;
 
         const newStock = convertToSmallestUnit(
@@ -710,15 +681,18 @@ export default function WarehouseStock() {
           cost: absCost,
           originalQuantity,
           originalUnit,
-          unit: prod.smallestUnit,
+          unit: prod.base_unit || prod.smallestUnit,
         };
 
         const txId = uuidv4();
         await createDoc("stockTransactions_b2b", txDoc, txId);
 
+        const newCostPrice = newStock > 0 ? Math.round(newVal / newStock) : prod.cost_price;
+
         await updateDoc("stocks_b2b", selectedProductId, {
           stock: newStock,
           stockValue: newVal,
+          cost_price: newCostPrice,
         });
 
         setProducts((prev) => ({
@@ -727,6 +701,7 @@ export default function WarehouseStock() {
             ...prev[selectedProductId],
             stock: newStock,
             stockValue: newVal,
+            cost_price: newCostPrice,
           },
         }));
 
@@ -743,10 +718,15 @@ export default function WarehouseStock() {
           !tempName.trim() ||
           !tempKategori ||
           !tempTipeStock ||
-          !tempDefaultSatuan
+          !base_unit ||
+          !price
         ) {
           throw new Error("All mandatory fields must be filled!");
         }
+
+        const parsedCostPrice = parseRupiah(cost_price);
+        const parsedPrice = parseRupiah(price);
+        const parsedConversion = bulk_unit_conversion ? parseInt(bulk_unit_conversion, 10) : null;
 
         const updatedProduct = {
           ...prod,
@@ -755,27 +735,20 @@ export default function WarehouseStock() {
           kategori: tempKategori,
           subKategori: tempSubKategori,
           tipeStock: tempTipeStock,
-          satuan: Array.from(new Set([tempDefaultSatuan, ...tempAltSatuan])),
-          pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, unit) => {
-            acc[unit] = parseRupiah(tempPricePerUnit[unit]);
-            return acc;
-          }, {}),
-          piecesPerBox: tempAltSatuan.includes("box")
-            ? parseInt(piecesPerBox, 10)
-            : null,
-          smallestUnit: tempDefaultSatuan,
+          namaPemasok: tempNamaPemasok,
+          base_unit: base_unit,
+          bulk_unit_name: bulk_unit_name || null,
+          bulk_unit_conversion: parsedConversion,
+          cost_price: parsedCostPrice,
+          price: parsedPrice,
         };
 
-        if (tempDefaultSatuan !== originalSmallestUnit) {
+        if (base_unit !== originalBaseUnit) {
           updatedProduct.stock = convertToSmallestUnit(
             prod.stock,
-            originalSmallestUnit,
+            originalBaseUnit,
             updatedProduct
           );
-        }
-
-        if (updatedProduct.pricePerUnit[tempDefaultSatuan]) {
-          updatedProduct.stockValue = prod.stockValue;
         }
 
         await updateDoc("stocks_b2b", selectedProductId, updatedProduct);
@@ -803,11 +776,11 @@ export default function WarehouseStock() {
             kategori: product.kategori || "",
             subKategori: product.subKategori || "",
             quantity: product.stock || 0,
-            unit: product.smallestUnit || "",
+            unit: product.base_unit || product.smallestUnit || "",
             cost: product.stockValue || 0,
             price: 0,
             originalQuantity: product.stock || 0,
-            originalUnit: product.smallestUnit || "",
+            originalUnit: product.base_unit || product.smallestUnit || "",
             isDeleted: false,
             transactionType: "pengurangan",
             transactionVia: "stockDeletion",
@@ -843,6 +816,7 @@ export default function WarehouseStock() {
   useEffect(() => {
     fetchAllStocks();
     fetchSummaryData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -855,6 +829,7 @@ export default function WarehouseStock() {
     } else {
       sortProductsBy(filteredProducts, sortConfig.key, sortConfig.direction);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, products]);
 
   useEffect(() => {
@@ -878,6 +853,7 @@ export default function WarehouseStock() {
       setFilteredProducts(newList);
       sortProductsBy(newList, sortConfig.key, sortConfig.direction);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, products]);
 
   useEffect(() => {
@@ -1062,7 +1038,7 @@ export default function WarehouseStock() {
               {filteredProducts.map((prod) => (
                 <tr key={prod.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">{prod.name}</td>
-                  <td className="px-6 py-4">{prod.smallestUnit}</td>
+                  <td className="px-6 py-4">{prod.base_unit || prod.smallestUnit}</td>
                   <td className="px-6 py-4 text-right font-bold text-gray-900">
                     {prod.stock}
                   </td>
@@ -1074,9 +1050,9 @@ export default function WarehouseStock() {
                   </td>
                   <td className="px-6 py-4 text-center">
                     <button
-                      onClick={(e) => handleMenuToggle(e, prod.id)}
-                      className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500 hover:text-gray-700"
-                      title="Aksi"
+                       onClick={(e) => handleMenuToggle(e, prod.id)}
+                       className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500 hover:text-gray-700"
+                       title="Aksi"
                     >
                       <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
@@ -1162,7 +1138,7 @@ export default function WarehouseStock() {
 
       {/* Stock Modal Component */}
       {dialogOpen && (
-        <StockModal
+        <WarehouseStockModal
           dialogOpen={dialogOpen}
           dialogType={dialogType}
           selectedProductId={selectedProductId}
@@ -1175,15 +1151,17 @@ export default function WarehouseStock() {
             tempKategori,
             tempSubKategori,
             tempTipeStock,
-            tempDefaultSatuan,
-            tempAltSatuan,
-            tempPricePerUnit,
+            tempNamaPemasok,
+            base_unit,
+            bulk_unit_name,
+            bulk_unit_conversion,
+            cost_price,
+            price,
             tempAmount,
             tempSatuan,
             tempCost,
-            piecesPerBox,
             tempDocId,
-            originalSmallestUnit,
+            originalBaseUnit,
           }}
           setTempState={(newState) => {
             if ("tempName" in newState) setTempName(newState.tempName);
@@ -1194,20 +1172,23 @@ export default function WarehouseStock() {
               setTempSubKategori(newState.tempSubKategori);
             if ("tempTipeStock" in newState)
               setTempTipeStock(newState.tempTipeStock);
-            if ("tempDefaultSatuan" in newState)
-              setTempDefaultSatuan(newState.tempDefaultSatuan);
-            if ("tempAltSatuan" in newState)
-              setTempAltSatuan(newState.tempAltSatuan);
-            if ("tempPricePerUnit" in newState)
-              setTempPricePerUnit(newState.tempPricePerUnit);
+            if ("tempNamaPemasok" in newState)
+              setTempNamaPemasok(newState.tempNamaPemasok);
+            if ("base_unit" in newState)
+              setBaseUnit(newState.base_unit);
+            if ("bulk_unit_name" in newState)
+              setBulkUnitName(newState.bulk_unit_name);
+            if ("bulk_unit_conversion" in newState)
+              setBulkUnitConversion(newState.bulk_unit_conversion);
+            if ("cost_price" in newState)
+              setCostPrice(newState.cost_price);
+            if ("price" in newState)
+              setPrice(newState.price);
             if ("tempAmount" in newState) setTempAmount(newState.tempAmount);
             if ("tempSatuan" in newState) setTempSatuan(newState.tempSatuan);
             if ("tempCost" in newState) setTempCost(newState.tempCost);
-            if ("piecesPerBox" in newState)
-              setPiecesPerBox(newState.piecesPerBox);
             if ("tempDocId" in newState) setTempDocId(newState.tempDocId);
           }}
-          convertToSmallestUnit={convertToSmallestUnit}
         />
       )}
 
@@ -1230,9 +1211,11 @@ export default function WarehouseStock() {
           if (action === "createTransaction") {
             await createDoc("stockTransactions_b2b", data, id);
           } else if (action === "updateStock") {
+            const newCostPrice = data.stock > 0 ? Math.round(data.stockValue / data.stock) : (products[data.id]?.cost_price || 0);
             await updateDoc("stocks_b2b", data.id, {
               stock: data.stock,
               stockValue: data.stockValue,
+              cost_price: newCostPrice,
             });
             setProducts((prev) => ({
               ...prev,
@@ -1240,6 +1223,7 @@ export default function WarehouseStock() {
                 ...prev[data.id],
                 stock: data.stock,
                 stockValue: data.stockValue,
+                cost_price: newCostPrice,
               },
             }));
           } else if (action === "createNotaBelanja") {

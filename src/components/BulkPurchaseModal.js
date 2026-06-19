@@ -149,7 +149,7 @@ const BulkPurchaseModal = ({
           ? {
               ...row,
               product,
-              unit: product.smallestUnit,
+              unit: product.base_unit || product.smallestUnit,
               searchTerm: product.name,
             }
           : row
