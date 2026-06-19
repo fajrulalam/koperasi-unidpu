@@ -165,13 +165,6 @@ export default function WarehouseStock() {
     return formatRupiah(avgKulakPrice);
   }
 
-  function computeProfitMargin(prod) {
-    const p =
-      prod.pricePerUnit[prod.smallestUnit] -
-      Math.round(prod.stockValue / prod.stock);
-    return formatRupiah(p);
-  }
-
   function computeHargaFormatted(prod) {
     if (!prod.smallestUnit || !prod.pricePerUnit[prod.smallestUnit]) return "0";
     const p =
@@ -1038,22 +1031,10 @@ export default function WarehouseStock() {
                   Nama Barang <SortIndicator columnKey="name" />
                 </th>
                 <th
-                  onClick={() => requestSort("kategori")}
+                  onClick={() => requestSort("smallestUnit")}
                   className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
                 >
-                  Kategori <SortIndicator columnKey="kategori" />
-                </th>
-                <th
-                  onClick={() => requestSort("subKategori")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  SubKategori <SortIndicator columnKey="subKategori" />
-                </th>
-                <th
-                  onClick={() => requestSort("tipeStock")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  Tipe <SortIndicator columnKey="tipeStock" />
+                  Satuan <SortIndicator columnKey="smallestUnit" />
                 </th>
                 <th
                   onClick={() => requestSort("stock")}
@@ -1062,28 +1043,16 @@ export default function WarehouseStock() {
                   Jumlah Stock <SortIndicator columnKey="stock" />
                 </th>
                 <th
+                  onClick={() => requestSort("averageKulak")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  Harga Beli <SortIndicator columnKey="averageKulak" />
+                </th>
+                <th
                   onClick={() => requestSort("pricePerUnit")}
                   className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
                 >
                   Harga Jual <SortIndicator columnKey="pricePerUnit" />
-                </th>
-                <th
-                  onClick={() => requestSort("averageKulak")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  Harga Kulak (avg) <SortIndicator columnKey="averageKulak" />
-                </th>
-                <th
-                  onClick={() => requestSort("profitMargin")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  Profit Margin <SortIndicator columnKey="profitMargin" />
-                </th>
-                <th
-                  onClick={() => requestSort("stockValue")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  Nilai Total Stock <SortIndicator columnKey="stockValue" />
                 </th>
                 <th className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-center w-16">
                 </th>
@@ -1093,23 +1062,15 @@ export default function WarehouseStock() {
               {filteredProducts.map((prod) => (
                 <tr key={prod.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">{prod.name}</td>
-                  <td className="px-6 py-4">{prod.kategori}</td>
-                  <td className="px-6 py-4">{prod.subKategori}</td>
-                  <td className="px-6 py-4">{prod.tipeStock}</td>
+                  <td className="px-6 py-4">{prod.smallestUnit}</td>
                   <td className="px-6 py-4 text-right font-bold text-gray-900">
-                    {prod.stock} {prod.smallestUnit}
+                    {prod.stock}
                   </td>
                   <td className="px-6 py-4 text-right text-gray-600">
-                    Rp {computeHargaFormatted(prod)}/{prod.smallestUnit}
+                    Rp {computeAverageKulakPrice(prod)}
                   </td>
                   <td className="px-6 py-4 text-right text-gray-600">
-                    Rp {computeAverageKulakPrice(prod)}/{prod.smallestUnit}
-                  </td>
-                  <td className="px-6 py-4 text-right text-gray-600">
-                    Rp {computeProfitMargin(prod)}
-                  </td>
-                  <td className="px-6 py-4 text-right font-medium text-gray-900">
-                    Rp {computeNilaiFormatted(prod)}
+                    Rp {computeHargaFormatted(prod)}
                   </td>
                   <td className="px-6 py-4 text-center">
                     <button
