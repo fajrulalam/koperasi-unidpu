@@ -124,7 +124,8 @@ export default function WarehouseStock() {
   // ***** UTILITY FUNCTIONS *****
 
   function convertToSmallestUnit(quantity, unit, product) {
-    if (quantity == null || !unit || !product.base_unit) {
+    const baseUnit = product.base_unit || product.smallestUnit;
+    if (quantity == null || !unit || !baseUnit) {
       throw new Error("Missing required parameters for conversion");
     }
 
@@ -135,7 +136,7 @@ export default function WarehouseStock() {
       return quantity * product.bulk_unit_conversion;
     }
 
-    if (unit === product.base_unit) {
+    if (unit === baseUnit) {
       return quantity;
     }
 
@@ -152,12 +153,12 @@ export default function WarehouseStock() {
       pack: 1,
     };
 
-    if (!weightConversions[unit] || !weightConversions[product.base_unit]) {
+    if (!weightConversions[unit] || !weightConversions[baseUnit]) {
       throw new Error("Invalid unit for conversion");
     }
 
     const valueInGrams = quantity * weightConversions[unit];
-    const result = valueInGrams / weightConversions[product.base_unit];
+    const result = valueInGrams / weightConversions[baseUnit];
 
     return result;
   }

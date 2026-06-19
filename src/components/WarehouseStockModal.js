@@ -566,7 +566,8 @@ function WarehouseStockModal({
     products[selectedProductId]
   ) {
     const prod = products[selectedProductId];
-    const units = [prod.base_unit, prod.bulk_unit_name].filter(Boolean);
+    const baseUnit = prod.base_unit || prod.smallestUnit || "pcs";
+    const units = [baseUnit, prod.bulk_unit_name].filter(Boolean);
 
     return (
       <div className="stockmodal-overlay">
@@ -575,7 +576,7 @@ function WarehouseStockModal({
           <div className="stockmodal-body">
             {prod.bulk_unit_name && prod.bulk_unit_conversion && (
               <p style={{ textAlign: "left", fontSize: "0.95rem", margin: "0 0 16px 0", color: "#666" }}>
-                <b>Konversi:</b> 1 {prod.bulk_unit_name} = {prod.bulk_unit_conversion} {prod.base_unit}
+                <b>Konversi:</b> 1 {prod.bulk_unit_name} = {prod.bulk_unit_conversion} {baseUnit}
               </p>
             )}
             <div className="form-group">
@@ -651,7 +652,8 @@ function WarehouseStockModal({
     products[selectedProductId]
   ) {
     const prod = products[selectedProductId];
-    const units = [prod.base_unit, prod.bulk_unit_name].filter(Boolean);
+    const baseUnit = prod.base_unit || prod.smallestUnit || "pcs";
+    const units = [baseUnit, prod.bulk_unit_name].filter(Boolean);
 
     return (
       <div className="stockmodal-overlay">
@@ -660,7 +662,7 @@ function WarehouseStockModal({
           <div className="stockmodal-body">
             {prod.bulk_unit_name && prod.bulk_unit_conversion && (
               <p style={{ textAlign: "left", fontSize: "0.95rem", margin: "0 0 16px 0", color: "#666" }}>
-                <b>Konversi:</b> 1 {prod.bulk_unit_name} = {prod.bulk_unit_conversion} {prod.base_unit}
+                <b>Konversi:</b> 1 {prod.bulk_unit_name} = {prod.bulk_unit_conversion} {baseUnit}
               </p>
             )}
             <div className="form-group">
