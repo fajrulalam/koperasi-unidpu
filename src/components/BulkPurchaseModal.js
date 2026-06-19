@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import { FaTimes, FaPlus, FaTrash, FaUpload, FaFileAlt } from "react-icons/fa";
 import { v4 as uuidv4 } from "uuid";
@@ -79,48 +79,96 @@ const BulkPurchaseModal = ({
   isEditMode = false,
   initialData = null,
 }) => {
-  const [rows, setRows] = useState([
-    {
-      id: 1,
-      product: null,
-      quantity: "",
-      unit: "",
-      hargaSatuan: "",
-      subtotal: "",
-    },
-    {
-      id: 2,
-      product: null,
-      quantity: "",
-      unit: "",
-      hargaSatuan: "",
-      subtotal: "",
-    },
-    {
-      id: 3,
-      product: null,
-      quantity: "",
-      unit: "",
-      hargaSatuan: "",
-      subtotal: "",
-    },
-  ]);
-  const [nextId, setNextId] = useState(4);
-  const [searchTerms, setSearchTerms] = useState({});
+  const rowsKey = isWarehouse ? "b2b_purchase_draft_rows" : "retail_purchase_draft_rows";
+  const supplierKey = isWarehouse ? "b2b_purchase_draft_supplier" : "retail_purchase_draft_supplier";
+  const adminFeeKey = isWarehouse ? "b2b_purchase_draft_admin_fee" : "retail_purchase_draft_admin_fee";
+  const uploadedNotaKey = isWarehouse ? "b2b_purchase_draft_uploaded_nota" : "retail_purchase_draft_uploaded_nota";
+
+  const [rows, setRows] = useState(() => {
+    try {
+      const saved = localStorage.getItem(rowsKey);
+      return saved ? JSON.parse(saved) : [
+        { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        { id: 2, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        { id: 3, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+      ];
+    } catch (e) {
+      console.error("Error reading draft rows from localStorage:", e);
+      return [
+        { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        { id: 2, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        { id: 3, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+      ];
+    }
+  });
+
+  const [nextId, setNextId] = useState(() => {
+    try {
+      const saved = localStorage.getItem(rowsKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const maxId = parsed.reduce((max, r) => Math.max(max, parseInt(r.id, 10) || 0), 0);
+        return maxId > 0 ? maxId + 1 : 4;
+      }
+    } catch (e) {}
+    return 4;
+  });
+
+  const [searchTerms, setSearchTerms] = useState(() => {
+    try {
+      const saved = localStorage.getItem(rowsKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const terms = {};
+        parsed.forEach(r => {
+          if (r.product) {
+            terms[r.id] = r.product.name;
+          }
+        });
+        return terms;
+      }
+    } catch (e) {}
+    return {};
+  });
+
   const [showDropdowns, setShowDropdowns] = useState({});
   const [filteredProducts, setFilteredProducts] = useState({});
   const [highlightedIndex, setHighlightedIndex] = useState({});
   const [errors, setErrors] = useState({});
-  const [uploadedNota, setUploadedNota] = useState(null);
+
+  const [uploadedNota, setUploadedNota] = useState(() => {
+    try {
+      const saved = localStorage.getItem(uploadedNotaKey);
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   const [uploadingNota, setUploadingNota] = useState(false);
-  const [supplierName, setSupplierName] = useState("");
-  const [adminFee, setAdminFee] = useState("10000");
+
+  const [supplierName, setSupplierName] = useState(() => {
+    try {
+      return localStorage.getItem(supplierKey) || "";
+    } catch (e) {
+      return "";
+    }
+  });
+
+  const [adminFee, setAdminFee] = useState(() => {
+    try {
+      return localStorage.getItem(adminFeeKey) || "10000";
+    } catch (e) {
+      return "10000";
+    }
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const dropdownRefs = useRef({});
 
   // Convert products object to array for searching
-  const productsArray = Object.values(products || {});
+  const productsArray = useMemo(() => Object.values(products || {}), [products]);
 
   // Handle product search
   const handleProductSearch = (rowId, searchTerm) => {
@@ -537,7 +585,30 @@ const BulkPurchaseModal = ({
         }
       }
 
-      handleClose();
+      if (!isEditMode) {
+        localStorage.removeItem(rowsKey);
+        localStorage.removeItem(supplierKey);
+        localStorage.removeItem(adminFeeKey);
+        localStorage.removeItem(uploadedNotaKey);
+
+        setRows([
+          { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+          { id: 2, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+          { id: 3, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        ]);
+        setNextId(4);
+        setSearchTerms({});
+        setShowDropdowns({});
+        setFilteredProducts({});
+        setErrors({});
+        setUploadedNota(null);
+        setUploadingNota(false);
+        setSupplierName("");
+        setAdminFee("10000");
+        onClose();
+      } else {
+        handleClose();
+      }
     } catch (error) {
       console.error("Error processing bulk purchase:", error);
       alert("Error processing bulk purchase: " + error.message);
@@ -548,42 +619,23 @@ const BulkPurchaseModal = ({
 
   // Handle close
   const handleClose = () => {
-    setRows([
-      {
-        id: 1,
-        product: null,
-        quantity: "",
-        unit: "",
-        hargaSatuan: "",
-        subtotal: "",
-      },
-      {
-        id: 2,
-        product: null,
-        quantity: "",
-        unit: "",
-        hargaSatuan: "",
-        subtotal: "",
-      },
-      {
-        id: 3,
-        product: null,
-        quantity: "",
-        unit: "",
-        hargaSatuan: "",
-        subtotal: "",
-      },
-    ]);
-    setNextId(4);
-    setSearchTerms({});
-    setShowDropdowns({});
-    setFilteredProducts({});
-    setErrors({});
-    setUploadedNota(null);
-    setUploadingNota(false);
-    setSupplierName("");
-    setAdminFee("10000");
-    setIsSubmitting(false);
+    if (isEditMode) {
+      setRows([
+        { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        { id: 2, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+        { id: 3, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+      ]);
+      setNextId(4);
+      setSearchTerms({});
+      setShowDropdowns({});
+      setFilteredProducts({});
+      setErrors({});
+      setUploadedNota(null);
+      setUploadingNota(false);
+      setSupplierName("");
+      setAdminFee("10000");
+      setIsSubmitting(false);
+    }
     onClose();
   };
 
@@ -604,7 +656,7 @@ const BulkPurchaseModal = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Pre-fill form data in edit mode
+  // Pre-fill form data in edit mode or load draft in create mode
   useEffect(() => {
     if (!isOpen) return;
 
@@ -664,20 +716,137 @@ const BulkPurchaseModal = ({
         });
       }
     } else if (!isEditMode) {
-      // Reset to defaults for create mode
-      setRows([
-        { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
-        { id: 2, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
-        { id: 3, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
-      ]);
-      setNextId(4);
-      setSearchTerms({});
-      setSupplierName("");
-      setAdminFee("10000");
-      setUploadedNota(null);
+      // Load draft from localStorage on open
+      try {
+        const savedRows = localStorage.getItem(rowsKey);
+        if (savedRows) {
+          const parsedRows = JSON.parse(savedRows);
+          setRows(parsedRows);
+          const maxId = parsedRows.reduce((max, r) => Math.max(max, parseInt(r.id, 10) || 0), 0);
+          setNextId(maxId > 0 ? maxId + 1 : 4);
+
+          const terms = {};
+          parsedRows.forEach((r) => {
+            if (r.product) terms[r.id] = r.product.name;
+          });
+          setSearchTerms(terms);
+        } else {
+          setRows([
+            { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+            { id: 2, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+            { id: 3, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
+          ]);
+          setNextId(4);
+          setSearchTerms({});
+        }
+
+        setSupplierName(localStorage.getItem(supplierKey) || "");
+        setAdminFee(localStorage.getItem(adminFeeKey) || "10000");
+
+        const savedNota = localStorage.getItem(uploadedNotaKey);
+        setUploadedNota(savedNota ? JSON.parse(savedNota) : null);
+      } catch (e) {
+        console.error("Error loading draft from localStorage:", e);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  // Save draft details to localStorage on state changes
+  useEffect(() => {
+    if (!isEditMode && isOpen) {
+      localStorage.setItem(rowsKey, JSON.stringify(rows));
+    }
+  }, [rows, rowsKey, isEditMode, isOpen]);
+
+  useEffect(() => {
+    if (!isEditMode && isOpen) {
+      localStorage.setItem(supplierKey, supplierName);
+    }
+  }, [supplierName, supplierKey, isEditMode, isOpen]);
+
+  useEffect(() => {
+    if (!isEditMode && isOpen) {
+      localStorage.setItem(adminFeeKey, adminFee);
+    }
+  }, [adminFee, adminFeeKey, isEditMode, isOpen]);
+
+  useEffect(() => {
+    if (!isEditMode && isOpen) {
+      if (uploadedNota) {
+        localStorage.setItem(uploadedNotaKey, JSON.stringify(uploadedNota));
+      } else {
+        localStorage.removeItem(uploadedNotaKey);
+      }
+    }
+  }, [uploadedNota, uploadedNotaKey, isEditMode, isOpen]);
+
+  // Sync draft items with latest firebase database products
+  useEffect(() => {
+    if (isEditMode || !isOpen || !products || Object.keys(products).length === 0) return;
+
+    setRows((prevRows) => {
+      let changed = false;
+      const updated = prevRows.map((row) => {
+        if (!row.product) return row;
+
+        const latestProduct = productsArray.find(
+          (p) => (p.itemId && p.itemId === row.product.itemId) || p.id === row.product.id
+        );
+
+        if (!latestProduct) {
+          // Product deleted from database
+          changed = true;
+          return {
+            id: row.id,
+            product: null,
+            quantity: "",
+            unit: "",
+            hargaSatuan: "",
+            subtotal: "",
+          };
+        }
+
+        // Check if key product properties or reference changed
+        const isProductChanged =
+          row.product !== latestProduct ||
+          row.product.name !== latestProduct.name ||
+          (row.product.base_unit || row.product.smallestUnit) !== (latestProduct.base_unit || latestProduct.smallestUnit) ||
+          row.product.bulk_unit_name !== latestProduct.bulk_unit_name ||
+          row.product.bulk_unit_conversion !== latestProduct.bulk_unit_conversion;
+
+        if (isProductChanged) {
+          changed = true;
+
+          // Reconcile units
+          let newUnit = row.unit;
+          const oldBulkUnitName = row.product.bulk_unit_name;
+          const oldBaseUnit = row.product.base_unit || row.product.smallestUnit;
+
+          const newBulkUnitName = latestProduct.bulk_unit_name;
+          const newBaseUnit = latestProduct.base_unit || latestProduct.smallestUnit;
+
+          if (row.unit === oldBulkUnitName) {
+            newUnit = newBulkUnitName || newBaseUnit;
+          } else if (row.unit === oldBaseUnit) {
+            newUnit = newBaseUnit;
+          } else {
+            newUnit = newBulkUnitName || newBaseUnit;
+          }
+
+          return {
+            ...row,
+            product: latestProduct,
+            unit: newUnit,
+          };
+        }
+
+        return row;
+      });
+
+      return changed ? updated : prevRows;
+    });
+  }, [products, isEditMode, isOpen, productsArray]);
 
   // Calculate total
   const calculateTotal = () => {
