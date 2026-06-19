@@ -112,11 +112,214 @@ function convertToSmallestUnit(quantity, unit, product) {
   return result;
 }
 
+const LogEditModal = ({ isOpen, onClose, record }) => {
+  if (!isOpen || !record) return null;
+
+  const changeLogs = [...(record.change_logs || [])].reverse(); // Show newest edits first
+
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
+  };
+
+  const formatDate = (isoString) => {
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString('id-ID', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }) + ' ' + date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return isoString;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-200">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800">
+              Riwayat Log Perubahan
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              No. Transaksi: {record.id}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition">
+            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-6 space-y-6">
+          {changeLogs.map((log, index) => {
+            const editNumber = changeLogs.length - index;
+            
+            // Calculate total before and after
+            const totalBefore = log.previous_items?.reduce((sum, item) => sum + (item.subtotal || 0), 0) || 0;
+            const totalAfter = log.new_items?.reduce((sum, item) => sum + (item.subtotal || 0), 0) || 0;
+
+            // Identify differences
+            const itemDiffs = [];
+            const prevItemsMap = {};
+            log.previous_items?.forEach(item => {
+              prevItemsMap[item.itemId] = item;
+            });
+
+            log.new_items?.forEach(newItem => {
+              const prevItem = prevItemsMap[newItem.itemId];
+              if (prevItem) {
+                if (Number(prevItem.quantity) !== Number(newItem.quantity)) {
+                  itemDiffs.push({
+                    itemName: newItem.itemName,
+                    prevQty: prevItem.quantity,
+                    newQty: newItem.quantity,
+                    prevTotal: prevItem.subtotal || 0,
+                    newTotal: newItem.subtotal || 0,
+                    unitLabel: newItem.unit || 'pcs',
+                    type: 'modify'
+                  });
+                }
+              } else {
+                // Added item
+                itemDiffs.push({
+                  itemName: newItem.itemName,
+                  prevQty: 0,
+                  newQty: newItem.quantity,
+                  prevTotal: 0,
+                  newTotal: newItem.subtotal || 0,
+                  unitLabel: newItem.unit || 'pcs',
+                  type: 'add'
+                });
+              }
+            });
+
+            // Check for deleted items
+            const newItemsMap = {};
+            log.new_items?.forEach(item => {
+              newItemsMap[item.itemId] = item;
+            });
+            log.previous_items?.forEach(prevItem => {
+              if (!newItemsMap[prevItem.itemId]) {
+                itemDiffs.push({
+                  itemName: prevItem.itemName,
+                  prevQty: prevItem.quantity,
+                  newQty: 0,
+                  prevTotal: prevItem.subtotal || 0,
+                  newTotal: 0,
+                  unitLabel: prevItem.unit || 'pcs',
+                  type: 'delete'
+                });
+              }
+            });
+
+            return (
+              <div key={index} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                <div className="flex justify-between items-center mb-3 border-b border-gray-200/60 pb-2">
+                  <div>
+                    <span className="bg-blue-100 text-blue-700 text-xs font-extrabold uppercase px-2 py-0.5 rounded-md mr-2">
+                      Edit #{editNumber}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      oleh <span className="font-bold text-gray-700">{log.edited_by}</span>
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-400 font-medium">
+                    {formatDate(log.edited_at)}
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-400">Perubahan Item:</h4>
+                  <ul className="list-disc list-inside space-y-1.5 text-sm text-gray-600">
+                    {itemDiffs.map((diff, dIdx) => (
+                      <li key={dIdx} className="leading-relaxed">
+                        <span className="font-semibold text-gray-800">{diff.itemName}</span>:
+                        {diff.type === 'add' && (
+                          <>
+                            <span className="ml-1 text-green-600 font-bold"> (Baru) {diff.newQty} {diff.unitLabel}</span>
+                            <span className="text-xs text-gray-400 ml-2">
+                              (Subtotal: {formatCurrency(diff.newTotal)})
+                            </span>
+                          </>
+                        )}
+                        {diff.type === 'delete' && (
+                          <>
+                            <span className="ml-1 text-red-500 font-medium"> (Dihapus) {diff.prevQty} {diff.unitLabel}</span>
+                            <span className="text-xs text-gray-400 ml-2">
+                              (Subtotal: {formatCurrency(diff.prevTotal)} → 0)
+                            </span>
+                          </>
+                        )}
+                        {diff.type === 'modify' && (
+                          <>
+                            <span className="ml-1 text-red-500 font-medium">{diff.prevQty} {diff.unitLabel}</span>
+                            <span className="mx-1.5 text-gray-400">→</span>
+                            <span className="text-green-600 font-bold">{diff.newQty} {diff.unitLabel}</span>
+                            <span className="text-xs text-gray-400 ml-2">
+                              (Subtotal: {formatCurrency(diff.prevTotal)} → {formatCurrency(diff.newTotal)})
+                            </span>
+                          </>
+                        )}
+                      </li>
+                    ))}
+                    {itemDiffs.length === 0 && (
+                      <li className="italic text-gray-400 list-none">Tidak ada perubahan jumlah item.</li>
+                    )}
+                  </ul>
+
+                  <div className="mt-4 pt-3 border-t border-dashed border-gray-200 flex justify-between items-center text-xs">
+                    <span className="font-bold text-gray-500">Total Transaksi:</span>
+                    <span className="font-extrabold text-gray-900 text-sm">
+                      {formatCurrency(totalBefore)} <span className="mx-1 text-gray-400 font-normal">→</span> {formatCurrency(totalAfter)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2 bg-gray-800 text-white font-bold rounded-lg text-sm hover:bg-gray-700 transition shadow-sm cursor-pointer"
+          >
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const WarehouseExit = () => {
   const { currentUser, userRole } = useAuth();
   const { createDoc, updateDoc, queryCollection } = useFirestore();
 
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("show_warehouse_exit_create_modal");
+      return saved === "true";
+    } catch (e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("show_warehouse_exit_create_modal", showModal);
+  }, [showModal]);
   const [products, setProducts] = useState({});
   const [records, setRecords] = useState([]);
   const [stockTxList, setStockTxList] = useState([]);
@@ -129,6 +332,7 @@ const WarehouseExit = () => {
   const recordsPerPage = 10;
 
   const [editingRecord, setEditingRecord] = useState(null);
+  const [logViewingRecord, setLogViewingRecord] = useState(null);
 
   // Check if user can create new records
   const canCreateRecord =
@@ -136,9 +340,24 @@ const WarehouseExit = () => {
     userRole === "Wakil Rektor 2" ||
     userRole === "Admin" ||
     userRole === "superAdmin";
-  const canEdit = userRole === "Director" || userRole === "Wakil Rektor 2";
-  const canUploadPO = userRole === "Mitra";
-  const canUploadPayment = userRole === "BAK";
+  const canEdit =
+    userRole === "Director" ||
+    userRole === "Wakil Rektor 2" ||
+    userRole === "Admin" ||
+    userRole === "superAdmin";
+  const canUploadPO =
+    userRole === "Mitra" ||
+    userRole === "Admin" ||
+    userRole === "Director" ||
+    userRole === "BAK" ||
+    userRole === "Wakil Rektor 2" ||
+    userRole === "superAdmin";
+  const canUploadPayment =
+    userRole === "BAK" ||
+    userRole === "Admin" ||
+    userRole === "Director" ||
+    userRole === "Wakil Rektor 2" ||
+    userRole === "superAdmin";
 
   // Fetch products from stocks_b2b
   const fetchProducts = async () => {
@@ -427,11 +646,22 @@ const WarehouseExit = () => {
         customerDetail: transactionData.customerDetail,
       });
 
+      // Track edit history
+      const existingLogs = record.change_logs || [];
+      const newLog = {
+        edited_at: new Date().toISOString(),
+        edited_by: currentUser?.email || currentUser?.uid || "unknown",
+        previous_items: record.items || [],
+        new_items: transactionData.items,
+      };
+      const updatedLogs = [...existingLogs, newLog];
+
       // Update warehouseExit document
       await updateDoc("warehouseExit", record.id, {
         customerDetail: transactionData.customerDetail,
         items: transactionData.items,
         total: transactionData.total,
+        change_logs: updatedLogs,
       });
 
       await fetchRecords();
@@ -1402,9 +1632,21 @@ const WarehouseExit = () => {
                           <FaEdit /> Edit
                         </button>
                         <span className="action-btn-tooltip">
-                          Hanya Director/Wakil Rektor 2 yang bisa mengedit
+                          Hanya Director/Wakil Rektor 2/Admin/superAdmin yang bisa mengedit
                         </span>
                       </div>
+                    )}
+
+                    {/* Log Edit button */}
+                    {record.change_logs && record.change_logs.length > 0 && (
+                      <button
+                        className="action-btn log-btn"
+                        onClick={() => {
+                          setLogViewingRecord(record);
+                        }}
+                      >
+                        <FaEye /> Log Edit
+                      </button>
                     )}
 
                     {/* Always show Nota Tagihan - always available */}
@@ -1473,8 +1715,7 @@ const WarehouseExit = () => {
                       >
                         <FaEye /> Lihat Bukti
                       </button>
-                    ) : canUploadPayment &&
-                      record.workflow.uploadPO?.completed ? (
+                    ) : canUploadPayment ? (
                       <label className="action-btn active">
                         <FaReceipt /> Upload Bukti
                         <input
@@ -1582,6 +1823,13 @@ const WarehouseExit = () => {
         currentUser={currentUser}
         isEditMode={!!editingRecord}
         initialData={editingRecord}
+      />
+
+      {/* Log Edit Modal */}
+      <LogEditModal
+        isOpen={!!logViewingRecord}
+        onClose={() => setLogViewingRecord(null)}
+        record={logViewingRecord}
       />
 
       {/* Snackbar */}

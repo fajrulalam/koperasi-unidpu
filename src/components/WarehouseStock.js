@@ -93,8 +93,18 @@ export default function WarehouseStock() {
   // Stock discrepancy modal state
   const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
 
-  // Bulk purchase modal state
-  const [showBulkPurchaseModal, setShowBulkPurchaseModal] = useState(false);
+  const [showBulkPurchaseModal, setShowBulkPurchaseModal] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("show_bulk_purchase_modal");
+      return saved === "true";
+    } catch (e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem("show_bulk_purchase_modal", showBulkPurchaseModal);
+  }, [showBulkPurchaseModal]);
 
   // Form related states (SDRG Schema compatible)
   const [tempName, setTempName] = useState("");

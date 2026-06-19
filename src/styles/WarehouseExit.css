@@ -286,6 +286,18 @@
   transform: translateY(-1px);
 }
 
+/* Log Edit button */
+.action-btn.log-btn {
+  background: transparent;
+  color: #2563eb;
+  border-color: #2563eb;
+}
+
+.action-btn.log-btn:hover {
+  background: #eff6ff;
+  transform: translateY(-1px);
+}
+
 /* Tooltip wrapper for disabled edit button */
 .action-btn-tooltip-wrapper {
   position: relative;
