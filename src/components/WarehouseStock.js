@@ -1,21 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
-  FaEllipsisV,
   FaCalendarAlt,
-  FaTag,
-  FaSortUp,
-  FaSortDown,
-  FaSort,
-  FaExclamationTriangle,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { v4 as uuidv4 } from "uuid";
-import { jsPDF } from "jspdf";
-import "jspdf-autotable";
 import "../styles/Stocks.css";
 import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
-import { useEnvironment } from "../context/EnvironmentContext";
 import StockModal from "./StockModal";
 import StockDiscrepancyModal from "./StockDiscrepancies/StockDiscrepancyModal";
 import BulkPurchaseModal from "./BulkPurchaseModal";
@@ -45,56 +36,16 @@ function getTimestampString() {
   return `${yyyy}${mm}${dd}${hh}${min}${ss}`;
 }
 
-// Constants
-const KATEGORI_CHOICES = [
-  "Makanan",
-  "Minuman",
-  "Sembako",
-  "ATK",
-  "Kewanitaan",
-  "Obat-Obatan",
-  "Lainnya",
-];
-
-const SUBKATEGORI_MAKANAN = [
-  "Makanan ringan",
-  "Makanan berat",
-  "Gorengan",
-  "Makanan Manis",
-  "Lainnya",
-];
-
-const SUBKATEGORI_MINUMAN = [
-  "Susu",
-  "Soda",
-  "Jus/Sari Buah",
-  "Mineral",
-  "Teh",
-  "Kopi",
-  "Lainnya",
-];
-
-const SUBKATEGORI_OBAT = [
-  "Suplemen/Vitamin",
-  "Obat Batuk",
-  "Obat Sakit Kepala",
-  "Obat demam",
-  "Obat Flu",
-  "Obat Luka",
-  "Lainnya",
-];
-
-const TIPE_STOCK_CHOICES = ["Produksi sendiri", "Kulak", "Titipan", "Lainnya"];
-const SMALLEST_UNITS = ["pcs", "gram", "ons", "kg"];
-const ALT_UNITS = ["box", "kg", "kwintal", "ton", "ons"];
 const initialProductData = {};
 
-// Summary Card Component
-const SummaryCard = ({ title, value, color }) => (
-  <div className="stock-summary-card">
-    <div className="stock-card-title">{title}</div>
-    <div className="stock-card-value" style={{ color }}>
-      Rp{formatRupiah(Math.round(value))}
+// Summary Card Component (styled like SDRG's StatCard)
+const StatCard = ({ title, value, color }) => (
+  <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between min-h-[140px]">
+    <div>
+      <h3 className="text-gray-500 font-bold uppercase tracking-wider text-xs mb-4 text-center">{title}</h3>
+      <p className={`text-3xl font-bold text-center ${color}`}>
+        Rp {formatRupiah(Math.round(value))}
+      </p>
     </div>
   </div>
 );
@@ -104,7 +55,6 @@ export default function WarehouseStock() {
   const { currentUser } = useAuth();
   const { createDoc, readDoc, updateDoc, deleteDoc, queryCollection } =
     useFirestore();
-  const { isProduction } = useEnvironment();
 
   // State variables
   const [summaryData, setSummaryData] = useState({
@@ -120,8 +70,6 @@ export default function WarehouseStock() {
   const [filteredProducts, setFilteredProducts] = useState(
     Object.values(products)
   );
-  const [selectedItems, setSelectedItems] = useState({});
-  const [showDropdown, setShowDropdown] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
   // Sorting states
@@ -163,30 +111,20 @@ export default function WarehouseStock() {
   const [tempDocId, setTempDocId] = useState("");
   const [tempItemId, setTempItemId] = useState("");
 
-  // Refs
-  const dropdownRef = useRef(null);
-  const tableHeaderRef = useRef(null);
-  const firstFieldRef = useRef(null);
+  // Three-dot action menu coordinates state
+  const [openMenuId, setOpenMenuId] = useState(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
 
-  // Constants
-  const CONVERSION_TABLE = {
-    kwintal: 100000, // 1 kwintal = 100 kg = 100,000 grams
-    ton: 1000000, // 1 ton = 1000 kg = 1,000,000 grams
-    kg: 1000, // 1 kg = 1000 grams
-    ons: 100, // 1 ons = 100 grams
-    gram: 1,
-    pcs: 1,
-  };
+  // Refs
+  const firstFieldRef = useRef(null);
 
   // ***** UTILITY FUNCTIONS *****
 
-  // Add this utility function for unit conversions
   function convertToSmallestUnit(quantity, unit, product) {
     if (quantity == null || !unit || !product.smallestUnit) {
       throw new Error("Missing required parameters for conversion");
     }
 
-    // Handle box conversion first
     if (unit === "box") {
       if (!product.piecesPerBox) {
         throw new Error("Pieces per box not defined for this product");
@@ -194,25 +132,22 @@ export default function WarehouseStock() {
       return quantity * product.piecesPerBox;
     }
 
-    // For weight-based conversions
     const weightConversions = {
-      ton: 1000000, // 1 ton = 1,000,000 grams
-      kwintal: 100000, // 1 kwintal = 100,000 grams
-      kg: 1000, // 1 kg = 1,000 grams
-      ons: 100, // 1 ons = 100 grams
-      gram: 1, // base unit
-      pcs: 1, // for piece-based items
+      ton: 1000000,
+      kwintal: 100000,
+      kg: 1000,
+      ons: 100,
+      gram: 1,
+      pcs: 1,
       kardus: 1,
       karton: 1,
       pack: 1,
     };
 
-    // If the unit or product's smallest unit isn't in our conversion table
     if (!weightConversions[unit] || !weightConversions[product.smallestUnit]) {
       throw new Error("Invalid unit for conversion");
     }
 
-    // Convert to grams first, then to target unit
     const valueInGrams = quantity * weightConversions[unit];
     const result = valueInGrams / weightConversions[product.smallestUnit];
 
@@ -246,48 +181,21 @@ export default function WarehouseStock() {
     return formatRupiah(p);
   }
 
-  // Function to properly capitalize for display
-  const capitalizeForDisplay = (str) => {
-    if (!str) return "";
-    return str
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(" ");
-  };
-
   // ***** EVENT HANDLERS *****
 
-  function handleAmountChange(e) {
-    // Allow only numeric input
-    const numericValue = e.target.value.replace(/\D/g, "");
-    setTempAmount(numericValue);
-  }
-
-  function handleCostChange(e) {
-    setTempCost(formatRupiah(e.target.value));
-  }
-
-  function handlePiecesPerBoxChange(e) {
-    const numeric = e.target.value.replace(/\D/g, "");
-    setPiecesPerBox(numeric);
-  }
-
-  function handleActionClick(productId) {
-    setShowDropdown((prev) => (prev === productId ? null : productId));
-  }
-
   function openDialog(type, productId) {
-    // Check if product exists for relevant dialogs
     if (type !== "addNew" && !products[productId]) {
       alert("Product not found!");
       return;
     }
+    setDialogOpen(true);
     setDialogType(type);
     setSelectedProductId(productId);
+    setOpenMenuId(null); // Close three-dot menu
+
     if (type === "tambah" || type === "tetapkan") {
       const prod = productId ? products[productId] : null;
       setTempAmount("");
-      // Use optional chaining and default to empty array
       setTempSatuan(prod?.smallestUnit || prod?.satuan?.[0] || "");
       setTempCost("");
       setPiecesPerBox(prod?.piecesPerBox ? String(prod.piecesPerBox) : "");
@@ -303,8 +211,6 @@ export default function WarehouseStock() {
       setTempSubKategori(prod.subKategori || "");
       setTempTipeStock(prod.tipeStock || "");
       setOriginalSmallestUnit(prod.smallestUnit);
-      setTempName(prod.name);
-      // Ensure satuan is an array
       const satuan = prod.satuan || [];
       setTempDefaultSatuan(prod.smallestUnit || satuan[0]);
       const alt = satuan.filter((u) => u !== prod.smallestUnit);
@@ -329,8 +235,6 @@ export default function WarehouseStock() {
       setPiecesPerBox("");
       setTempDocId("");
     }
-    setDialogOpen(true);
-    setShowDropdown(null);
   }
 
   function closeDialog() {
@@ -358,54 +262,27 @@ export default function WarehouseStock() {
     setTimeout(() => setSnackbar((o) => ({ ...o, open: false })), 3000);
   };
 
-  const handleSelectAll = (e) => {
-    const isChecked = e.target.checked;
-
-    if (isChecked) {
-      // Select all filtered products
-      const newSelectedItems = {};
-      filteredProducts.forEach((prod) => {
-        newSelectedItems[prod.id] = true;
-      });
-      setSelectedItems(newSelectedItems);
-    } else {
-      // Deselect all
-      setSelectedItems({});
-    }
-  };
-
-  const toggleItemSelection = (productId) => {
-    setSelectedItems((prev) => ({
-      ...prev,
-      [productId]: !prev[productId],
-    }));
-  };
-
-  function handleToggleAltSatuan(unit) {
-    if (unit === tempDefaultSatuan) return; // Prevent adding default satuan
-    setTempAltSatuan((prev) => {
-      if (prev.includes(unit)) {
-        return prev.filter((u) => u !== unit);
-      }
-      return [...prev, unit];
-    });
-  }
-
-  function handlePriceChange(unit, val) {
-    const formatted = formatRupiah(val);
-    setTempPricePerUnit((prev) => ({ ...prev, [unit]: formatted }));
-  }
-
-  // Function to handle click on sortable column headers
   const requestSort = (key) => {
     let direction = "asc";
-
     if (sortConfig.key === key) {
       direction = sortConfig.direction === "asc" ? "desc" : "asc";
     }
-
     setSortConfig({ key, direction });
     sortProductsBy(filteredProducts, key, direction);
+  };
+
+  const handleMenuToggle = (e, productId) => {
+    e.stopPropagation();
+    if (openMenuId === productId) {
+      setOpenMenuId(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.right - 192,
+      });
+      setOpenMenuId(productId);
+    }
   };
 
   // ***** DATA-FETCHING & DATA-PROCESSING FUNCTIONS *****
@@ -416,10 +293,7 @@ export default function WarehouseStock() {
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-      // Fetch transactions
       const transactions = await queryCollection("stockTransactions_b2b");
-
-      // Fetch stocks
       const stocks = await queryCollection("stocks_b2b");
 
       let monthlyPurchase = 0;
@@ -427,15 +301,12 @@ export default function WarehouseStock() {
       let missingStock = 0;
       let currentStockWorth = 0;
 
-      // Calculate stock worth
       stocks.forEach((item) => {
         currentStockWorth += item.stockValue || 0;
       });
 
-      // Process transactions
       transactions.forEach((item) => {
         const txDate = item.timestampInMillisEpoch?.toDate();
-
         if (txDate && txDate >= firstDay && txDate <= lastDay) {
           switch (item.transactionType) {
             case "pengadaan":
@@ -459,12 +330,6 @@ export default function WarehouseStock() {
         missingStock,
         currentStockWorth,
       });
-
-      console.log(
-        `Fetching summary data from ${
-          isProduction ? "production" : "testing"
-        } environment`
-      );
     } catch (error) {
       console.error("Error fetching summary data:", error);
     }
@@ -472,14 +337,11 @@ export default function WarehouseStock() {
 
   async function fetchAllStocks() {
     try {
-      // Use the queryCollection function to get stocks with environment awareness
       const stocksData = await queryCollection("stocks_b2b");
       const freshData = {};
 
       stocksData.forEach((item) => {
         if (!item.isDeleted) {
-          // Exclude deleted products
-          // Capitalize product name properly
           let capitalizedName = "";
           if (item.name) {
             capitalizedName = item.name
@@ -493,39 +355,26 @@ export default function WarehouseStock() {
 
           freshData[item.id] = {
             ...item,
-            name: capitalizedName || item.name, // Use capitalized name or fallback to original
-            satuan: item.satuan || [], // Ensure satuan defaults to array
+            name: capitalizedName || item.name,
+            satuan: item.satuan || [],
           };
         }
       });
 
       setProducts(freshData);
       const productsArray = Object.values(freshData);
-
-      // Sort by name initially
       sortProductsBy(productsArray, "name", "asc");
-
-      // Log the collection path to verify it's using the correct environment
-      console.log(
-        `Fetching stocks from ${
-          isProduction ? "production" : "testing"
-        } environment`
-      );
     } catch (error) {
       console.error("Error fetching stocks:", error);
     }
   }
 
-  // Function to handle sorting logic
   const sortProductsBy = (productsArray, key, direction) => {
     let sortedProducts = [...productsArray];
-
     sortedProducts.sort((a, b) => {
       let aValue, bValue;
 
-      // Special handling for derived fields
       if (key === "profitMargin") {
-        // Calculate profit margin for both products
         const aMargin =
           a.pricePerUnit &&
           a.pricePerUnit[a.smallestUnit] &&
@@ -547,7 +396,6 @@ export default function WarehouseStock() {
         aValue = aMargin;
         bValue = bMargin;
       } else if (key === "pricePerUnit") {
-        // Sort by price in the smallest unit
         aValue =
           a.pricePerUnit && a.pricePerUnit[a.smallestUnit]
             ? a.pricePerUnit[a.smallestUnit]
@@ -557,7 +405,6 @@ export default function WarehouseStock() {
             ? b.pricePerUnit[b.smallestUnit]
             : 0;
       } else if (key === "averageKulak") {
-        // Sort by average kulak price
         aValue =
           a.stock && a.stock > 0 && a.stockValue
             ? Math.round(a.stockValue / a.stock)
@@ -567,12 +414,10 @@ export default function WarehouseStock() {
             ? Math.round(b.stockValue / b.stock)
             : 0;
       } else {
-        // Standard property sorting
         aValue = a[key];
         bValue = b[key];
       }
 
-      // Handle string comparison case-insensitive
       if (typeof aValue === "string" && typeof bValue === "string") {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
@@ -590,23 +435,18 @@ export default function WarehouseStock() {
     setFilteredProducts(sortedProducts);
   };
 
-  // ***** EXPORT FUNCTIONS *****
-
   const exportToExcel = () => {
-    // Get current date for the filename
     const now = new Date();
     const day = String(now.getDate()).padStart(2, "0");
     const month = String(now.getMonth() + 1).padStart(2, "0");
     const year = now.getFullYear();
     const formattedDate = `${day}-${month}-${year}`;
 
-    // Add metadata with the date at the top of the sheet
     const metadata = [
       { A: `Data Stock Tanggal: ${formattedDate}` },
-      { A: "" }, // Empty row as separator
+      { A: "" },
     ];
 
-    // Create the data for the Excel sheet
     const data = filteredProducts.map((p) => ({
       Nama: p.name,
       Kategori: p.kategori,
@@ -621,16 +461,11 @@ export default function WarehouseStock() {
       "Nilai Total Stock": `Rp ${computeNilaiFormatted(p)}`,
     }));
 
-    // Create the worksheet
     const worksheet = XLSX.utils.json_to_sheet([]);
-
-    // Add date metadata at the top
     XLSX.utils.sheet_add_json(worksheet, metadata, {
       skipHeader: true,
       origin: "A1",
     });
-
-    // Add the product data starting from row 3
     XLSX.utils.sheet_add_json(worksheet, data, {
       origin: "A3",
       skipHeader: false,
@@ -641,12 +476,9 @@ export default function WarehouseStock() {
     XLSX.writeFile(workbook, `stock_data_${formattedDate}.xlsx`);
   };
 
-  // Function to check if a snapshot exists for a specific date
   const checkSnapshotExists = async (date) => {
     try {
-      // Use the environment-aware getDocRef function
       const snapshotDoc = await readDoc("stockSnapshots_b2b", date);
-
       if (snapshotDoc) {
         setSnapshotExists(true);
         setSnapshotData(snapshotDoc);
@@ -654,7 +486,6 @@ export default function WarehouseStock() {
         setSnapshotExists(false);
         setSnapshotData(null);
       }
-
       setSnapshotDialogOpen(true);
     } catch (error) {
       console.error("Error checking snapshot:", error);
@@ -665,21 +496,17 @@ export default function WarehouseStock() {
     }
   };
 
-  // Function to export snapshot data to Excel
   const exportSnapshotToExcel = () => {
     if (!snapshotData || !selectedDate) return;
 
-    // Format the date for display (yyyy-mm-dd to dd-mm-yyyy)
     const [year, month, day] = selectedDate.split("-");
     const formattedDate = `${day}-${month}-${year}`;
 
-    // Add metadata with the date at the top of the sheet
     const metadata = [
       { A: `Data Stock Snapshot Tanggal: ${formattedDate}` },
-      { A: "" }, // Empty row as separator
+      { A: "" },
     ];
 
-    // Create the data for the Excel sheet
     const stockItems = snapshotData.stocks || [];
 
     const data = stockItems.map((p) => ({
@@ -706,16 +533,11 @@ export default function WarehouseStock() {
         : "Rp 0",
     }));
 
-    // Create the worksheet
     const worksheet = XLSX.utils.json_to_sheet([]);
-
-    // Add date metadata at the top
     XLSX.utils.sheet_add_json(worksheet, metadata, {
       skipHeader: true,
       origin: "A1",
     });
-
-    // Add the product data starting from row 3
     XLSX.utils.sheet_add_json(worksheet, data, {
       origin: "A3",
       skipHeader: false,
@@ -724,265 +546,14 @@ export default function WarehouseStock() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Stock Snapshot");
     XLSX.writeFile(workbook, `stock_snapshot_${formattedDate}.xlsx`);
-
-    // Close the dialog
     setSnapshotDialogOpen(false);
-  };
-
-  const generatePriceTags = (productsToUse) => {
-    // Ensure jsPDF is loaded
-    if (typeof jsPDF === "undefined") {
-      console.error("jsPDF library is not loaded.");
-      return;
-    }
-
-    // --- Configuration ---
-    const doc = new jsPDF("portrait", "mm", "a4"); // Use jsPDF constructor
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 10; // Page margin in mm
-    const usableWidth = pageWidth - margin * 2;
-    const usableHeight = pageHeight - margin * 2;
-
-    // Layout: Adjust columns and rows for rectangular tags and more density
-    const columns = 3; // Fewer columns for wider tags
-    const rows = 8; // More rows per page
-    const horizontalSpacing = 5; // Horizontal space between tags in mm
-    const verticalSpacing = 5; // Vertical space between tags in mm
-
-    // Calculate tag dimensions considering spacing
-    const totalHorizontalSpacing = (columns - 1) * horizontalSpacing;
-    const totalVerticalSpacing = (rows - 1) * verticalSpacing;
-    const priceTagWidth = (usableWidth - totalHorizontalSpacing) / columns;
-    const priceTagHeight = (usableHeight - totalVerticalSpacing) / rows;
-
-    // Styling
-    const currency = "Rp";
-    const priceFontSize = 16; // Font size for the price number
-    const currencyFontSize = 10; // Font size for "Rp"
-    const nameFontSize = 8; // Font size for the product name
-    const tagPadding = 3; // Internal padding within the tag in mm
-    const blackColor = "#000000"; // Black color for text
-    const uniMartPinkColor = "#f77b7b"; // Specific pink color rgb(247, 123, 123)
-
-    // Stripe configuration
-    const stripeHeight = 0.6; // Approximate 3px in mm
-    const stripeSpacing = 0.25; // Approximate 1px in mm
-
-    // UniMart Text configuration
-    const uniMartText = "UniMart";
-    const uniMartFontSize = 9; // Increased font size from 6 to 9
-    const uniMartPadding = 1.5; // Increased padding for larger text
-    const uniMartBottomMargin = 1; // Space between UniMart box and stripes
-
-    // --- PDF Generation ---
-
-    // Add title (optional, can be removed if not needed)
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(blackColor); // Set title color to black
-    doc.text("Price Tags", pageWidth / 2, margin / 2 + 2, { align: "center" });
-
-    // Start position for the first tag
-    let currentX = margin;
-    let currentY = margin;
-    let itemCount = 0;
-    const itemsPerPage = columns * rows;
-
-    // Iterate through products
-    productsToUse.forEach((product, index) => {
-      // Add a new page if the current one is full
-      if (itemCount > 0 && itemCount % itemsPerPage === 0) {
-        doc.addPage();
-        currentX = margin; // Reset X position for new page
-        currentY = margin; // Reset Y position for new page
-      }
-
-      // --- Calculate Tag Content ---
-      // Get price value (handle potential missing price)
-      const priceValue =
-        product.pricePerUnit && product.pricePerUnit[product.smallestUnit]
-          ? formatRupiah(product.pricePerUnit[product.smallestUnit]) // Assumes formatRupiah returns a string like "7.500"
-          : "0";
-      // Get and format product name
-      const productName = product.name ? product.name.toUpperCase() : "N/A";
-
-      // --- Draw Tag Border ---
-      doc.setDrawColor(150, 150, 150); // Light gray border
-      doc.setLineWidth(0.2);
-      doc.rect(currentX, currentY, priceTagWidth, priceTagHeight, "S"); // 'S' for stroke
-
-      // --- Add Price ---
-      // Set text color to black for price elements
-      doc.setTextColor(blackColor); // << CHANGED: Set text color to black
-
-      // Currency ("Rp") - Left aligned
-      doc.setFontSize(currencyFontSize);
-      doc.setFont("helvetica", "normal");
-      // Simple vertical centering without getLineHeightRatio
-      const currencyYAdjust = currencyFontSize * 0.35; // Simplified adjustment factor
-      doc.text(
-        currency,
-        currentX + tagPadding,
-        currentY + tagPadding + currencyYAdjust
-      );
-
-      // Price Value - Right aligned
-      doc.setFontSize(priceFontSize);
-      doc.setFont("helvetica", "bold");
-      const priceValueWidth = doc.getTextWidth(priceValue);
-      const priceYAdjust = priceFontSize * 0.35; // Simplified adjustment factor
-      doc.text(
-        priceValue,
-        currentX + priceTagWidth - tagPadding - priceValueWidth,
-        currentY + tagPadding + priceYAdjust
-      );
-
-      // --- Add Product Name ---
-      doc.setTextColor(blackColor); // << CHANGED: Set text color to black
-      doc.setFontSize(nameFontSize);
-      doc.setFont("helvetica", "normal");
-      // Position below the baseline of the price line
-      const nameYPos = currentY + tagPadding + priceYAdjust + 5; // Add space below price
-      const maxNameWidth = priceTagWidth - tagPadding * 2;
-
-      // Handle potential text wrapping for long names
-      const nameLines = doc.splitTextToSize(productName, maxNameWidth);
-      const maxLines = 2; // Limit name to a maximum of 2 lines
-      const linesToDisplay = nameLines.slice(0, maxLines);
-
-      doc.text(linesToDisplay, currentX + tagPadding, nameYPos);
-
-      // --- Calculate Stripe Start Position ---
-      const totalStripeHeight = 3 * stripeHeight + 2 * stripeSpacing;
-      const stripeStartY =
-        currentY + priceTagHeight - totalStripeHeight - tagPadding; // Align bottom of stripes with bottom padding
-
-      // --- Add UniMart Text with Background (Draw *before* stripes but position above them) ---
-      doc.setFontSize(uniMartFontSize);
-      doc.setFont("helvetica", "bold"); // Changed from italic to bold
-      const uniMartWidth = doc.getTextWidth(uniMartText);
-      const uniMartLineHeight = uniMartFontSize * 0.35; // Simplified height factor
-
-      // Background calculations
-      const uniMartBgWidth = uniMartWidth + 2 * uniMartPadding;
-      const uniMartBgHeight = uniMartLineHeight + 2 * uniMartPadding;
-      const uniMartBgX = currentX + priceTagWidth - tagPadding - uniMartBgWidth; // Align right edge
-      const uniMartBgY = stripeStartY - uniMartBottomMargin - uniMartBgHeight; // Position above stripes
-
-      // Text calculations
-      const uniMartTextX = uniMartBgX + uniMartPadding;
-      const uniMartTextY = uniMartBgY + uniMartPadding + uniMartLineHeight; // Align text baseline within background
-
-      // Draw white background for the UniMart text box
-      doc.setFillColor(255, 255, 255); // White color
-      doc.rect(uniMartBgX, uniMartBgY, uniMartBgWidth, uniMartBgHeight, "F"); // 'F' for fill
-
-      // Draw 'UniMart' text with the specified pink color
-      doc.setTextColor(uniMartPinkColor); // << CHANGED: Set text color to UniMart pink
-      doc.text(uniMartText, uniMartTextX, uniMartTextY);
-
-      // --- Add Bottom Stripes with varying opacity (Draw *after* UniMart text) ---
-
-      // Bottom stripe (100% opacity) - third/bottom stripe
-      doc.setFillColor(uniMartPinkColor); // Full opacity pink
-      doc.rect(
-        currentX + tagPadding,
-        stripeStartY + 2 * (stripeHeight + stripeSpacing),
-        priceTagWidth - tagPadding * 2,
-        stripeHeight,
-        "F"
-      );
-
-      // Middle stripe (75% opacity) - second/middle stripe
-      // Convert RGB string to RGB values for opacity manipulation
-      const pinkRGB = [247, 123, 123]; // Extracted from the color #f77b7b
-      // Create color with 75% opacity
-      doc.setFillColor(pinkRGB[0], pinkRGB[1], pinkRGB[2]);
-      // The second parameter is the opacity/alpha (0.75 = 75%)
-      doc.setGState(new doc.GState({ opacity: 0.75 }));
-      doc.rect(
-        currentX + tagPadding,
-        stripeStartY + stripeHeight + stripeSpacing,
-        priceTagWidth - tagPadding * 2,
-        stripeHeight,
-        "F"
-      );
-
-      // Top stripe (50% opacity) - first/top stripe
-      // Create color with 50% opacity
-      doc.setFillColor(pinkRGB[0], pinkRGB[1], pinkRGB[2]);
-      doc.setGState(new doc.GState({ opacity: 0.5 }));
-      doc.rect(
-        currentX + tagPadding,
-        stripeStartY,
-        priceTagWidth - tagPadding * 2,
-        stripeHeight,
-        "F"
-      );
-
-      // Reset opacity to 100% for subsequent elements
-      doc.setGState(new doc.GState({ opacity: 1.0 }));
-
-      // --- Update Position for Next Tag ---
-      currentX += priceTagWidth + horizontalSpacing;
-      itemCount++;
-
-      // Move to the next row if the current row is full
-      if (itemCount % columns === 0) {
-        currentX = margin; // Reset X to the left margin
-        currentY += priceTagHeight + verticalSpacing; // Move Y down to the next row
-      }
-    });
-
-    // --- Finalize and Save ---
-    try {
-      doc.save("price_tags_redesigned.pdf");
-      // Show success message
-      showSuccessMessage(
-        `Price tags generated for ${productsToUse.length} products.`
-      );
-    } catch (error) {
-      console.error("Error saving PDF:", error);
-    }
   };
 
   // ***** SAVE/SUBMIT FUNCTIONS *****
 
   async function handleSave(type) {
-    // Use the passed type parameter or fallback to dialogType
     const currentDialogType = type || dialogType;
-
-    const getFormattedTimestamp = () => {
-      const date = new Date();
-      const options = {
-        timeZone: "Asia/Jakarta",
-        weekday: "long",
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-        hour12: false,
-      };
-
-      const formatter = new Intl.DateTimeFormat("id-ID", options);
-      const [
-        { value: day },
-        { value: dayNum },
-        { value: month },
-        { value: year },
-        { value: hour },
-        { value: minute },
-      ] = formatter.formatToParts(date);
-
-      return `${day}, ${dayNum} ${month} ${year} ${hour}:${minute} WIB`;
-    };
-
-    const amountValue = parseRupiah(tempAmount);
     const costValue = parseRupiah(tempCost);
-    const boxIsSelected =
-      tempDefaultSatuan === "box" || tempAltSatuan.includes("box");
 
     const createBaseTransactionDoc = (prod) => ({
       itemId: prod.itemId,
@@ -1010,6 +581,8 @@ export default function WarehouseStock() {
         alert("All mandatory fields must be filled!");
         return;
       }
+      const boxIsSelected =
+        tempDefaultSatuan === "box" || tempAltSatuan.includes("box");
       if (boxIsSelected && !piecesPerBox) {
         alert("Pieces per Box is required when 'box' is selected!");
         return;
@@ -1059,13 +632,11 @@ export default function WarehouseStock() {
       const prod = products[selectedProductId];
 
       try {
-        // Parse the numeric value from the formatted input
         const rawAmount = parseFloat(tempAmount.replace(/\D/g, ""));
         if (isNaN(rawAmount)) {
           throw new Error("Invalid amount");
         }
 
-        // Convert to smallest unit
         const quantityInSmallestUnit = convertToSmallestUnit(
           rawAmount,
           tempSatuan,
@@ -1081,7 +652,6 @@ export default function WarehouseStock() {
           originalUnit: tempSatuan,
         };
 
-        // Update database
         const txId = uuidv4();
         await createDoc("stockTransactions_b2b", txDoc, txId);
 
@@ -1091,7 +661,6 @@ export default function WarehouseStock() {
           stockValue: (prod.stockValue || 0) + costValue,
         });
 
-        // Update local state
         setProducts((prev) => ({
           ...prev,
           [selectedProductId]: {
@@ -1109,7 +678,6 @@ export default function WarehouseStock() {
       }
     } else if (currentDialogType === "tetapkan" && selectedProductId) {
       const prod = products[selectedProductId];
-      // Allow 0 values but don't allow empty values
       if (tempAmount === "" || !tempSatuan) {
         alert("Please fill amount and unit.");
         return;
@@ -1119,11 +687,9 @@ export default function WarehouseStock() {
         const oldStock = prod.stock || 0;
         const oldVal = prod.stockValue || 0;
 
-        // Parse original values before conversion
         const originalQuantity = parseRupiah(tempAmount);
         const originalUnit = tempSatuan;
 
-        // Convert to smallest unit
         const newStock = convertToSmallestUnit(
           originalQuantity,
           originalUnit,
@@ -1143,7 +709,6 @@ export default function WarehouseStock() {
         const absQty = Math.abs(deltaStock);
         const absCost = Math.abs(deltaValue);
 
-        // Updated transaction document with standardized fields
         const txDoc = {
           ...createBaseTransactionDoc(prod),
           transactionType,
@@ -1181,7 +746,6 @@ export default function WarehouseStock() {
       const prod = products[selectedProductId];
 
       try {
-        // Validate mandatory fields
         if (
           !tempName.trim() ||
           !tempKategori ||
@@ -1191,7 +755,6 @@ export default function WarehouseStock() {
           throw new Error("All mandatory fields must be filled!");
         }
 
-        // Prepare updated product data
         const updatedProduct = {
           ...prod,
           name: tempName.trim(),
@@ -1210,7 +773,6 @@ export default function WarehouseStock() {
           smallestUnit: tempDefaultSatuan,
         };
 
-        // Convert stock if smallest unit changed
         if (tempDefaultSatuan !== originalSmallestUnit) {
           updatedProduct.stock = convertToSmallestUnit(
             prod.stock,
@@ -1219,15 +781,12 @@ export default function WarehouseStock() {
           );
         }
 
-        // Update stock value based on new prices
         if (updatedProduct.pricePerUnit[tempDefaultSatuan]) {
           updatedProduct.stockValue = prod.stockValue;
         }
 
-        // Update database
         await updateDoc("stocks_b2b", selectedProductId, updatedProduct);
 
-        // Update local state
         setProducts((prev) => ({
           ...prev,
           [selectedProductId]: updatedProduct,
@@ -1242,7 +801,6 @@ export default function WarehouseStock() {
       try {
         const product = products[selectedProductId];
 
-        // Log the deletion in stockTransactions
         const txId = uuidv4();
         await createDoc(
           "stockTransactions_b2b",
@@ -1267,10 +825,8 @@ export default function WarehouseStock() {
           txId
         );
 
-        // Delete the product from Firestore
         await deleteDoc("stocks_b2b", selectedProductId);
 
-        // Update local state
         setProducts((prev) => {
           const newProducts = { ...prev };
           delete newProducts[selectedProductId];
@@ -1291,13 +847,11 @@ export default function WarehouseStock() {
 
   // ***** LIFECYCLE EFFECTS *****
 
-  // Initial data fetching
   useEffect(() => {
     fetchAllStocks();
     fetchSummaryData();
   }, []);
 
-  // Apply sorting when search results change
   useEffect(() => {
     if (searchTerm.trim() === "") {
       sortProductsBy(
@@ -1310,7 +864,6 @@ export default function WarehouseStock() {
     }
   }, [searchTerm, products]);
 
-  // Handle search term changes
   useEffect(() => {
     const input = searchTerm.trim();
     if (!input) {
@@ -1330,28 +883,18 @@ export default function WarehouseStock() {
         return words.every((w) => name.includes(w));
       });
       setFilteredProducts(newList);
-
-      // Maintain current sort order with new filtered results
       sortProductsBy(newList, sortConfig.key, sortConfig.direction);
     }
   }, [searchTerm, products]);
 
-  // Handle click outside dropdown
   useEffect(() => {
-    function handleClickOutside(e) {
-      if (
-        showDropdown &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target)
-      ) {
-        setShowDropdown(null);
-      }
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId) {
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [showDropdown]);
+  }, [openMenuId]);
 
-  // Handle escape key for dialog
   useEffect(() => {
     function handleEsc(e) {
       if (dialogOpen && e.key === "Escape") {
@@ -1362,7 +905,6 @@ export default function WarehouseStock() {
     return () => document.removeEventListener("keydown", handleEsc);
   }, [dialogOpen]);
 
-  // Focus first field when dialog opens
   useEffect(() => {
     if (dialogOpen && firstFieldRef.current) {
       setTimeout(() => {
@@ -1373,73 +915,45 @@ export default function WarehouseStock() {
     }
   }, [dialogOpen, dialogType]);
 
-  // Determine subcategory choices based on selected category
-  let subKategoriChoices = [];
-  if (tempKategori === "Makanan") {
-    subKategoriChoices = SUBKATEGORI_MAKANAN;
-  } else if (tempKategori === "Minuman") {
-    subKategoriChoices = SUBKATEGORI_MINUMAN;
-  } else if (tempKategori === "Obat-Obatan") {
-    subKategoriChoices = SUBKATEGORI_OBAT;
-  }
-
-  // Calculate if box is selected
-  const boxIsSelected =
-    tempDefaultSatuan === "box" || tempAltSatuan.includes("box");
+  // Sort indicator component
+  const SortIndicator = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) {
+      return <span className="ml-1 text-gray-400">⇅</span>;
+    }
+    return (
+      <span className="ml-1">
+        {sortConfig.direction === "asc" ? "↑" : "↓"}
+      </span>
+    );
+  };
 
   // ***** COMPONENT RENDERING *****
   return (
-    <div className="stock-container">
-      <h1>Kulakan Warehouse</h1>
-
-      {/* Summary Cards Section */}
-      <div className="stock-summary-cards">
-        <SummaryCard
-          title="Belanja Bulan Ini"
-          value={summaryData.monthlyPurchase}
-          color="#2196F3"
-        />
-        {/* <SummaryCard
-          title="Penjualan Bulan Ini"
-          value={summaryData.monthlySales}
-          color="#4CAF50"
-        /> */}
-        <SummaryCard
-          title="Stock Hilang"
-          value={summaryData.missingStock}
-          color="#F44336"
-        />
-        <SummaryCard
-          title="Stock Worth Saat Ini"
-          value={summaryData.currentStockWorth}
-          color="#000000"
-        />
-      </div>
-
-      <div className="stock-controls">
-        <input
-          className="stock-search"
-          type="text"
-          placeholder="Cari produk atau ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <div className="stock-controls-right">
-          <div className="stock-date-picker-container">
+    <div className="p-6">
+      {/* Header and Title */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Kulakan Warehouse</h1>
+          <p className="text-sm text-gray-500 mt-1">Kelola stok barang dan nilai gudang B2B</p>
+        </div>
+        <div className="flex gap-3">
+          <div className="relative">
             <button
-              className="stock-snapshot-btn"
+              className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition flex items-center gap-2 text-sm"
               onClick={() => setShowDatePicker(!showDatePicker)}
             >
               <FaCalendarAlt /> Lihat Snapshot
             </button>
             {showDatePicker && (
-              <div className="stock-date-picker-popup stock-datepicker-open">
+              <div className="absolute right-0 mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-xl z-50 min-w-[240px]">
                 <input
                   type="date"
+                  className="w-full p-2 border border-gray-300 rounded mb-2 text-sm"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                 />
                 <button
+                  className="w-full py-2 bg-gray-900 hover:bg-gray-800 text-white rounded text-xs font-bold"
                   onClick={() => {
                     if (selectedDate) {
                       checkSnapshotExists(selectedDate);
@@ -1457,281 +971,163 @@ export default function WarehouseStock() {
               </div>
             )}
           </div>
-          <button className="stock-export-btn" onClick={exportToExcel}>
+          <button
+            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm"
+            onClick={exportToExcel}
+          >
             Export ke Excel
           </button>
-          {/* <button
-            className="stock-tag-btn"
-            onClick={() =>
-              generatePriceTags(
-                Object.values(selectedItems).some((item) => item)
-                  ? filteredProducts.filter((p) => selectedItems[p.id])
-                  : filteredProducts
-              )
-            }
-          >
-            <FaTag style={{ marginRight: "5px" }} /> Generate Price Tags
-          </button> */}
-          {/* <button
-            className="stock-discrepancy-btn"
-            onClick={() => setShowDiscrepancyModal(true)}
-          >
-            <FaExclamationTriangle style={{ marginRight: "5px" }} /> Cek
-            Ketidaksesuaian Stok
-          </button> */}
           <button
-            className="stock-bulk-btn"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition text-sm"
             onClick={() => setShowBulkPurchaseModal(true)}
           >
             Bulk Purchase
           </button>
           <button
-            className="stock-add-btn"
+            className="px-5 py-2.5 bg-primary hover:bg-red-700 text-white font-bold rounded-lg shadow-sm transition text-sm"
             onClick={() => openDialog("addNew", null)}
           >
-            Tambah Barang Baru
+            + Barang Baru
           </button>
         </div>
       </div>
-      <table className="stock-table">
-        <thead ref={tableHeaderRef}>
-          <tr>
-            <th style={{ width: "30px" }}>
-              <input
-                type="checkbox"
-                onChange={handleSelectAll}
-                checked={
-                  filteredProducts.length > 0 &&
-                  filteredProducts.every((prod) => selectedItems[prod.id])
-                }
-              />
-            </th>
-            {/* <th>ID</th> */}
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("name")}
-              >
-                Nama Barang
-                {sortConfig.key === "name" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("kategori")}
-              >
-                Kategori
-                {sortConfig.key === "kategori" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("subKategori")}
-              >
-                SubKategori
-                {sortConfig.key === "subKategori" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("tipeStock")}
-              >
-                Tipe
-                {sortConfig.key === "tipeStock" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("stock")}
-              >
-                Jumlah Stock
-                {sortConfig.key === "stock" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("pricePerUnit")}
-              >
-                Harga Jual
-                {sortConfig.key === "pricePerUnit" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("averageKulak")}
-              >
-                Harga Kulak (avg)
-                {sortConfig.key === "averageKulak" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("profitMargin")}
-              >
-                Profit Margin
-                {sortConfig.key === "profitMargin" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("stockValue")}
-              >
-                Nilai Total Stock
-                {sortConfig.key === "stockValue" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredProducts.map((prod) => (
-            <tr key={prod.id}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={!!selectedItems[prod.id]}
-                  onChange={() => toggleItemSelection(prod.id)}
-                />
-              </td>
-              {/* <td>{prod.id}</td> */}
-              <td>{prod.name}</td>
-              <td>{prod.kategori}</td>
-              <td>{prod.subKategori}</td>
-              <td>{prod.tipeStock}</td>
-              <td>
-                {prod.stock} {prod.smallestUnit}
-              </td>
-              <td>
-                Rp {computeHargaFormatted(prod)}/{prod.smallestUnit}
-              </td>
-              <td>
-                Rp {computeAverageKulakPrice(prod)}/{prod.smallestUnit}
-              </td>
-              <td>Rp {computeProfitMargin(prod)}</td>
-              <td>Rp {computeNilaiFormatted(prod)}</td>
-              <td style={{ position: "relative" }}>
-                <div
-                  style={{ cursor: "pointer", display: "inline-block" }}
-                  onClick={() => handleActionClick(prod.id)}
+
+      {/* Summary Cards (StatCards) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <StatCard
+          title="Belanja Bulan Ini"
+          value={summaryData.monthlyPurchase}
+          color="text-blue-600"
+        />
+        <StatCard
+          title="Stock Hilang"
+          value={summaryData.missingStock}
+          color="text-red-600"
+        />
+        <StatCard
+          title="Stock Worth Saat Ini"
+          value={summaryData.currentStockWorth}
+          color="text-gray-900"
+        />
+      </div>
+
+      {/* Search Bar container matching SDRG */}
+      <div className="mb-6 relative">
+        <input
+          type="text"
+          placeholder="Cari produk atau ID..."
+          className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <svg className="w-5 h-5 absolute left-3 top-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-600">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th
+                  onClick={() => requestSort("name")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
                 >
-                  <FaEllipsisV />
-                </div>
-                {showDropdown === prod.id && (
-                  <div
-                    className="stock-dropdown stock-dropdown-open"
-                    ref={dropdownRef}
-                  >
-                    <div
-                      className="stock-dropdown-item"
-                      onClick={() => openDialog("tambah", prod.id)}
+                  Nama Barang <SortIndicator columnKey="name" />
+                </th>
+                <th
+                  onClick={() => requestSort("kategori")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  Kategori <SortIndicator columnKey="kategori" />
+                </th>
+                <th
+                  onClick={() => requestSort("subKategori")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  SubKategori <SortIndicator columnKey="subKategori" />
+                </th>
+                <th
+                  onClick={() => requestSort("tipeStock")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  Tipe <SortIndicator columnKey="tipeStock" />
+                </th>
+                <th
+                  onClick={() => requestSort("stock")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  Jumlah Stock <SortIndicator columnKey="stock" />
+                </th>
+                <th
+                  onClick={() => requestSort("pricePerUnit")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  Harga Jual <SortIndicator columnKey="pricePerUnit" />
+                </th>
+                <th
+                  onClick={() => requestSort("averageKulak")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  Harga Kulak (avg) <SortIndicator columnKey="averageKulak" />
+                </th>
+                <th
+                  onClick={() => requestSort("profitMargin")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  Profit Margin <SortIndicator columnKey="profitMargin" />
+                </th>
+                <th
+                  onClick={() => requestSort("stockValue")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  Nilai Total Stock <SortIndicator columnKey="stockValue" />
+                </th>
+                <th className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-center w-16">
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredProducts.map((prod) => (
+                <tr key={prod.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4">{prod.name}</td>
+                  <td className="px-6 py-4">{prod.kategori}</td>
+                  <td className="px-6 py-4">{prod.subKategori}</td>
+                  <td className="px-6 py-4">{prod.tipeStock}</td>
+                  <td className="px-6 py-4 text-right font-bold text-gray-900">
+                    {prod.stock} {prod.smallestUnit}
+                  </td>
+                  <td className="px-6 py-4 text-right text-gray-600">
+                    Rp {computeHargaFormatted(prod)}/{prod.smallestUnit}
+                  </td>
+                  <td className="px-6 py-4 text-right text-gray-600">
+                    Rp {computeAverageKulakPrice(prod)}/{prod.smallestUnit}
+                  </td>
+                  <td className="px-6 py-4 text-right text-gray-600">
+                    Rp {computeProfitMargin(prod)}
+                  </td>
+                  <td className="px-6 py-4 text-right font-medium text-gray-900">
+                    Rp {computeNilaiFormatted(prod)}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <button
+                      onClick={(e) => handleMenuToggle(e, prod.id)}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500 hover:text-gray-700"
+                      title="Aksi"
                     >
-                      Tambah
-                    </div>
-                    <div
-                      className="stock-dropdown-item"
-                      onClick={() => openDialog("tetapkan", prod.id)}
-                    >
-                      Tetapkan
-                    </div>
-                    <div
-                      className="stock-dropdown-item"
-                      onClick={() => openDialog("edit", prod.id)}
-                    >
-                      Edit Stock
-                    </div>
-                    <div
-                      className="stock-dropdown-item"
-                      onClick={() => openDialog("delete", prod.id)}
-                    >
-                      Delete Stock
-                    </div>
-                  </div>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Snapshot Dialog */}
       {snapshotDialogOpen && (
@@ -1769,6 +1165,40 @@ export default function WarehouseStock() {
         </div>
       )}
 
+      {/* Dropdown menu rendered outside the table to avoid overflow clipping */}
+      {openMenuId && (
+        <div
+          className="fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+          style={{ top: menuPos.top, left: menuPos.left }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
+            onClick={() => { openDialog("tambah", openMenuId); setOpenMenuId(null); }}
+          >
+            Tambah Stok
+          </button>
+          <button
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
+            onClick={() => { openDialog("tetapkan", openMenuId); setOpenMenuId(null); }}
+          >
+            Tetapkan Stok
+          </button>
+          <button
+            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition"
+            onClick={() => { openDialog("edit", openMenuId); setOpenMenuId(null); }}
+          >
+            Edit Barang
+          </button>
+          <button
+            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+            onClick={() => { openDialog("delete", openMenuId); setOpenMenuId(null); }}
+          >
+            Hapus Barang
+          </button>
+        </div>
+      )}
+
       {/* Stock Modal Component */}
       {dialogOpen && (
         <StockModal
@@ -1795,7 +1225,6 @@ export default function WarehouseStock() {
             originalSmallestUnit,
           }}
           setTempState={(newState) => {
-            // Update state based on the changes
             if ("tempName" in newState) setTempName(newState.tempName);
             if ("tempItemId" in newState) setTempItemId(newState.tempItemId);
             if ("tempKategori" in newState)
@@ -1844,7 +1273,6 @@ export default function WarehouseStock() {
               stock: data.stock,
               stockValue: data.stockValue,
             });
-            // Update local state
             setProducts((prev) => ({
               ...prev,
               [data.id]: {
