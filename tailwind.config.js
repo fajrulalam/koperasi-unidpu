@@ -9,6 +9,7 @@ module.exports = {
       colors: {
         'unimart-pink': '#f77b7b',
         'unimart-purple': '#800080',
+        'primary': '#ED3500',
       },
     },
   },

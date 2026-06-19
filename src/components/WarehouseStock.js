@@ -951,7 +951,7 @@ export default function WarehouseStock() {
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition text-sm"
             onClick={() => setShowBulkPurchaseModal(true)}
           >
-            Bulk Purchase
+            Pembelian Grosir
           </button>
           <button
             className="px-5 py-2.5 bg-primary hover:bg-red-700 text-white font-bold rounded-lg shadow-sm transition text-sm"

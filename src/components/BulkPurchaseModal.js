@@ -706,7 +706,7 @@ const BulkPurchaseModal = ({
         }}
       >
         <div className="bulk-modal-header">
-          <h2>{isEditMode ? "Edit Nota Belanja" : "Bulk Purchase"}</h2>
+          <h2>{isEditMode ? "Edit Nota Belanja" : "Pembelian Grosir"}</h2>
           <button className="bulk-modal-close" onClick={handleClose}>
             <FaTimes />
           </button>
