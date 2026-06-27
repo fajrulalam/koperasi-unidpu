@@ -7,6 +7,9 @@ const CONVERSION_TABLE = {
   ons: 100,
   gram: 1,
   pcs: 1,
+  kardus: 1,
+  karton: 1,
+  pack: 1,
 };
 
 export const convertToSmallestUnit = (quantity, unit, product) => {
@@ -23,7 +26,13 @@ export const convertToSmallestUnit = (quantity, unit, product) => {
 
   const quantityInGrams = quantity * CONVERSION_TABLE[unit];
 
-  if (baseUnit === "pcs") return quantityInGrams;
+  if (
+    baseUnit === "pcs" ||
+    baseUnit === "kardus" ||
+    baseUnit === "karton" ||
+    baseUnit === "pack"
+  )
+    return quantityInGrams;
   if (baseUnit === "gram") return quantityInGrams;
   if (baseUnit === "ons") return quantityInGrams / 100;
   if (baseUnit === "kg") return quantityInGrams / 1000;
@@ -58,7 +67,12 @@ export const convertFromSmallestUnit = (
     quantityInGrams = quantityInSmallest * 100;
   } else if (baseUnit === "kg") {
     quantityInGrams = quantityInSmallest * 1000;
-  } else if (baseUnit === "pcs") {
+  } else if (
+    baseUnit === "pcs" ||
+    baseUnit === "kardus" ||
+    baseUnit === "karton" ||
+    baseUnit === "pack"
+  ) {
     quantityInGrams = quantityInSmallest;
   } else {
     throw new Error(`Unsupported base unit: ${baseUnit}`);
