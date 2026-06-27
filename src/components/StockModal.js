@@ -92,7 +92,7 @@ const NAMA_PEMASOK_CHOICES = [
   "Lainnya",
 ];
 const SMALLEST_UNITS = ["pcs", "gram", "ons", "kg", "kardus", "karton", "pack"];
-const ALT_UNITS = ["box", "kg", "kwintal", "ton", "ons"];
+const BULK_UNITS = ["box", "sak", "pack", "bal", "lusin"];
 
 function StockModal({
   dialogOpen,
@@ -106,6 +106,8 @@ function StockModal({
   convertToSmallestUnit,
 }) {
   // Local state for form values
+
+
   const [localState, setLocalState] = useState({
     tempName: externalTempState.tempName || "",
     tempItemId: externalTempState.tempItemId || "",
@@ -113,13 +115,13 @@ function StockModal({
     tempSubKategori: externalTempState.tempSubKategori || "",
     tempTipeStock: externalTempState.tempTipeStock || "",
     tempNamaPemasok: externalTempState.tempNamaPemasok || "",
-    tempDefaultSatuan: externalTempState.tempDefaultSatuan || "",
-    tempAltSatuan: [...(externalTempState.tempAltSatuan || [])],
+    tempBaseUnit: externalTempState.tempBaseUnit || "",
+    tempBulkUnitName: externalTempState.tempBulkUnitName || "",
     tempPricePerUnit: { ...(externalTempState.tempPricePerUnit || {}) },
     tempAmount: externalTempState.tempAmount || "",
     tempSatuan: externalTempState.tempSatuan || "",
     tempCost: externalTempState.tempCost || "",
-    piecesPerBox: externalTempState.piecesPerBox || "",
+    tempBulkUnitConversion: externalTempState.tempBulkUnitConversion || "",
     tempDocId: externalTempState.tempDocId || "",
     originalSmallestUnit: externalTempState.originalSmallestUnit || "",
   });
@@ -133,13 +135,13 @@ function StockModal({
       tempSubKategori: externalTempState.tempSubKategori || "",
       tempTipeStock: externalTempState.tempTipeStock || "",
       tempNamaPemasok: externalTempState.tempNamaPemasok || "",
-      tempDefaultSatuan: externalTempState.tempDefaultSatuan || "",
-      tempAltSatuan: [...(externalTempState.tempAltSatuan || [])],
+      tempBaseUnit: externalTempState.tempBaseUnit || "",
+      tempBulkUnitName: externalTempState.tempBulkUnitName || "",
       tempPricePerUnit: { ...(externalTempState.tempPricePerUnit || {}) },
       tempAmount: externalTempState.tempAmount || "",
       tempSatuan: externalTempState.tempSatuan || "",
       tempCost: externalTempState.tempCost || "",
-      piecesPerBox: externalTempState.piecesPerBox || "",
+      tempBulkUnitConversion: externalTempState.tempBulkUnitConversion || "",
       tempDocId: externalTempState.tempDocId || "",
       originalSmallestUnit: externalTempState.originalSmallestUnit || "",
     });
@@ -155,9 +157,8 @@ function StockModal({
       clearTimeout(handler);
     };
   }, [localState, externalSetTempState]);
-
-  // Simple form validation state
   const [formErrors, setFormErrors] = useState({});
+
 
   // Validate form before save
   const validateForm = (type) => {
@@ -170,12 +171,12 @@ function StockModal({
         errors.tempKategori = "Kategori wajib dipilih";
       if (!localState.tempTipeStock)
         errors.tempTipeStock = "Tipe stock wajib dipilih";
-      if (!localState.tempDefaultSatuan)
-        errors.tempDefaultSatuan = "Unit terkecil wajib dipilih";
+      if (!localState.tempBaseUnit)
+        errors.tempBaseUnit = "Unit terkecil wajib dipilih";
 
-      // Validate box conversion if box is selected
-      if (boxIsSelected && !localState.piecesPerBox) {
-        errors.piecesPerBox = "Jumlah per box wajib diisi";
+      // Validate bulk unit conversion if bulk unit is selected
+      if (localState.tempBulkUnitName && !localState.tempBulkUnitConversion) {
+        errors.tempBulkUnitConversion = "Konversi Satuan Besar wajib diisi";
       }
     }
 
@@ -214,11 +215,6 @@ function StockModal({
     return () => document.removeEventListener("keydown", handleEsc);
   }, [dialogOpen, onClose]);
 
-  // Check if box is selected in any of the satuan fields
-  const boxIsSelected =
-    localState.tempDefaultSatuan === "box" ||
-    localState.tempAltSatuan.includes("box");
-
   // Handle amount change with numeric formatting
   function handleAmountChange(e) {
     const numericValue = e.target.value.replace(/\D/g, "");
@@ -237,33 +233,25 @@ function StockModal({
     }));
   }
 
-  // Handle pieces per box change
-  function handlePiecesPerBoxChange(e) {
+  // Handle bulk unit conversion change
+  function handleBulkUnitConversionChange(e) {
     const numeric = e.target.value.replace(/\D/g, "");
     setLocalState((prev) => ({
       ...prev,
-      piecesPerBox: numeric,
+      tempBulkUnitConversion: numeric,
     }));
   }
 
-  // Handle toggling alternate units
-  function handleToggleAltSatuan(unit) {
-    if (unit === localState.tempDefaultSatuan) return; // Prevent adding default satuan
-
-    // Update local state
-    setLocalState((prev) => {
-      const updatedTempAltSatuan = prev.tempAltSatuan.includes(unit)
-        ? prev.tempAltSatuan.filter((u) => u !== unit)
-        : [...prev.tempAltSatuan, unit];
-
-      return {
-        ...prev,
-        tempAltSatuan: updatedTempAltSatuan,
-      };
-    });
+  // Handle bulk unit name change
+  function handleBulkUnitNameChange(e) {
+    const unit = e.target.value;
+    setLocalState((prev) => ({
+      ...prev,
+      tempBulkUnitName: unit,
+      // If setting bulk unit name to empty, clear its conversion
+      tempBulkUnitConversion: unit ? prev.tempBulkUnitConversion : "",
+    }));
   }
-
-  // Handle price change per unit
   function handlePriceChange(unit, val) {
     try {
       // Allow only numeric input first
@@ -347,237 +335,258 @@ function StockModal({
   // Add New Stock Modal
   if (dialogType === "addNew") {
     return (
-      <div className="stockmodal-overlay">
-        <div className="stockmodal-content">
-          <h2>Tambah Barang Baru</h2>
-          <div className="stockmodal-body">
-            <div className="form-group">
-              <label>Nama Barang</label>
-              <input
-                ref={firstFieldRef}
-                type="text"
-                value={localState.tempName}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempName: e.target.value,
-                  }))
-                }
-                className={formErrors.tempName ? "error" : ""}
-              />
-              {formErrors.tempName && (
-                <div className="error-message">{formErrors.tempName}</div>
-              )}
-            </div>
-            <div className="form-group">
-              <label>Doc ID (optional)</label>
-              <input
-                type="text"
-                value={localState.tempDocId}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempDocId: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div className="form-group">
-              <label>Kategori</label>
-              <select
-                value={localState.tempKategori}
-                onChange={handleKategoriChange}
-                className={formErrors.tempKategori ? "error" : ""}
-              >
-                {formErrors.tempKategori && (
-                  <div className="error-message">{formErrors.tempKategori}</div>
-                )}
-                <option value="">-- Pilih Kategori --</option>
-                {KATEGORI_CHOICES.map((kat) => (
-                  <option key={kat} value={kat}>
-                    {kat}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {localState.tempKategori === "Makanan" ||
-            localState.tempKategori === "Minuman" ||
-            localState.tempKategori === "Perawatan Diri" ||
-            localState.tempKategori === "ATK" ||
-            localState.tempKategori === "Kesehatan" ? (
-              <div className="form-group">
-                <label>Sub Kategori</label>
-                <select
-                  value={localState.tempSubKategori}
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
+          <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Tambah Barang Baru</h2>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl font-semibold leading-none">&times;</button>
+          </div>
+          <div className="p-6 overflow-y-auto flex-grow space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                <input
+                  ref={firstFieldRef}
+                  type="text"
+                  value={localState.tempName}
                   onChange={(e) =>
                     setLocalState((prev) => ({
                       ...prev,
-                      tempSubKategori: e.target.value,
+                      tempName: e.target.value,
                     }))
                   }
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                />
+                {formErrors.tempName && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempName}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Doc ID (opsional)</label>
+                <input
+                  type="text"
+                  value={localState.tempDocId}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempDocId: e.target.value,
+                    }))
+                  }
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                <select
+                  value={localState.tempKategori}
+                  onChange={handleKategoriChange}
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempKategori ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
                 >
-                  <option value="">-- Pilih SubKategori --</option>
-                  {subKategoriChoices.map((sub) => (
-                    <option key={sub} value={sub}>
-                      {sub}
+                  <option value="">-- Pilih Kategori --</option>
+                  {KATEGORI_CHOICES.map((kat) => (
+                    <option key={kat} value={kat}>
+                      {kat}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.tempKategori && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempKategori}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sub Kategori</label>
+                {localState.tempKategori === "Makanan" ||
+                localState.tempKategori === "Minuman" ||
+                localState.tempKategori === "Perawatan Diri" ||
+                localState.tempKategori === "ATK" ||
+                localState.tempKategori === "Kesehatan" ? (
+                  <select
+                    value={localState.tempSubKategori}
+                    onChange={(e) =>
+                      setLocalState((prev) => ({
+                        ...prev,
+                        tempSubKategori: e.target.value,
+                      }))
+                    }
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm"
+                  >
+                    <option value="">-- Pilih SubKategori --</option>
+                    {subKategoriChoices.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={localState.tempSubKategori}
+                    readOnly
+                    className="w-full p-2 border border-gray-200 bg-gray-50 rounded text-gray-500 text-sm outline-none cursor-not-allowed"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sumber Pasokan</label>
+                <select
+                  value={localState.tempTipeStock}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempTipeStock: e.target.value,
+                    }))
+                  }
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempTipeStock ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                >
+                  <option value="">-- Pilih Tipe --</option>
+                  {TIPE_STOCK_CHOICES.map((tipe) => (
+                    <option key={tipe} value={tipe}>
+                      {tipe}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.tempTipeStock && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempTipeStock}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Pemasok</label>
+                <select
+                  value={localState.tempNamaPemasok}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempNamaPemasok: e.target.value,
+                    }))
+                  }
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempNamaPemasok ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                >
+                  <option value="">-- Pilih Nama Pemasok --</option>
+                  {NAMA_PEMASOK_CHOICES.map((tipe) => (
+                    <option key={tipe} value={tipe}>
+                      {tipe}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.tempNamaPemasok && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempNamaPemasok}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Satuan Dasar (Wajib)</label>
+                <select
+                  value={localState.tempBaseUnit}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempBaseUnit: e.target.value,
+                    }))
+                  }
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempBaseUnit ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                  required
+                >
+                  <option value="">-- Pilih Satuan Dasar --</option>
+                  {SMALLEST_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.tempBaseUnit && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempBaseUnit}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Satuan Besar (Opsional)</label>
+                <select
+                  value={localState.tempBulkUnitName}
+                  onChange={handleBulkUnitNameChange}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm"
+                >
+                  <option value="">-- Tanpa Satuan Besar --</option>
+                  {BULK_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
                     </option>
                   ))}
                 </select>
               </div>
-            ) : (
-              <div className="form-group">
-                <label>Sub Kategori</label>
-                <input
-                  type="text"
-                  value={localState.tempSubKategori}
-                  readOnly
-                />
-              </div>
-            )}
-            <div className="form-group">
-              <label>Sumber Pasokan</label>
-              <select
-                value={localState.tempTipeStock}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempTipeStock: e.target.value,
-                  }))
-                }
-                className={formErrors.tempTipeStock ? "error" : ""}
-              >
-                {formErrors.tempTipeStock && (
-                  <div className="error-message">
-                    {formErrors.tempTipeStock}
-                  </div>
-                )}
-                <option value="">-- Pilih Sumber Pemasok --</option>
-                {TIPE_STOCK_CHOICES.map((tipe) => (
-                  <option key={tipe} value={tipe}>
-                    {tipe}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Nama Pemasok</label>
-              <select
-                value={localState.tempNamaPemasok}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempNamaPemasok: e.target.value,
-                  }))
-                }
-                className={formErrors.tempNamaPemasok ? "error" : ""}
-              >
-                {formErrors.tempNamaPemasok && (
-                  <div className="error-message">
-                    {formErrors.tempTipeStock}
-                  </div>
-                )}
-                <option value="">-- Pilih Nama Pemasok --</option>
-                {NAMA_PEMASOK_CHOICES.map((tipe) => (
-                  <option key={tipe} value={tipe}>
-                    {tipe}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Unit Terkecil (Wajib)</label>
-              <select
-                value={localState.tempDefaultSatuan}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempDefaultSatuan: e.target.value,
-                  }))
-                }
-                className={formErrors.tempDefaultSatuan ? "error" : ""}
-                required
-              >
-                {formErrors.tempDefaultSatuan && (
-                  <div className="error-message">
-                    {formErrors.tempDefaultSatuan}
-                  </div>
-                )}
-                <option value="">-- Pilih Unit Terkecil --</option>
-                {SMALLEST_UNITS.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Satuan Alternatif (Opsional)</label>
-              <div className="checkbox-group">
-                {ALT_UNITS.filter(
-                  (unit) => unit !== localState.tempDefaultSatuan
-                ).map((unit) => {
-                  const selected = localState.tempAltSatuan.includes(unit);
-                  return (
-                    <button
-                      type="button"
-                      key={unit}
-                      className={`pseudo-checkbox ${
-                        selected ? "selected" : ""
-                      }`}
-                      onClick={() => handleToggleAltSatuan(unit)}
-                    >
-                      {unit}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {localState.tempAltSatuan.includes("box") && (
-              <div className="form-group">
-                <label>Pieces per Box</label>
-                <input
-                  type="number"
-                  value={localState.piecesPerBox}
-                  onChange={handlePiecesPerBoxChange}
-                  placeholder="e.g. 10"
-                  min="1"
-                  className={formErrors.piecesPerBox ? "error" : ""}
-                  required
-                />
-                {formErrors.piecesPerBox && (
-                  <div className="error-message">{formErrors.piecesPerBox}</div>
-                )}
-              </div>
-            )}
-            <div className="form-group">
-              <label>Harga Jual per Satuan</label>
-              <div className="price-field-list">
-                {Array.from(
-                  new Set(
-                    [
-                      localState.tempDefaultSatuan,
-                      ...localState.tempAltSatuan,
-                    ].filter(Boolean)
-                  )
-                ).map((u) => (
-                  <div key={u} className="price-field">
-                    <span>{u}:</span>
+
+              {localState.tempBulkUnitName && (
+                <div className="md:col-span-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                  <label className="block text-sm font-semibold text-blue-900 mb-1">Konversi Satuan Besar</label>
+                  <div className="flex items-center text-sm text-gray-700 gap-1.5 mt-1">
+                    <span>1 {localState.tempBulkUnitName} = </span>
                     <input
-                      type="text"
-                      value={localState.tempPricePerUnit[u] || ""}
-                      onChange={(e) => handlePriceChange(u, e.target.value)}
-                      onFocus={(e) => e.target.select()}
-                      placeholder="e.g. 10.000"
-                      inputMode="numeric"
+                      type="number"
+                      value={localState.tempBulkUnitConversion}
+                      onChange={handleBulkUnitConversionChange}
+                      placeholder="e.g. 10"
+                      min="1"
+                      className={`w-24 p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm text-center bg-white ${
+                        formErrors.tempBulkUnitConversion ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                      }`}
+                      required
                     />
+                    <span className="font-semibold text-gray-900">{localState.tempBaseUnit || 'Satuan Dasar'}</span>
                   </div>
-                ))}
+                  {formErrors.tempBulkUnitConversion && (
+                    <span className="text-xs text-red-600 mt-1 block">{formErrors.tempBulkUnitConversion}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Harga Jual per Satuan */}
+              <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
+                <label className="block text-sm font-bold text-gray-900 mb-3">Harga Jual per Satuan</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {[localState.tempBaseUnit, localState.tempBulkUnitName].filter(Boolean).map((u) => (
+                    <div key={u} className="flex flex-col">
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{u}</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
+                        <input
+                          type="text"
+                          value={localState.tempPricePerUnit[u] || ""}
+                          onChange={(e) => handlePriceChange(u, e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          placeholder="e.g. 10.000"
+                          inputMode="numeric"
+                          className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white font-medium text-gray-900"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-          <div className="stockmodal-buttons">
-            <button onClick={onClose}>Batal</button>
+          <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
             <button
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              onClick={onClose}
+            >
+              Batal
+            </button>
+            <button
+              className="px-4 py-2 bg-primary hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
               onClick={() => {
                 if (validateForm("addNew")) {
                   onSave("addNew");
@@ -599,232 +608,259 @@ function StockModal({
     products[selectedProductId]
   ) {
     return (
-      <div className="stockmodal-overlay">
-        <div className="stockmodal-content">
-          <h2>Edit Stock</h2>
-          <div className="stockmodal-body">
-            <div className="form-group">
-              <label>Nama Barang</label>
-              <input
-                ref={firstFieldRef}
-                type="text"
-                value={localState.tempName}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempName: e.target.value,
-                  }))
-                }
-                className={formErrors.tempName ? "error" : ""}
-              />
-              {formErrors.tempName && (
-                <div className="error-message">{formErrors.tempName}</div>
-              )}
-            </div>
-            <div className="form-group">
-              <label>Item ID (Barcode)</label>
-              <input
-                type="text"
-                value={localState.tempItemId}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempItemId: e.target.value,
-                  }))
-                }
-                placeholder="Enter barcode ID"
-              />
-            </div>
-            <div className="form-group">
-              <label>Kategori</label>
-              <select
-                value={localState.tempKategori}
-                onChange={handleKategoriChange}
-                className={formErrors.tempKategori ? "error" : ""}
-              >
-                {formErrors.tempKategori && (
-                  <div className="error-message">{formErrors.tempKategori}</div>
-                )}
-                <option value="">-- Pilih Kategori --</option>
-                {KATEGORI_CHOICES.map((kat) => (
-                  <option key={kat} value={kat}>
-                    {kat}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {localState.tempKategori === "Makanan" ||
-            localState.tempKategori === "Minuman" ||
-            localState.tempKategori === "Perawatan Diri" ||
-            localState.tempKategori === "ATK" ||
-            localState.tempKategori === "Kesehatan" ? (
-              <div className="form-group">
-                <label>Sub Kategori</label>
-                <select
-                  value={localState.tempSubKategori}
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-2xl bg-white rounded-xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
+          <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Edit Stock</h2>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl font-semibold leading-none">&times;</button>
+          </div>
+          <div className="p-6 overflow-y-auto flex-grow space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Barang</label>
+                <input
+                  ref={firstFieldRef}
+                  type="text"
+                  value={localState.tempName}
                   onChange={(e) =>
                     setLocalState((prev) => ({
                       ...prev,
-                      tempSubKategori: e.target.value,
+                      tempName: e.target.value,
                     }))
                   }
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempName ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                />
+                {formErrors.tempName && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempName}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Item ID (Barcode)</label>
+                <input
+                  type="text"
+                  value={localState.tempItemId}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempItemId: e.target.value,
+                    }))
+                  }
+                  placeholder="Enter barcode ID"
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                <select
+                  value={localState.tempKategori}
+                  onChange={handleKategoriChange}
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempKategori ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
                 >
-                  <option value="">-- Pilih SubKategori --</option>
-                  {subKategoriChoices.map((sub) => (
-                    <option key={sub} value={sub}>
-                      {sub}
+                  <option value="">-- Pilih Kategori --</option>
+                  {KATEGORI_CHOICES.map((kat) => (
+                    <option key={kat} value={kat}>
+                      {kat}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.tempKategori && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempKategori}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sub Kategori</label>
+                {localState.tempKategori === "Makanan" ||
+                localState.tempKategori === "Minuman" ||
+                localState.tempKategori === "Perawatan Diri" ||
+                localState.tempKategori === "ATK" ||
+                localState.tempKategori === "Kesehatan" ? (
+                  <select
+                    value={localState.tempSubKategori}
+                    onChange={(e) =>
+                      setLocalState((prev) => ({
+                        ...prev,
+                        tempSubKategori: e.target.value,
+                      }))
+                    }
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm"
+                  >
+                    <option value="">-- Pilih SubKategori --</option>
+                    {subKategoriChoices.map((sub) => (
+                      <option key={sub} value={sub}>
+                        {sub}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={localState.tempSubKategori}
+                    readOnly
+                    className="w-full p-2 border border-gray-200 bg-gray-50 rounded text-gray-500 text-sm outline-none cursor-not-allowed"
+                  />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sumber Pasokan</label>
+                <select
+                  value={localState.tempTipeStock}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempTipeStock: e.target.value,
+                    }))
+                  }
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempTipeStock ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                >
+                  <option value="">-- Pilih Tipe --</option>
+                  {TIPE_STOCK_CHOICES.map((tipe) => (
+                    <option key={tipe} value={tipe}>
+                      {tipe}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.tempTipeStock && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempTipeStock}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Pemasok</label>
+                <select
+                  value={localState.tempNamaPemasok}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempNamaPemasok: e.target.value,
+                    }))
+                  }
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempNamaPemasok ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                >
+                  <option value="">-- Pilih Nama Pemasok --</option>
+                  {NAMA_PEMASOK_CHOICES.map((tipe) => (
+                    <option key={tipe} value={tipe}>
+                      {tipe}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.tempNamaPemasok && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempNamaPemasok}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Satuan Dasar (Wajib)</label>
+                <select
+                  value={localState.tempBaseUnit}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempBaseUnit: e.target.value,
+                    }))
+                  }
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempBaseUnit ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                  required
+                >
+                  <option value="">-- Pilih Satuan Dasar --</option>
+                  {SMALLEST_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.tempBaseUnit && (
+                  <span className="text-xs text-red-600 mt-1 block">{formErrors.tempBaseUnit}</span>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Satuan Besar (Opsional)</label>
+                <select
+                  value={localState.tempBulkUnitName}
+                  onChange={handleBulkUnitNameChange}
+                  className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm"
+                >
+                  <option value="">-- Tanpa Satuan Besar --</option>
+                  {BULK_UNITS.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
                     </option>
                   ))}
                 </select>
               </div>
-            ) : (
-              <div className="form-group">
-                <label>Sub Kategori</label>
-                <input
-                  type="text"
-                  value={localState.tempSubKategori}
-                  readOnly
-                />
-              </div>
-            )}
-            <div className="form-group">
-              <label>Sumber Pasokan</label>
-              <select
-                value={localState.tempTipeStock}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempTipeStock: e.target.value,
-                  }))
-                }
-                className={formErrors.tempTipeStock ? "error" : ""}
-              >
-                {formErrors.tempTipeStock && (
-                  <div className="error-message">
-                    {formErrors.tempTipeStock}
-                  </div>
-                )}
-                <option value="">-- Pilih Tipe --</option>
-                {TIPE_STOCK_CHOICES.map((tipe) => (
-                  <option key={tipe} value={tipe}>
-                    {tipe}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Nama Pemasok</label>
-              <select
-                value={localState.tempNamaPemasok}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempNamaPemasok: e.target.value,
-                  }))
-                }
-                className={formErrors.tempNamaPemasok ? "error" : ""}
-              >
-                {formErrors.tempNamaPemasok && (
-                  <div className="error-message">
-                    {formErrors.tempTipeStock}
-                  </div>
-                )}
-                <option value="">-- Pilih Nama Pemasok --</option>
-                {NAMA_PEMASOK_CHOICES.map((tipe) => (
-                  <option key={tipe} value={tipe}>
-                    {tipe}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Satuan Terkecil (Wajib)</label>
-              <select
-                value={localState.tempDefaultSatuan}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempDefaultSatuan: e.target.value,
-                  }))
-                }
-                className={formErrors.tempDefaultSatuan ? "error" : ""}
-                required
-              >
-                {formErrors.tempDefaultSatuan && (
-                  <div className="error-message">
-                    {formErrors.tempDefaultSatuan}
-                  </div>
-                )}
-                <option value="">-- Pilih Satuan Terkecil --</option>
-                {SMALLEST_UNITS.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Satuan Alternatif (Opsional)</label>
-              <div className="checkbox-group">
-                {ALT_UNITS.filter(
-                  (unit) => unit !== localState.tempDefaultSatuan
-                ).map((unit) => {
-                  const selected = localState.tempAltSatuan.includes(unit);
-                  return (
-                    <button
-                      type="button"
-                      key={unit}
-                      className={`pseudo-checkbox ${
-                        selected ? "selected" : ""
-                      }`}
-                      onClick={() => handleToggleAltSatuan(unit)}
-                    >
-                      {unit}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            {boxIsSelected && (
-              <div className="form-group">
-                <label>Pieces per Box</label>
-                <input
-                  type="text"
-                  value={localState.piecesPerBox}
-                  onChange={handlePiecesPerBoxChange}
-                  placeholder="e.g. 10"
-                />
-              </div>
-            )}
-            <div className="form-group">
-              <label>Harga per Unit</label>
-              <div className="price-field-list">
-                {Array.from(
-                  new Set(
-                    [
-                      localState.tempDefaultSatuan,
-                      ...localState.tempAltSatuan,
-                    ].filter(Boolean)
-                  )
-                ).map((u) => (
-                  <div key={u} className="price-field">
-                    <span>{u}:</span>
+
+              {localState.tempBulkUnitName && (
+                <div className="md:col-span-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                  <label className="block text-sm font-semibold text-blue-900 mb-1">Konversi Satuan Besar</label>
+                  <div className="flex items-center text-sm text-gray-700 gap-1.5 mt-1">
+                    <span>1 {localState.tempBulkUnitName} = </span>
                     <input
-                      type="text"
-                      value={localState.tempPricePerUnit[u] || ""}
-                      onChange={(e) => handlePriceChange(u, e.target.value)}
-                      onFocus={(e) => e.target.select()}
-                      placeholder="e.g. 10.000"
-                      inputMode="numeric"
+                      type="number"
+                      value={localState.tempBulkUnitConversion}
+                      onChange={handleBulkUnitConversionChange}
+                      placeholder="e.g. 10"
+                      min="1"
+                      className={`w-24 p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm text-center bg-white ${
+                        formErrors.tempBulkUnitConversion ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                      }`}
+                      required
                     />
+                    <span className="font-semibold text-gray-900">{localState.tempBaseUnit || 'Satuan Dasar'}</span>
                   </div>
-                ))}
+                  {formErrors.tempBulkUnitConversion && (
+                    <span className="text-xs text-red-600 mt-1 block">{formErrors.tempBulkUnitConversion}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Harga Jual per Satuan */}
+              <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
+                <label className="block text-sm font-bold text-gray-900 mb-3">Harga Jual per Satuan</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {[localState.tempBaseUnit, localState.tempBulkUnitName].filter(Boolean).map((u) => (
+                    <div key={u} className="flex flex-col">
+                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{u}</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
+                        <input
+                          type="text"
+                          value={localState.tempPricePerUnit[u] || ""}
+                          onChange={(e) => handlePriceChange(u, e.target.value)}
+                          onFocus={(e) => e.target.select()}
+                          placeholder="e.g. 10.000"
+                          inputMode="numeric"
+                          className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white font-medium text-gray-900"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-          <div className="stockmodal-buttons">
-            <button onClick={onClose}>Batal</button>
+          <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
             <button
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              onClick={onClose}
+            >
+              Batal
+            </button>
+            <button
+              className="px-4 py-2 bg-primary hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
               onClick={() => {
                 if (validateForm("edit")) {
                   onSave("edit");
@@ -850,11 +886,19 @@ function StockModal({
         <div className="stockmodal-content">
           <h2>Tambah Stok</h2>
           <div className="stockmodal-body">
-            {products[selectedProductId]?.satuan?.includes("box") && (
-              <p>
-                <b>Pieces/Box:</b> {products[selectedProductId].piecesPerBox}
-              </p>
-            )}
+            {(() => {
+              const prod = products[selectedProductId];
+              const conv = prod.bulk_unit_conversion || prod.piecesPerBox;
+              const name = prod.bulk_unit_name || (prod.satuan ? prod.satuan.find(u => u !== (prod.base_unit || prod.smallestUnit)) : "");
+              if (name && conv) {
+                return (
+                  <p>
+                    <b>1 {name} =</b> {conv} {prod.base_unit || prod.smallestUnit}
+                  </p>
+                );
+              }
+              return null;
+            })()}
             <div className="form-group">
               <label>Jumlah dan Satuan</label>
               <div className="input-group">
@@ -886,11 +930,17 @@ function StockModal({
                   {formErrors.tempSatuan && (
                     <div className="error-message">{formErrors.tempSatuan}</div>
                   )}
-                  {(products[selectedProductId]?.satuan || []).map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
+                  {(() => {
+                    const prod = products[selectedProductId];
+                    const base = prod.base_unit || prod.smallestUnit || "";
+                    const bulk = prod.bulk_unit_name || (prod.satuan ? prod.satuan.find(u => u !== base) : "");
+                    const options = prod.satuan || [base, bulk].filter(Boolean);
+                    return options.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ));
+                  })()}
                 </select>
               </div>
             </div>
@@ -935,11 +985,19 @@ function StockModal({
         <div className="stockmodal-content">
           <h2>Tetapkan Stok</h2>
           <div className="stockmodal-body">
-            {products[selectedProductId].satuan.includes("box") && (
-              <p>
-                <b>Pieces/Box:</b> {products[selectedProductId].piecesPerBox}
-              </p>
-            )}
+            {(() => {
+              const prod = products[selectedProductId];
+              const conv = prod.bulk_unit_conversion || prod.piecesPerBox;
+              const name = prod.bulk_unit_name || (prod.satuan ? prod.satuan.find(u => u !== (prod.base_unit || prod.smallestUnit)) : "");
+              if (name && conv) {
+                return (
+                  <p>
+                    <b>1 {name} =</b> {conv} {prod.base_unit || prod.smallestUnit}
+                  </p>
+                );
+              }
+              return null;
+            })()}
             <div className="form-group">
               <label>Jumlah</label>
               <input
@@ -968,11 +1026,17 @@ function StockModal({
                 {formErrors.tempSatuan && (
                   <div className="error-message">{formErrors.tempSatuan}</div>
                 )}
-                {products[selectedProductId].satuan.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {unit}
-                  </option>
-                ))}
+                {(() => {
+                  const prod = products[selectedProductId];
+                  const base = prod.base_unit || prod.smallestUnit || "";
+                  const bulk = prod.bulk_unit_name || (prod.satuan ? prod.satuan.find(u => u !== base) : "");
+                  const options = prod.satuan || [base, bulk].filter(Boolean);
+                  return options.map((unit) => (
+                    <option key={unit} value={unit}>
+                      {unit}
+                    </option>
+                  ));
+                })()}
               </select>
             </div>
             <div className="form-group">

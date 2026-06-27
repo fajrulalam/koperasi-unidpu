@@ -537,10 +537,7 @@ const Transaksi = () => {
         }));
       } else {
         // Normal (non-scanner) mode: use the existing conversion logic.
-        const convertedQty = convertToSmallestUnit(quantity, satuan, {
-          smallestUnit: product.smallestUnit,
-          piecesPerBox: product.piecesPerBox,
-        });
+        const convertedQty = convertToSmallestUnit(quantity, satuan, product);
         const existingConverted = convertToSmallestUnit(
           existingProduct.quantity,
           existingProduct.satuan,
@@ -567,6 +564,9 @@ const Transaksi = () => {
         pricePerUnit: product.pricePerUnit,
         smallestUnit: product.smallestUnit,
         piecesPerBox: product.piecesPerBox,
+        base_unit: product.base_unit || product.smallestUnit,
+        bulk_unit_name: product.bulk_unit_name || "",
+        bulk_unit_conversion: product.bulk_unit_conversion || product.piecesPerBox,
       };
       setProducts([...products, newProduct]);
       setTotal(total + newProduct.subtotal);
@@ -672,10 +672,7 @@ const Transaksi = () => {
         let convertedQty = convertToSmallestUnit(
           product.quantity,
           product.satuan,
-          {
-            smallestUnit: stockData.smallestUnit,
-            piecesPerBox: stockData.piecesPerBox,
-          }
+          stockData
         );
 
         // Check if there's a stock discrepancy
@@ -775,10 +772,7 @@ const Transaksi = () => {
         let convertedQty = convertToSmallestUnit(
           product.quantity,
           product.satuan,
-          {
-            smallestUnit: stockData.smallestUnit, // Now properly handles all conversions
-            piecesPerBox: stockData.piecesPerBox,
-          }
+          stockData
         );
 
         // No additional mass unit conversion needed - our updated convertToSmallestUnit function
@@ -916,19 +910,20 @@ const Transaksi = () => {
         const stockProduct = productData[p.id];
         const oldSatuan = p.satuan;
         // Convert current quantity to the smallest unit
-        const inSmallest = convertToSmallestUnit(p.quantity, oldSatuan, {
-          smallestUnit: stockProduct.smallestUnit,
-          piecesPerBox: stockProduct.piecesPerBox,
-        });
+        const inSmallest = convertToSmallestUnit(p.quantity, oldSatuan, stockProduct);
+
+        const baseUnit = stockProduct.base_unit || stockProduct.smallestUnit;
+        const bulkUnitName = stockProduct.bulk_unit_name || "box";
+        const bulkUnitConversion = stockProduct.bulk_unit_conversion || stockProduct.piecesPerBox;
 
         let newQuantity;
-        if (newSatuan === "box") {
-          newQuantity = inSmallest / stockProduct.piecesPerBox;
+        if (newSatuan === bulkUnitName) {
+          newQuantity = inSmallest / bulkUnitConversion;
         } else {
           // We use the conversion table to recalc the quantity.
           newQuantity =
             (inSmallest / CONVERSION_TABLE[newSatuan]) *
-            CONVERSION_TABLE[stockProduct.smallestUnit];
+            CONVERSION_TABLE[baseUnit];
         }
 
         const newPrice = p.pricePerUnit[newSatuan];
@@ -1240,18 +1235,12 @@ const Transaksi = () => {
                       const requestedQty = convertToSmallestUnit(
                         product.quantity,
                         product.satuan,
-                        {
-                          smallestUnit: productStockData.smallestUnit,
-                          piecesPerBox: productStockData.piecesPerBox,
-                        }
+                        productStockData
                       );
 
                       // Convert stock back to the display unit and round to nearest integer
                       const stockInDisplayUnit = Math.round(
-                        convertFromSmallestUnit(currentStock, product.satuan, {
-                          smallestUnit: productStockData.smallestUnit,
-                          piecesPerBox: productStockData.piecesPerBox,
-                        })
+                        convertFromSmallestUnit(currentStock, product.satuan, productStockData)
                       );
 
                       // Check if quantity exceeds stock

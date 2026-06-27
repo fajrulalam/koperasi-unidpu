@@ -46,55 +46,16 @@ function getTimestampString() {
 }
 
 // Constants
-const KATEGORI_CHOICES = [
-  "Makanan",
-  "Minuman",
-  "Sembako",
-  "ATK",
-  "Kewanitaan",
-  "Obat-Obatan",
-  "Lainnya",
-];
-
-const SUBKATEGORI_MAKANAN = [
-  "Makanan ringan",
-  "Makanan berat",
-  "Gorengan",
-  "Makanan Manis",
-  "Lainnya",
-];
-
-const SUBKATEGORI_MINUMAN = [
-  "Susu",
-  "Soda",
-  "Jus/Sari Buah",
-  "Mineral",
-  "Teh",
-  "Kopi",
-  "Lainnya",
-];
-
-const SUBKATEGORI_OBAT = [
-  "Suplemen/Vitamin",
-  "Obat Batuk",
-  "Obat Sakit Kepala",
-  "Obat demam",
-  "Obat Flu",
-  "Obat Luka",
-  "Lainnya",
-];
-
-const TIPE_STOCK_CHOICES = ["Produksi sendiri", "Kulak", "Titipan", "Lainnya"];
-const SMALLEST_UNITS = ["pcs", "gram", "ons", "kg"];
-const ALT_UNITS = ["box", "kg", "kwintal", "ton", "ons"];
 const initialProductData = {};
 
-// Summary Card Component
+// Summary Card Component (styled like SDRG's StatCard)
 const SummaryCard = ({ title, value, color }) => (
-  <div className="stock-summary-card">
-    <div className="stock-card-title">{title}</div>
-    <div className="stock-card-value" style={{ color }}>
-      Rp{formatRupiah(Math.round(value))}
+  <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between min-h-[140px]">
+    <div>
+      <h3 className="text-gray-500 font-bold uppercase tracking-wider text-xs mb-4 text-center">{title}</h3>
+      <p className={`text-3xl font-bold text-center ${color}`}>
+        Rp {formatRupiah(Math.round(value))}
+      </p>
     </div>
   </div>
 );
@@ -122,6 +83,7 @@ export default function Stocks() {
   );
   const [selectedItems, setSelectedItems] = useState({});
   const [showDropdown, setShowDropdown] = useState(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
   // Sorting states
@@ -153,46 +115,38 @@ export default function Stocks() {
   const [tempSatuan, setTempSatuan] = useState("");
   const [tempCost, setTempCost] = useState("");
   const [tempName, setTempName] = useState("");
-  const [tempDefaultSatuan, setTempDefaultSatuan] = useState("");
-  const [tempAltSatuan, setTempAltSatuan] = useState([]);
+  const [tempBaseUnit, setTempBaseUnit] = useState("");
+  const [tempBulkUnitName, setTempBulkUnitName] = useState("");
   const [tempPricePerUnit, setTempPricePerUnit] = useState({});
   const [tempKategori, setTempKategori] = useState("");
   const [tempSubKategori, setTempSubKategori] = useState("");
   const [tempTipeStock, setTempTipeStock] = useState("");
   const [tempNamaPemasok, setTempNamaPemasok] = useState("");
-  const [piecesPerBox, setPiecesPerBox] = useState("");
+  const [tempBulkUnitConversion, setTempBulkUnitConversion] = useState("");
   const [tempDocId, setTempDocId] = useState("");
   const [tempItemId, setTempItemId] = useState("");
 
   // Refs
   const dropdownRef = useRef(null);
-  const tableHeaderRef = useRef(null);
   const firstFieldRef = useRef(null);
-
-  // Constants
-  const CONVERSION_TABLE = {
-    kwintal: 100000, // 1 kwintal = 100 kg = 100,000 grams
-    ton: 1000000, // 1 ton = 1000 kg = 1,000,000 grams
-    kg: 1000, // 1 kg = 1000 grams
-    ons: 100, // 1 ons = 100 grams
-    gram: 1,
-    pcs: 1,
-  };
 
   // ***** UTILITY FUNCTIONS *****
 
-  // Add this utility function for unit conversions
   function convertToSmallestUnit(quantity, unit, product) {
-    if (quantity == null || !unit || !product.smallestUnit) {
+    const baseUnit = product.base_unit || product.smallestUnit;
+    const bulkUnitName = product.bulk_unit_name || "box";
+    const bulkUnitConversion = product.bulk_unit_conversion || product.piecesPerBox;
+
+    if (quantity == null || !unit || !baseUnit) {
       throw new Error("Missing required parameters for conversion");
     }
 
-    // Handle box conversion first
-    if (unit === "box") {
-      if (!product.piecesPerBox) {
-        throw new Error("Pieces per box not defined for this product");
+    // Handle bulk unit conversion first
+    if (unit === bulkUnitName) {
+      if (!bulkUnitConversion) {
+        throw new Error("Pieces per box or bulk conversion not defined for this product");
       }
-      return quantity * product.piecesPerBox;
+      return quantity * bulkUnitConversion;
     }
 
     // For weight-based conversions
@@ -209,19 +163,20 @@ export default function Stocks() {
     };
 
     // If the unit or product's smallest unit isn't in our conversion table
-    if (!weightConversions[unit] || !weightConversions[product.smallestUnit]) {
+    if (!weightConversions[unit] || !weightConversions[baseUnit]) {
       throw new Error("Invalid unit for conversion");
     }
 
     // Convert to grams first, then to target unit
     const valueInGrams = quantity * weightConversions[unit];
-    const result = valueInGrams / weightConversions[product.smallestUnit];
+    const result = valueInGrams / weightConversions[baseUnit];
 
     return result;
   }
 
   function computeNilaiFormatted(prod) {
-    if (!prod.smallestUnit || !prod.pricePerUnit[prod.smallestUnit]) return "0";
+    const baseUnit = prod.base_unit || prod.smallestUnit;
+    if (!baseUnit || !prod.pricePerUnit[baseUnit]) return "0";
     return formatRupiah(Math.round(prod.stockValue));
   }
 
@@ -231,54 +186,32 @@ export default function Stocks() {
     return formatRupiah(avgKulakPrice);
   }
 
-  function computeProfitMargin(prod) {
-    const p =
-      prod.pricePerUnit[prod.smallestUnit] -
-      Math.round(prod.stockValue / prod.stock);
-    return formatRupiah(p);
-  }
-
   function computeHargaFormatted(prod) {
-    if (!prod.smallestUnit || !prod.pricePerUnit[prod.smallestUnit]) return "0";
+    const baseUnit = prod.base_unit || prod.smallestUnit;
+    if (!baseUnit || !prod.pricePerUnit[baseUnit]) return "0";
     const p =
-      typeof prod.pricePerUnit[prod.smallestUnit] === "number"
-        ? prod.pricePerUnit[prod.smallestUnit]
-        : parseRupiah(prod.pricePerUnit[prod.smallestUnit]);
+      typeof prod.pricePerUnit[baseUnit] === "number"
+        ? prod.pricePerUnit[baseUnit]
+        : parseRupiah(prod.pricePerUnit[baseUnit]);
     return formatRupiah(p);
   }
-
-  // Function to properly capitalize for display
-  const capitalizeForDisplay = (str) => {
-    if (!str) return "";
-    return str
-      .split(" ")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-      .join(" ");
-  };
 
   // ***** EVENT HANDLERS *****
 
-  function handleAmountChange(e) {
-    // Allow only numeric input
-    const numericValue = e.target.value.replace(/\D/g, "");
-    setTempAmount(numericValue);
+  function handleActionClick(e, productId) {
+    e.stopPropagation();
+    if (showDropdown === productId) {
+      setShowDropdown(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.right - 192,
+      });
+      setShowDropdown(productId);
+    }
   }
-
-  function handleCostChange(e) {
-    setTempCost(formatRupiah(e.target.value));
-  }
-
-  function handlePiecesPerBoxChange(e) {
-    const numeric = e.target.value.replace(/\D/g, "");
-    setPiecesPerBox(numeric);
-  }
-
-  function handleActionClick(productId) {
-    setShowDropdown((prev) => (prev === productId ? null : productId));
-  }
-
   function openDialog(type, productId) {
-    // Check if product exists for relevant dialogs
     if (type !== "addNew" && !products[productId]) {
       alert("Product not found!");
       return;
@@ -288,10 +221,13 @@ export default function Stocks() {
     if (type === "tambah" || type === "tetapkan") {
       const prod = productId ? products[productId] : null;
       setTempAmount("");
-      // Use optional chaining and default to empty array
-      setTempSatuan(prod?.smallestUnit || prod?.satuan?.[0] || "");
+      setTempSatuan(prod?.base_unit || prod?.smallestUnit || prod?.satuan?.[0] || "");
       setTempCost("");
-      setPiecesPerBox(prod?.piecesPerBox ? String(prod.piecesPerBox) : "");
+      setTempBulkUnitConversion(
+        prod?.bulk_unit_conversion || prod?.piecesPerBox
+          ? String(prod.bulk_unit_conversion || prod.piecesPerBox)
+          : ""
+      );
       setTempKategori(prod?.kategori || "");
       setTempSubKategori(prod?.subKategori || "");
       setTempTipeStock(prod?.tipeStock || "");
@@ -303,13 +239,20 @@ export default function Stocks() {
       setTempKategori(prod.kategori || "");
       setTempSubKategori(prod.subKategori || "");
       setTempTipeStock(prod.tipeStock || "");
-      setOriginalSmallestUnit(prod.smallestUnit);
-      setTempName(prod.name);
-      // Ensure satuan is an array
-      const satuan = prod.satuan || [];
-      setTempDefaultSatuan(prod.smallestUnit || satuan[0]);
-      const alt = satuan.filter((u) => u !== prod.smallestUnit);
-      setTempAltSatuan(alt);
+      
+      const baseUnit = prod.base_unit || prod.smallestUnit || (prod.satuan || [])[0] || "";
+      setOriginalSmallestUnit(baseUnit);
+      setTempBaseUnit(baseUnit);
+      
+      const bulkUnitName = prod.bulk_unit_name || ((prod.satuan || []).find((u) => u !== baseUnit) || "");
+      setTempBulkUnitName(bulkUnitName);
+      
+      setTempBulkUnitConversion(
+        prod.bulk_unit_conversion || prod.piecesPerBox
+          ? String(prod.bulk_unit_conversion || prod.piecesPerBox)
+          : ""
+      );
+      
       setTempPricePerUnit(
         Object.keys(prod.pricePerUnit || {}).reduce((acc, key) => {
           acc[key] = formatRupiah(prod.pricePerUnit[key]);
@@ -318,8 +261,8 @@ export default function Stocks() {
       );
     } else if (type === "addNew") {
       setTempName("");
-      setTempDefaultSatuan("");
-      setTempAltSatuan([]);
+      setTempBaseUnit("");
+      setTempBulkUnitName("");
       setTempPricePerUnit({});
       setTempAmount("");
       setTempSatuan("");
@@ -327,7 +270,7 @@ export default function Stocks() {
       setTempKategori("");
       setTempSubKategori("");
       setTempTipeStock("");
-      setPiecesPerBox("");
+      setTempBulkUnitConversion("");
       setTempDocId("");
     }
     setDialogOpen(true);
@@ -339,13 +282,13 @@ export default function Stocks() {
     setTempKategori("");
     setTempSubKategori("");
     setTempTipeStock("");
-    setTempDefaultSatuan("");
-    setTempAltSatuan([]);
+    setTempBaseUnit("");
+    setTempBulkUnitName("");
     setTempPricePerUnit({});
     setTempAmount("");
     setTempSatuan("");
     setTempCost("");
-    setPiecesPerBox("");
+    setTempBulkUnitConversion("");
     setTempDocId("");
     setTempItemId("");
 
@@ -353,7 +296,6 @@ export default function Stocks() {
     setDialogType("");
     setSelectedProductId(null);
   }
-
   const showSuccessMessage = (message) => {
     setSnackbar({ open: true, message });
     setTimeout(() => setSnackbar((o) => ({ ...o, open: false })), 3000);
@@ -382,20 +324,7 @@ export default function Stocks() {
     }));
   };
 
-  function handleToggleAltSatuan(unit) {
-    if (unit === tempDefaultSatuan) return; // Prevent adding default satuan
-    setTempAltSatuan((prev) => {
-      if (prev.includes(unit)) {
-        return prev.filter((u) => u !== unit);
-      }
-      return [...prev, unit];
-    });
-  }
 
-  function handlePriceChange(unit, val) {
-    const formatted = formatRupiah(val);
-    setTempPricePerUnit((prev) => ({ ...prev, [unit]: formatted }));
-  }
 
   // Function to handle click on sortable column headers
   const requestSort = (key) => {
@@ -462,8 +391,7 @@ export default function Stocks() {
       });
 
       console.log(
-        `Fetching summary data from ${
-          isProduction ? "production" : "testing"
+        `Fetching summary data from ${isProduction ? "production" : "testing"
         } environment`
       );
     } catch (error) {
@@ -508,8 +436,7 @@ export default function Stocks() {
 
       // Log the collection path to verify it's using the correct environment
       console.log(
-        `Fetching stocks from ${
-          isProduction ? "production" : "testing"
+        `Fetching stocks from ${isProduction ? "production" : "testing"
         } environment`
       );
     } catch (error) {
@@ -527,35 +454,39 @@ export default function Stocks() {
       // Special handling for derived fields
       if (key === "profitMargin") {
         // Calculate profit margin for both products
+        const aBaseUnit = a.base_unit || a.smallestUnit;
+        const bBaseUnit = b.base_unit || b.smallestUnit;
         const aMargin =
           a.pricePerUnit &&
-          a.pricePerUnit[a.smallestUnit] &&
-          a.stock &&
-          a.stockValue
-            ? a.pricePerUnit[a.smallestUnit] -
-              Math.round(a.stockValue / a.stock)
+            a.pricePerUnit[aBaseUnit] &&
+            a.stock &&
+            a.stockValue
+            ? a.pricePerUnit[aBaseUnit] -
+            Math.round(a.stockValue / a.stock)
             : 0;
 
         const bMargin =
           b.pricePerUnit &&
-          b.pricePerUnit[b.smallestUnit] &&
-          b.stock &&
-          b.stockValue
-            ? b.pricePerUnit[b.smallestUnit] -
-              Math.round(b.stockValue / b.stock)
+            b.pricePerUnit[bBaseUnit] &&
+            b.stock &&
+            b.stockValue
+            ? b.pricePerUnit[bBaseUnit] -
+            Math.round(b.stockValue / b.stock)
             : 0;
 
         aValue = aMargin;
         bValue = bMargin;
       } else if (key === "pricePerUnit") {
-        // Sort by price in the smallest unit
+        // Sort by price in the base/smallest unit
+        const aBaseUnit = a.base_unit || a.smallestUnit;
+        const bBaseUnit = b.base_unit || b.smallestUnit;
         aValue =
-          a.pricePerUnit && a.pricePerUnit[a.smallestUnit]
-            ? a.pricePerUnit[a.smallestUnit]
+          a.pricePerUnit && a.pricePerUnit[aBaseUnit]
+            ? a.pricePerUnit[aBaseUnit]
             : 0;
         bValue =
-          b.pricePerUnit && b.pricePerUnit[b.smallestUnit]
-            ? b.pricePerUnit[b.smallestUnit]
+          b.pricePerUnit && b.pricePerUnit[bBaseUnit]
+            ? b.pricePerUnit[bBaseUnit]
             : 0;
       } else if (key === "averageKulak") {
         // Sort by average kulak price
@@ -569,8 +500,13 @@ export default function Stocks() {
             : 0;
       } else {
         // Standard property sorting
-        aValue = a[key];
-        bValue = b[key];
+        if (key === "smallestUnit") {
+          aValue = a.base_unit || a.smallestUnit;
+          bValue = b.base_unit || b.smallestUnit;
+        } else {
+          aValue = a[key];
+          bValue = b[key];
+        }
       }
 
       // Handle string comparison case-insensitive
@@ -606,37 +542,29 @@ export default function Stocks() {
       { A: `Data Stock Tanggal: ${formattedDate}` },
       { A: "" }, // Empty row as separator
     ];
-
-    // Create the data for the Excel sheet
     const data = filteredProducts.map((p) => ({
       Nama: p.name,
       Kategori: p.kategori,
       SubKategori: p.subKategori,
       "Sumber Pasokan": p.tipeStock,
       "Jumlah Stock": p.stock,
-      Satuan: p.smallestUnit,
-      "Harga Jual": `Rp ${computeHargaFormatted(p)}/${p.smallestUnit}`,
-      "Harga Kulak (avg)": `Rp ${computeAverageKulakPrice(p)}/${
-        p.smallestUnit
-      }`,
+      Satuan: p.base_unit || p.smallestUnit,
+      "Harga Jual": `Rp ${computeHargaFormatted(p)}/${p.base_unit || p.smallestUnit}`,
+      "Harga Kulak (avg)": `Rp ${computeAverageKulakPrice(p)}/${p.base_unit || p.smallestUnit}`,
       "Nilai Total Stock": `Rp ${computeNilaiFormatted(p)}`,
     }));
 
-    // Create the worksheet
     const worksheet = XLSX.utils.json_to_sheet([]);
 
-    // Add date metadata at the top
     XLSX.utils.sheet_add_json(worksheet, metadata, {
       skipHeader: true,
       origin: "A1",
     });
 
-    // Add the product data starting from row 3
     XLSX.utils.sheet_add_json(worksheet, data, {
       origin: "A3",
       skipHeader: false,
     });
-
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Stocks");
     XLSX.writeFile(workbook, `stock_data_${formattedDate}.xlsx`);
@@ -692,15 +620,13 @@ export default function Stocks() {
       Satuan: p.smallestUnit || "",
       "Harga Jual":
         p.pricePerUnit && p.smallestUnit && p.pricePerUnit[p.smallestUnit]
-          ? `Rp ${formatRupiah(p.pricePerUnit[p.smallestUnit])}/${
-              p.smallestUnit
-            }`
+          ? `Rp ${formatRupiah(p.pricePerUnit[p.smallestUnit])}/${p.smallestUnit
+          }`
           : "Rp 0",
       "Harga Kulak (avg)":
         p.stock && p.stock > 0 && p.stockValue
-          ? `Rp ${formatRupiah(Math.round(p.stockValue / p.stock))}/${
-              p.smallestUnit
-            }`
+          ? `Rp ${formatRupiah(Math.round(p.stockValue / p.stock))}/${p.smallestUnit
+          }`
           : "Rp 0",
       "Nilai Total Stock": p.stockValue
         ? `Rp ${formatRupiah(Math.round(p.stockValue))}`
@@ -802,10 +728,9 @@ export default function Stocks() {
       // --- Calculate Tag Content ---
       // Get price value (handle potential missing price)
       const priceValue =
-        product.pricePerUnit && product.pricePerUnit[product.smallestUnit]
-          ? formatRupiah(product.pricePerUnit[product.smallestUnit]) // Assumes formatRupiah returns a string like "7.500"
+        product.pricePerUnit && product.pricePerUnit[product.base_unit || product.smallestUnit]
+          ? formatRupiah(product.pricePerUnit[product.base_unit || product.smallestUnit])
           : "0";
-      // Get and format product name
       const productName = product.name ? product.name.toUpperCase() : "N/A";
 
       // --- Draw Tag Border ---
@@ -954,36 +879,7 @@ export default function Stocks() {
     // Use the passed type parameter or fallback to dialogType
     const currentDialogType = type || dialogType;
 
-    const getFormattedTimestamp = () => {
-      const date = new Date();
-      const options = {
-        timeZone: "Asia/Jakarta",
-        weekday: "long",
-        year: "numeric",
-        month: "numeric",
-        day: "numeric",
-        hour: "numeric",
-        minute: "numeric",
-        hour12: false,
-      };
-
-      const formatter = new Intl.DateTimeFormat("id-ID", options);
-      const [
-        { value: day },
-        { value: dayNum },
-        { value: month },
-        { value: year },
-        { value: hour },
-        { value: minute },
-      ] = formatter.formatToParts(date);
-
-      return `${day}, ${dayNum} ${month} ${year} ${hour}:${minute} WIB`;
-    };
-
-    const amountValue = parseRupiah(tempAmount);
     const costValue = parseRupiah(tempCost);
-    const boxIsSelected =
-      tempDefaultSatuan === "box" || tempAltSatuan.includes("box");
 
     const createBaseTransactionDoc = (prod) => ({
       itemId: prod.itemId,
@@ -1001,18 +897,18 @@ export default function Stocks() {
         !tempName.trim() ||
         !tempKategori ||
         !tempTipeStock ||
-        !tempDefaultSatuan ||
+        !tempBaseUnit ||
         (tempKategori === "Makanan" ||
-        tempKategori === "Minuman" ||
-        tempKategori === "Obat-Obatan"
+          tempKategori === "Minuman" ||
+          tempKategori === "Obat-Obatan"
           ? !tempSubKategori
           : false)
       ) {
         alert("All mandatory fields must be filled!");
         return;
       }
-      if (boxIsSelected && !piecesPerBox) {
-        alert("Pieces per Box is required when 'box' is selected!");
+      if (tempBulkUnitName && !tempBulkUnitConversion) {
+        alert("Konversi Satuan Besar wajib diisi!");
         return;
       }
       let docBase = tempDocId.trim();
@@ -1027,18 +923,21 @@ export default function Stocks() {
         subKategori: tempSubKategori || tempKategori,
         tipeStock: tempTipeStock,
         namaPemasok: tempNamaPemasok,
+        // Renamed fields:
+        base_unit: tempBaseUnit,
+        bulk_unit_name: tempBulkUnitName || null,
+        bulk_unit_conversion: tempBulkUnitName ? parseInt(tempBulkUnitConversion, 10) : null,
+        // Legacy fallback fields:
+        smallestUnit: tempBaseUnit,
+        piecesPerBox: tempBulkUnitName ? parseInt(tempBulkUnitConversion, 10) : null,
         satuan: Array.from(
-          new Set([tempDefaultSatuan, ...tempAltSatuan].filter(Boolean))
+          new Set([tempBaseUnit, tempBulkUnitName].filter(Boolean))
         ),
         pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, key) => {
           acc[key] = parseRupiah(tempPricePerUnit[key]);
           return acc;
         }, {}),
-        piecesPerBox: tempAltSatuan.includes("box")
-          ? parseInt(piecesPerBox, 10)
-          : null,
         stock: 0,
-        smallestUnit: tempDefaultSatuan,
         stockValue: 0,
         isDeleted: false,
       };
@@ -1188,9 +1087,13 @@ export default function Stocks() {
           !tempName.trim() ||
           !tempKategori ||
           !tempTipeStock ||
-          !tempDefaultSatuan
+          !tempBaseUnit
         ) {
           throw new Error("All mandatory fields must be filled!");
+        }
+
+        if (tempBulkUnitName && !tempBulkUnitConversion) {
+          throw new Error("Konversi Satuan Besar wajib diisi!");
         }
 
         // Prepare updated product data
@@ -1202,19 +1105,22 @@ export default function Stocks() {
           subKategori: tempSubKategori,
           tipeStock: tempTipeStock,
           namaPemasok: tempNamaPemasok,
-          satuan: Array.from(new Set([tempDefaultSatuan, ...tempAltSatuan])),
+          // Renamed fields:
+          base_unit: tempBaseUnit,
+          bulk_unit_name: tempBulkUnitName || null,
+          bulk_unit_conversion: tempBulkUnitName ? parseInt(tempBulkUnitConversion, 10) : null,
+          // Legacy fallback fields:
+          smallestUnit: tempBaseUnit,
+          piecesPerBox: tempBulkUnitName ? parseInt(tempBulkUnitConversion, 10) : null,
+          satuan: Array.from(new Set([tempBaseUnit, tempBulkUnitName].filter(Boolean))),
           pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, unit) => {
             acc[unit] = parseRupiah(tempPricePerUnit[unit]);
             return acc;
           }, {}),
-          piecesPerBox: tempAltSatuan.includes("box")
-            ? parseInt(piecesPerBox, 10)
-            : null,
-          smallestUnit: tempDefaultSatuan,
         };
 
-        // Convert stock if smallest unit changed
-        if (tempDefaultSatuan !== originalSmallestUnit) {
+        // Convert stock if base unit changed
+        if (tempBaseUnit !== originalSmallestUnit) {
           updatedProduct.stock = convertToSmallestUnit(
             prod.stock,
             originalSmallestUnit,
@@ -1223,7 +1129,7 @@ export default function Stocks() {
         }
 
         // Update stock value based on new prices
-        if (updatedProduct.pricePerUnit[tempDefaultSatuan]) {
+        if (updatedProduct.pricePerUnit[tempBaseUnit]) {
           updatedProduct.stockValue = prod.stockValue;
         }
 
@@ -1376,73 +1282,34 @@ export default function Stocks() {
     }
   }, [dialogOpen, dialogType]);
 
-  // Determine subcategory choices based on selected category
-  let subKategoriChoices = [];
-  if (tempKategori === "Makanan") {
-    subKategoriChoices = SUBKATEGORI_MAKANAN;
-  } else if (tempKategori === "Minuman") {
-    subKategoriChoices = SUBKATEGORI_MINUMAN;
-  } else if (tempKategori === "Obat-Obatan") {
-    subKategoriChoices = SUBKATEGORI_OBAT;
-  }
 
-  // Calculate if box is selected
-  const boxIsSelected =
-    tempDefaultSatuan === "box" || tempAltSatuan.includes("box");
 
   // ***** COMPONENT RENDERING *****
   return (
-    <div className="stock-container">
-      <h1>Stocks Page</h1>
-
-      {/* Summary Cards Section */}
-      <div className="stock-summary-cards">
-        <SummaryCard
-          title="Belanja Bulan Ini"
-          value={summaryData.monthlyPurchase}
-          color="#2196F3"
-        />
-        {/* <SummaryCard
-          title="Penjualan Bulan Ini"
-          value={summaryData.monthlySales}
-          color="#4CAF50"
-        /> */}
-        <SummaryCard
-          title="Stock Hilang"
-          value={summaryData.missingStock}
-          color="#F44336"
-        />
-        <SummaryCard
-          title="Stock Worth Saat Ini"
-          value={summaryData.currentStockWorth}
-          color="#000000"
-        />
-      </div>
-
-      <div className="stock-controls">
-        <input
-          className="stock-search"
-          type="text"
-          placeholder="Cari produk atau ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <div className="stock-controls-right">
-          <div className="stock-date-picker-container">
+    <div className="p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Inventori Unimart</h1>
+          <p className="text-sm text-gray-500 mt-1">Kelola produk dan nilai stok Unipdu Mart</p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <div className="relative">
             <button
-              className="stock-snapshot-btn"
+              className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm flex items-center gap-2"
               onClick={() => setShowDatePicker(!showDatePicker)}
             >
               <FaCalendarAlt /> Lihat Snapshot
             </button>
             {showDatePicker && (
-              <div className="stock-date-picker-popup stock-datepicker-open">
+              <div className="absolute right-0 mt-2 p-4 bg-white border border-gray-200 rounded-lg shadow-lg z-50 flex flex-col gap-2 min-w-[200px]">
                 <input
                   type="date"
+                  className="p-2 border border-gray-300 rounded-md text-sm outline-none"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
                 />
                 <button
+                  className="px-4 py-2 bg-primary hover:bg-red-700 text-white font-bold rounded-lg text-xs transition"
                   onClick={() => {
                     if (selectedDate) {
                       checkSnapshotExists(selectedDate);
@@ -1460,11 +1327,14 @@ export default function Stocks() {
               </div>
             )}
           </div>
-          <button className="stock-export-btn" onClick={exportToExcel}>
+          <button
+            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm"
+            onClick={exportToExcel}
+          >
             Export ke Excel
           </button>
           <button
-            className="stock-tag-btn"
+            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm flex items-center gap-2"
             onClick={() =>
               generatePriceTags(
                 Object.values(selectedItems).some((item) => item)
@@ -1473,314 +1343,215 @@ export default function Stocks() {
               )
             }
           >
-            <FaTag style={{ marginRight: "5px" }} /> Generate Price Tags
+            <FaTag /> Generate Price Tags
           </button>
           <button
-            className="stock-discrepancy-btn"
+            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm flex items-center gap-2"
             onClick={() => setShowDiscrepancyModal(true)}
           >
-            <FaExclamationTriangle style={{ marginRight: "5px" }} /> Cek
-            Ketidaksesuaian Stok
+            <FaExclamationTriangle className="text-yellow-500" /> Cek Ketidaksesuaian
           </button>
           <button
-            className="stock-bulk-btn"
+            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition text-sm"
             onClick={() => setShowBulkPurchaseModal(true)}
           >
-            Bulk Purchase
+            Pembelian Grosir
           </button>
           <button
-            className="stock-add-btn"
+            className="px-5 py-2.5 bg-primary hover:bg-red-700 text-white font-bold rounded-lg shadow-sm transition text-sm"
             onClick={() => openDialog("addNew", null)}
           >
-            Tambah Barang Baru
+            + Barang Baru
           </button>
         </div>
       </div>
-      <table className="stock-table">
-        <thead ref={tableHeaderRef}>
-          <tr>
-            <th style={{ width: "30px" }}>
-              <input
-                type="checkbox"
-                onChange={handleSelectAll}
-                checked={
-                  filteredProducts.length > 0 &&
-                  filteredProducts.every((prod) => selectedItems[prod.id])
-                }
-              />
-            </th>
-            {/* <th>ID</th> */}
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("name")}
-              >
-                Nama Barang
-                {sortConfig.key === "name" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("kategori")}
-              >
-                Kategori
-                {sortConfig.key === "kategori" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("subKategori")}
-              >
-                SubKategori
-                {sortConfig.key === "subKategori" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("tipeStock")}
-              >
-                Sumber Pasokan
-                {sortConfig.key === "tipeStock" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("namaPemasok")}
-              >
-                Nama Pemasok
-                {sortConfig.key === "namaPemasok" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("stock")}
-              >
-                Jumlah Stock
-                {sortConfig.key === "stock" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("pricePerUnit")}
-              >
-                Harga Jual
-                {sortConfig.key === "pricePerUnit" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("averageKulak")}
-              >
-                Harga Kulak (avg)
-                {sortConfig.key === "averageKulak" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("profitMargin")}
-              >
-                Profit Margin
-                {sortConfig.key === "profitMargin" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>
-              <div
-                className="stock-sortable"
-                onClick={() => requestSort("stockValue")}
-              >
-                Nilai Total Stock
-                {sortConfig.key === "stockValue" ? (
-                  sortConfig.direction === "asc" ? (
-                    <FaSortUp className="stock-sort-icon stock-sort-active" />
-                  ) : (
-                    <FaSortDown className="stock-sort-icon stock-sort-active" />
-                  )
-                ) : (
-                  <FaSort className="stock-sort-icon" />
-                )}
-              </div>
-            </th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredProducts.map((prod) => (
-            <tr key={prod.id}>
-              <td>
-                <input
-                  type="checkbox"
-                  checked={!!selectedItems[prod.id]}
-                  onChange={() => toggleItemSelection(prod.id)}
-                />
-              </td>
-              {/* <td>{prod.id}</td> */}
-              <td>{prod.name}</td>
-              <td>{prod.kategori}</td>
-              <td>{prod.subKategori}</td>
-              <td>{prod.tipeStock}</td>
-              <td>{prod.namaPemasok}</td>
-              <td>
-                {prod.stock} {prod.smallestUnit}
-              </td>
-              <td>
-                Rp {computeHargaFormatted(prod)}/{prod.smallestUnit}
-              </td>
-              <td>
-                Rp {computeAverageKulakPrice(prod)}/{prod.smallestUnit}
-              </td>
-              <td>Rp {computeProfitMargin(prod)}</td>
-              <td>Rp {computeNilaiFormatted(prod)}</td>
-              <td style={{ position: "relative" }}>
-                <div
-                  style={{ cursor: "pointer", display: "inline-block" }}
-                  onClick={() => handleActionClick(prod.id)}
+
+      {/* Summary Cards Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <SummaryCard
+          title="Belanja Bulan Ini"
+          value={summaryData.monthlyPurchase}
+          color="text-blue-600"
+        />
+        <SummaryCard
+          title="Stock Hilang"
+          value={summaryData.missingStock}
+          color="text-red-600"
+        />
+        <SummaryCard
+          title="Total Nilai Stok"
+          value={summaryData.currentStockWorth}
+          color="text-gray-900"
+        />
+      </div>
+
+      {/* Search Bar */}
+      <div className="mb-6 relative">
+        <input
+          type="text"
+          placeholder="Cari produk atau ID..."
+          className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <svg className="w-5 h-5 absolute left-3 top-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden mb-6">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-600">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3 w-12 text-center">
+                  <input
+                    type="checkbox"
+                    className="rounded text-primary focus:ring-primary"
+                    onChange={handleSelectAll}
+                    checked={
+                      filteredProducts.length > 0 &&
+                      filteredProducts.every((prod) => selectedItems[prod.id])
+                    }
+                  />
+                </th>
+                <th
+                  onClick={() => requestSort("name")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
                 >
-                  <FaEllipsisV />
-                </div>
-                {showDropdown === prod.id && (
-                  <div
-                    className="stock-dropdown stock-dropdown-open"
-                    ref={dropdownRef}
-                  >
-                    <div
-                      className="stock-dropdown-item"
-                      onClick={() => openDialog("tambah", prod.id)}
-                    >
-                      Tambah
-                    </div>
-                    <div
-                      className="stock-dropdown-item"
-                      onClick={() => openDialog("tetapkan", prod.id)}
-                    >
-                      Tetapkan
-                    </div>
-                    <div
-                      className="stock-dropdown-item"
-                      onClick={() => openDialog("edit", prod.id)}
-                    >
-                      Edit Stock
-                    </div>
-                    <div
-                      className="stock-dropdown-item"
-                      onClick={() => openDialog("delete", prod.id)}
-                    >
-                      Delete Stock
-                    </div>
+                  <div className="flex items-center gap-1">
+                    Nama Barang
+                    {sortConfig.key === "name" ? (
+                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                    ) : <FaSort className="text-gray-400" />}
                   </div>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                </th>
+                <th
+                  onClick={() => requestSort("smallestUnit")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  <div className="flex items-center gap-1">
+                    Satuan
+                    {sortConfig.key === "smallestUnit" ? (
+                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                    ) : <FaSort className="text-gray-400" />}
+                  </div>
+                </th>
+                <th
+                  onClick={() => requestSort("stock")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Jumlah Stock
+                    {sortConfig.key === "stock" ? (
+                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                    ) : <FaSort className="text-gray-400" />}
+                  </div>
+                </th>
+                <th
+                  onClick={() => requestSort("averageKulak")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Harga Beli
+                    {sortConfig.key === "averageKulak" ? (
+                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                    ) : <FaSort className="text-gray-400" />}
+                  </div>
+                </th>
+                <th
+                  onClick={() => requestSort("stockValue")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Total Nilai
+                    {sortConfig.key === "stockValue" ? (
+                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                    ) : <FaSort className="text-gray-400" />}
+                  </div>
+                </th>
+                <th className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-center w-16">
+                  Aksi
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 bg-white">
+              {filteredProducts.map((prod) => (
+                <tr key={prod.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 text-center">
+                    <input
+                      type="checkbox"
+                      className="rounded text-primary focus:ring-primary"
+                      checked={!!selectedItems[prod.id]}
+                      onChange={() => toggleItemSelection(prod.id)}
+                    />
+                  </td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{prod.name}</td>
+                  <td className="px-6 py-4">{prod.base_unit || prod.smallestUnit}</td>
+                  <td className="px-6 py-4 text-right font-bold text-gray-900">
+                    {prod.stock}
+                  </td>
+                  <td className="px-6 py-4 text-right text-gray-600">
+                    Rp {computeAverageKulakPrice(prod)}
+                  </td>
+                  <td className="px-6 py-4 text-right font-medium text-gray-900">
+                    Rp {computeNilaiFormatted(prod)}
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <button
+                      onClick={(e) => handleActionClick(e, prod.id)}
+                      className="p-2 rounded-lg hover:bg-gray-100 transition text-gray-500 hover:text-gray-700"
+                      title="Aksi"
+                    >
+                      <FaEllipsisV />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Snapshot Dialog */}
       {snapshotDialogOpen && (
-        <div className="stock-modal-overlay">
-          <div className="stock-modal-content stock-snapshot-dialog">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-lg shadow-xl p-6">
             {snapshotExists ? (
               <>
-                <h2>Stock Snapshot</h2>
-                <p>
+                <h2 className="text-lg font-bold text-gray-900 mb-4">Stock Snapshot</h2>
+                <p className="text-sm text-gray-600 mb-6">
                   Download snapshot stock tanggal{" "}
                   {selectedDate.split("-").reverse().join("-")}?
                 </p>
-                <div className="stock-dialog-buttons">
-                  <button onClick={() => setSnapshotDialogOpen(false)}>
+                <div className="flex justify-end gap-3">
+                  <button
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    onClick={() => setSnapshotDialogOpen(false)}
+                  >
                     No
                   </button>
-                  <button onClick={exportSnapshotToExcel}>Yes</button>
+                  <button
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                    onClick={exportSnapshotToExcel}
+                  >
+                    Yes
+                  </button>
                 </div>
               </>
             ) : (
               <>
-                <h2>Stock Snapshot</h2>
-                <p>
+                <h2 className="text-lg font-bold text-gray-900 mb-4">Stock Snapshot</h2>
+                <p className="text-sm text-gray-600 mb-6">
                   Tidak ada stockSnapshot untuk tanggal{" "}
                   {selectedDate.split("-").reverse().join("-")}
                 </p>
-                <div className="stock-dialog-buttons">
-                  <button onClick={() => setSnapshotDialogOpen(false)}>
+                <div className="flex justify-end">
+                  <button
+                    className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800"
+                    onClick={() => setSnapshotDialogOpen(false)}
+                  >
                     Okay
                   </button>
                 </div>
@@ -1799,6 +1570,7 @@ export default function Stocks() {
           products={products}
           onClose={closeDialog}
           onSave={handleSave}
+          convertToSmallestUnit={convertToSmallestUnit}
           tempState={{
             tempName,
             tempItemId,
@@ -1806,50 +1578,41 @@ export default function Stocks() {
             tempSubKategori,
             tempTipeStock,
             tempNamaPemasok,
-            tempDefaultSatuan,
-            tempAltSatuan,
+            tempBaseUnit,
+            tempBulkUnitName,
             tempPricePerUnit,
             tempAmount,
             tempSatuan,
             tempCost,
-            piecesPerBox,
+            tempBulkUnitConversion,
             tempDocId,
             originalSmallestUnit,
           }}
           setTempState={(newState) => {
-            // Update state based on the changes
             if ("tempName" in newState) setTempName(newState.tempName);
             if ("tempItemId" in newState) setTempItemId(newState.tempItemId);
-            if ("tempKategori" in newState)
-              setTempKategori(newState.tempKategori);
-            if ("tempSubKategori" in newState)
-              setTempSubKategori(newState.tempSubKategori);
-            if ("tempTipeStock" in newState)
-              setTempTipeStock(newState.tempTipeStock);
-            if ("tempNamaPemasok" in newState)
-              setTempNamaPemasok(newState.tempNamaPemasok);
-            if ("tempDefaultSatuan" in newState)
-              setTempDefaultSatuan(newState.tempDefaultSatuan);
-            if ("tempAltSatuan" in newState)
-              setTempAltSatuan(newState.tempAltSatuan);
-            if ("tempPricePerUnit" in newState)
-              setTempPricePerUnit(newState.tempPricePerUnit);
+            if ("tempKategori" in newState) setTempKategori(newState.tempKategori);
+            if ("tempSubKategori" in newState) setTempSubKategori(newState.tempSubKategori);
+            if ("tempTipeStock" in newState) setTempTipeStock(newState.tempTipeStock);
+            if ("tempNamaPemasok" in newState) setTempNamaPemasok(newState.tempNamaPemasok);
+            if ("tempBaseUnit" in newState) setTempBaseUnit(newState.tempBaseUnit);
+            if ("tempBulkUnitName" in newState) setTempBulkUnitName(newState.tempBulkUnitName);
+            if ("tempPricePerUnit" in newState) setTempPricePerUnit(newState.tempPricePerUnit);
             if ("tempAmount" in newState) setTempAmount(newState.tempAmount);
             if ("tempSatuan" in newState) setTempSatuan(newState.tempSatuan);
             if ("tempCost" in newState) setTempCost(newState.tempCost);
-            if ("piecesPerBox" in newState)
-              setPiecesPerBox(newState.piecesPerBox);
+            if ("tempBulkUnitConversion" in newState) setTempBulkUnitConversion(newState.tempBulkUnitConversion);
             if ("tempDocId" in newState) setTempDocId(newState.tempDocId);
           }}
-          convertToSmallestUnit={convertToSmallestUnit}
         />
       )}
 
       {/* Snackbar for notifications */}
       {snackbar.open && (
-        <div className="stock-snackbar">{snackbar.message}</div>
+        <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg z-50 text-sm">
+          {snackbar.message}
+        </div>
       )}
-
       {/* Stock Discrepancy Modal */}
       <StockDiscrepancyModal
         isOpen={showDiscrepancyModal}
@@ -1887,6 +1650,57 @@ export default function Stocks() {
         transactionCollection="stockTransactions"
         isWarehouse={false}
       />
+
+      {/* Dropdown menu rendered outside the table to avoid overflow clipping */}
+      {showDropdown && (
+        <div
+          className="fixed w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+          style={{ top: menuPos.top, left: menuPos.left }}
+          onClick={(e) => e.stopPropagation()}
+          ref={dropdownRef}
+        >
+          <button
+            onClick={() => {
+              const p = products[showDropdown];
+              setShowDropdown(null);
+              openDialog("tambah", p.id);
+            }}
+            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            Tambah
+          </button>
+          <button
+            onClick={() => {
+              const p = products[showDropdown];
+              setShowDropdown(null);
+              openDialog("tetapkan", p.id);
+            }}
+            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            Tetapkan
+          </button>
+          <button
+            onClick={() => {
+              const p = products[showDropdown];
+              setShowDropdown(null);
+              openDialog("edit", p.id);
+            }}
+            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+          >
+            Edit Stock
+          </button>
+          <button
+            onClick={() => {
+              const p = products[showDropdown];
+              setShowDropdown(null);
+              openDialog("delete", p.id);
+            }}
+            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium"
+          >
+            Delete Stock
+          </button>
+        </div>
+      )}
     </div>
   );
 }

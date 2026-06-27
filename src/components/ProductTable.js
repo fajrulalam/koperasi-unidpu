@@ -62,10 +62,7 @@ const ProductTable = ({
     const requestedQty = convertToSmallestUnit(
       product.quantity,
       product.satuan,
-      {
-        smallestUnit: productStockData.smallestUnit,
-        piecesPerBox: productStockData.piecesPerBox,
-      }
+      productStockData
     );
     
     // Convert stock back to the display unit and round to nearest integer
@@ -73,10 +70,7 @@ const ProductTable = ({
       convertFromSmallestUnit(
         currentStock,
         product.satuan,
-        {
-          smallestUnit: productStockData.smallestUnit,
-          piecesPerBox: productStockData.piecesPerBox,
-        }
+        productStockData
       )
     );
     

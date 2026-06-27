@@ -568,6 +568,9 @@
   padding-top: 16px;
   border-top: 1px solid #f0f0f0;
   margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .vd-danger-btn {
@@ -587,6 +590,33 @@
 .vd-danger-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.vd-report-btn {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.vd-report-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
+}
+
+.vd-report-btn:disabled {
+  background: #cbd5e1;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 /* Loading & Empty */

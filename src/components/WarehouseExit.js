@@ -1382,7 +1382,10 @@ const WarehouseExit = () => {
 
     return records.filter((record) => {
       if (!record.createdAt) return false;
-      const recordDate = new Date(record.createdAt);
+      const recordDate =
+        typeof record.createdAt === "string"
+          ? new Date(record.createdAt)
+          : record.createdAt.toDate?.() || new Date(record.createdAt);
       const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(endDate);

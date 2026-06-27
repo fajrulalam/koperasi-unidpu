@@ -2,8 +2,18 @@ import React, { useState, useEffect } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { voucherService } from "../services/voucherService";
 import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import JsBarcode from "jsbarcode";
 import "../styles/VoucherDetailModalNew.css";
+
+const loadImage = (src) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
 
 const VoucherDetailModalNew = ({
   voucherGroup,
@@ -19,6 +29,8 @@ const VoucherDetailModalNew = ({
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Add members state
   const [showAddMembers, setShowAddMembers] = useState(false);
@@ -258,15 +270,6 @@ const VoucherDetailModalNew = ({
         format: "a4",
       });
 
-      const loadImage = (src) =>
-        new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-          img.src = src;
-        });
-
       let logoDataUrl = null;
       try {
         const logo = await loadImage("/logo-koperasi-favicon.png");
@@ -371,6 +374,132 @@ const VoucherDetailModalNew = ({
       setError("Gagal membuat PDF");
     } finally {
       setGeneratingPdf(false);
+    }
+  };
+
+  const generateReportPdf = async () => {
+    try {
+      setGeneratingReport(true);
+      setError(null);
+
+      const doc = new jsPDF();
+      doc.setFont("helvetica");
+
+      // Load logo assets
+      let logoYapetidu = null;
+      let logoUrg = null;
+      try {
+        logoYapetidu = await loadImage("/Logo YAPETIDU (Transparent bg).png");
+      } catch (e) {
+        console.warn("Could not load YAPETIDU logo:", e);
+      }
+      try {
+        logoUrg = await loadImage("/Kop URG Logo (Latest).png");
+      } catch (e) {
+        console.warn("Could not load Kop URG logo:", e);
+      }
+
+      // Draw logos on the left and set dynamic text X coordinate
+      let textX = 14;
+      if (logoYapetidu || logoUrg) {
+        let currentX = 14;
+        if (logoYapetidu) {
+          doc.addImage(logoYapetidu, "PNG", currentX, 14, 22, 22);
+          currentX += 24;
+        }
+        if (logoUrg) {
+          doc.addImage(logoUrg, "PNG", currentX, 14, 22, 22);
+          currentX += 24;
+        }
+        textX = currentX + 2;
+      }
+
+      // Title (align on the right of the logos)
+      doc.setFontSize(15);
+      doc.setFont(undefined, "bold");
+      doc.text("Laporan Penerima Voucher", textX, 19);
+
+      // Metadata Info (align on the right of the logos)
+      doc.setFontSize(10);
+      doc.setFont(undefined, "normal");
+      doc.text(`Grup Voucher: ${voucherGroup.voucherName}`, textX, 25);
+      doc.text(`Nilai Nominal: ${voucherService.formatCurrency(voucherGroup.value)}`, textX, 30);
+      doc.text(`Tanggal Cetak: ${new Date().toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })}`, textX, 35);
+
+      // Table columns: No., Nama Anggota, Kantor/Unit, Satuan Kerja, Nilai, Berakhir
+      const headers = [
+        ["No.", "Nama Anggota", "Kantor/Unit", "Satuan Kerja", "Nilai", "Berakhir"]
+      ];
+
+      const tableData = vouchers.map((v, index) => {
+        const name = v.nama || "Voucher Cetak (Non-Member)";
+        const office = v.kantor || "-";
+        const workUnit = v.satuanKerja || "-";
+        const nominal = voucherService.formatCurrency(v.value || voucherGroup.value);
+        const expDate = formatShortDate(v.expireDate || voucherGroup.expireDate);
+        return [index + 1, name, office, workUnit, nominal, expDate];
+      });
+
+      autoTable(doc, {
+        theme: "grid",
+        head: headers,
+        body: tableData,
+        startY: 42,
+        styles: {
+          fontSize: 9,
+          cellPadding: 3,
+          valign: "middle",
+          lineColor: [229, 231, 235], // #e5e7eb (light gray borders)
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [230, 107, 107], // #e66b6b (pastel coral red)
+          textColor: [255, 255, 255], // white text for high contrast on coral background
+          fontStyle: "bold",
+          halign: "center",
+          fontSize: 9.5,
+          lineColor: [219, 90, 90], // slightly darker coral border outlines for header cells
+          lineWidth: 0.2,
+        },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 14 },
+          1: { cellWidth: 46 },
+          2: { cellWidth: 32 },
+          3: { cellWidth: 32 },
+          4: { halign: "right", cellWidth: 26 },
+          5: { halign: "center", cellWidth: 30 },
+        },
+      });
+
+      // Save PDF
+      doc.save(`Laporan_Penerima_Voucher_${voucherGroup.voucherName.replace(/\s+/g, "_")}.pdf`);
+    } catch (err) {
+      console.error("Gagal membuat PDF Laporan:", err);
+      setError("Gagal membuat PDF Laporan");
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
+  const handleCopyNames = async () => {
+    try {
+      const namesList = vouchers
+        .map((v) => {
+          const name = v.nama || "Voucher Cetak (Non-Member)";
+          return `- ${name}`;
+        })
+        .join("\n");
+
+      await navigator.clipboard.writeText(namesList);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Gagal menyalin nama:", err);
+      setError("Gagal menyalin nama ke clipboard");
     }
   };
 
@@ -540,15 +669,27 @@ const VoucherDetailModalNew = ({
                 <h3>
                   {isCashbackCampaign ? "Daftar Peserta" : "Daftar Penerima"}
                 </h3>
-                {!isCashbackCampaign && !readOnly && (
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                   <button
                     className="vd-link-btn"
-                    onClick={handleAddMembersToggle}
-                    disabled={loading}
+                    type="button"
+                    onClick={handleCopyNames}
+                    disabled={loading || vouchers.length === 0}
+                    style={{ color: "#2563eb", fontWeight: "600" }}
                   >
-                    {showAddMembers ? "Batal" : "+ Tambah"}
+                    {copied ? "Tersalin!" : "Salin"}
                   </button>
-                )}
+                  {!isCashbackCampaign && !readOnly && (
+                    <button
+                      className="vd-link-btn"
+                      type="button"
+                      onClick={handleAddMembersToggle}
+                      disabled={loading}
+                    >
+                      {showAddMembers ? "Batal" : "+ Tambah"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {showAddMembers && !isCashbackCampaign && (
@@ -824,10 +965,19 @@ const VoucherDetailModalNew = ({
               <div className="vd-danger">
                 <button
                   className="vd-danger-btn"
+                  type="button"
                   onClick={() => setShowDeleteConfirmation(true)}
                   disabled={loading || deleting || isEditing}
                 >
                   Hapus Grup Voucher
+                </button>
+                <button
+                  className="vd-report-btn"
+                  type="button"
+                  onClick={generateReportPdf}
+                  disabled={loading || generatingReport || vouchers.length === 0}
+                >
+                  {generatingReport ? "Membuat PDF..." : "Cetak Laporan"}
                 </button>
               </div>
             </div>

@@ -10,14 +10,17 @@ const CONVERSION_TABLE = {
 };
 
 export const convertToSmallestUnit = (quantity, unit, product) => {
-  if (unit === "box") {
-    if (!product.piecesPerBox) {
-      throw new Error("Pieces per box not defined");
+  const baseUnit = product.base_unit || product.smallestUnit;
+  const bulkUnitName = product.bulk_unit_name || "box";
+  const bulkUnitConversion = product.bulk_unit_conversion || product.piecesPerBox;
+
+  if (unit === bulkUnitName) {
+    if (!bulkUnitConversion) {
+      throw new Error("Pieces per box or bulk conversion not defined");
     }
-    return quantity * product.piecesPerBox;
+    return quantity * bulkUnitConversion;
   }
 
-  const baseUnit = product.smallestUnit;
   const quantityInGrams = quantity * CONVERSION_TABLE[unit];
 
   if (baseUnit === "pcs") return quantityInGrams;
@@ -33,14 +36,17 @@ export const convertFromSmallestUnit = (
   targetUnit,
   product
 ) => {
-  if (targetUnit === "box") {
-    if (!product.piecesPerBox) {
-      throw new Error("Pieces per box not defined for this product");
+  const baseUnit = product.base_unit || product.smallestUnit;
+  const bulkUnitName = product.bulk_unit_name || "box";
+  const bulkUnitConversion = product.bulk_unit_conversion || product.piecesPerBox;
+
+  if (targetUnit === bulkUnitName) {
+    if (!bulkUnitConversion) {
+      throw new Error("Pieces per box or bulk conversion not defined for this product");
     }
-    return quantityInSmallest / product.piecesPerBox;
+    return quantityInSmallest / bulkUnitConversion;
   }
 
-  const baseUnit = product.smallestUnit;
   if (!baseUnit || !CONVERSION_TABLE[baseUnit]) {
     throw new Error(`Unknown base unit: ${baseUnit}`);
   }
