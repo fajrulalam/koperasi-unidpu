@@ -124,6 +124,7 @@ function StockModal({
     tempBulkUnitConversion: externalTempState.tempBulkUnitConversion || "",
     tempDocId: externalTempState.tempDocId || "",
     originalSmallestUnit: externalTempState.originalSmallestUnit || "",
+    tempLastPurchasePrice: externalTempState.tempLastPurchasePrice || "",
   });
 
   // Sync external state with local state when props change
@@ -144,6 +145,7 @@ function StockModal({
       tempBulkUnitConversion: externalTempState.tempBulkUnitConversion || "",
       tempDocId: externalTempState.tempDocId || "",
       originalSmallestUnit: externalTempState.originalSmallestUnit || "",
+      tempLastPurchasePrice: externalTempState.tempLastPurchasePrice || "",
     });
   }, [externalTempState, dialogType, selectedProductId]);
 
@@ -576,6 +578,29 @@ function StockModal({
                   ))}
                 </div>
               </div>
+
+              {/* Harga Beli */}
+              <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
+                <label className="block text-sm font-bold text-gray-900 mb-3">Harga Beli per Satuan Dasar ({localState.tempBaseUnit || "pcs"})</label>
+                <div className="relative max-w-xs">
+                  <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
+                  <input
+                    type="text"
+                    value={localState.tempLastPurchasePrice || ""}
+                    onChange={(e) => {
+                      const formatted = formatRupiah(e.target.value);
+                      setLocalState((prev) => ({
+                        ...prev,
+                        tempLastPurchasePrice: formatted,
+                      }));
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="e.g. 8.000"
+                    inputMode="numeric"
+                    className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white font-medium text-gray-900"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
@@ -848,6 +873,29 @@ function StockModal({
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+
+              {/* Harga Beli */}
+              <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
+                <label className="block text-sm font-bold text-gray-900 mb-3">Harga Beli per Satuan Dasar ({localState.tempBaseUnit || "pcs"})</label>
+                <div className="relative max-w-xs">
+                  <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
+                  <input
+                    type="text"
+                    value={localState.tempLastPurchasePrice || ""}
+                    onChange={(e) => {
+                      const formatted = formatRupiah(e.target.value);
+                      setLocalState((prev) => ({
+                        ...prev,
+                        tempLastPurchasePrice: formatted,
+                      }));
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="e.g. 8.000"
+                    inputMode="numeric"
+                    className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white font-medium text-gray-900"
+                  />
                 </div>
               </div>
             </div>

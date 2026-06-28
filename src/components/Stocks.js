@@ -138,6 +138,7 @@ export default function Stocks() {
   const [tempBulkUnitConversion, setTempBulkUnitConversion] = useState("");
   const [tempDocId, setTempDocId] = useState("");
   const [tempItemId, setTempItemId] = useState("");
+  const [tempLastPurchasePrice, setTempLastPurchasePrice] = useState("");
 
   // Refs
   const dropdownRef = useRef(null);
@@ -282,7 +283,8 @@ export default function Stocks() {
       setTempItemId(prod.itemId || "");
       setTempKategori(prod.kategori || "");
       setTempSubKategori(prod.subKategori || "");
-      setTempTipeStock(prod.tipeStock || "");
+      setTempNamaPemasok(prod.namaPemasok || "");
+      setTempLastPurchasePrice(prod.lastPurchasePrice ? formatRupiah(prod.lastPurchasePrice) : "");
       
       const baseUnit = prod.base_unit || prod.smallestUnit || (prod.satuan || [])[0] || "";
       setOriginalSmallestUnit(baseUnit);
@@ -316,6 +318,7 @@ export default function Stocks() {
       setTempTipeStock("");
       setTempBulkUnitConversion("");
       setTempDocId("");
+      setTempLastPurchasePrice("");
     }
     setDialogOpen(true);
     setShowDropdown(null);
@@ -987,6 +990,7 @@ export default function Stocks() {
         subKategori: tempSubKategori || tempKategori,
         tipeStock: tempTipeStock,
         namaPemasok: tempNamaPemasok,
+        lastPurchasePrice: parseRupiah(tempLastPurchasePrice),
         // Renamed fields:
         base_unit: tempBaseUnit,
         bulk_unit_name: tempBulkUnitName || null,
@@ -1175,6 +1179,7 @@ export default function Stocks() {
           subKategori: tempSubKategori,
           tipeStock: tempTipeStock,
           namaPemasok: tempNamaPemasok,
+          lastPurchasePrice: parseRupiah(tempLastPurchasePrice),
           // Renamed fields:
           base_unit: tempBaseUnit,
           bulk_unit_name: tempBulkUnitName || null,
@@ -1708,6 +1713,7 @@ export default function Stocks() {
             tempBulkUnitConversion,
             tempDocId,
             originalSmallestUnit,
+            tempLastPurchasePrice,
           }}
           setTempState={(newState) => {
             if ("tempName" in newState) setTempName(newState.tempName);
@@ -1724,6 +1730,7 @@ export default function Stocks() {
             if ("tempCost" in newState) setTempCost(newState.tempCost);
             if ("tempBulkUnitConversion" in newState) setTempBulkUnitConversion(newState.tempBulkUnitConversion);
             if ("tempDocId" in newState) setTempDocId(newState.tempDocId);
+            if ("tempLastPurchasePrice" in newState) setTempLastPurchasePrice(newState.tempLastPurchasePrice);
           }}
         />
       )}
