@@ -1101,3 +1101,242 @@
   }
 }
 
+/* Transactions (Per Transaksi) View */
+.st-transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 16px;
+}
+
+.st-day-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.st-day-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 8px;
+}
+
+.st-day-section-date {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.st-day-section-total {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.st-day-transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.st-tx-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.st-tx-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.st-tx-card.expanded {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
+}
+
+.st-tx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.st-tx-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.st-tx-time {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.st-tx-buyer-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.st-tx-buyer-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.st-tx-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.st-tx-badge-member {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.st-tx-badge-voucher {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.st-tx-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.st-tx-total {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.st-tx-chevron {
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+}
+
+.st-tx-chevron.expanded {
+  transform: rotate(180deg);
+  color: #3b82f6;
+}
+
+/* Expanded Details */
+.st-tx-details {
+  background: #fafafa;
+  border-top: 1px solid #f3f4f6;
+  padding: 14px 18px;
+}
+
+.st-tx-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.st-tx-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #4b5563;
+}
+
+.st-tx-item-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.st-tx-item-qty {
+  width: 100px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.st-tx-item-subtotal {
+  width: 120px;
+  text-align: right;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.st-tx-voucher-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #e5e7eb;
+  font-size: 0.85rem;
+}
+
+.st-tx-voucher-label {
+  font-weight: 500;
+  color: #d97706;
+}
+
+.st-tx-voucher-discount {
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.st-tx-item-profit-badge {
+  font-size: 0.75rem;
+  color: #10b981;
+  font-weight: 600;
+  margin-left: 8px;
+  background-color: #ecfdf5;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.st-tx-profit-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.st-tx-profit-label {
+  font-weight: 700;
+  color: #047857;
+}
+
+.st-tx-profit-value {
+  font-weight: 700;
+  color: #047857;
+  font-size: 0.9rem;
+}
+
+.st-tx-header-profit {
+  font-size: 0.8rem;
+  color: #10b981;
+  font-weight: 600;
+  background-color: #ecfdf5;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-right: 8px;
+}
+

@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import "../styles/SejarahTransaksiNew.css";
 import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
+import { useAuth } from "../context/AuthContext";
 import {
   formatCurrency,
   formatDateShort,
@@ -21,15 +22,29 @@ import ItemDetailDialog from "./ItemDetailDialog";
 const TABS = [
   { id: "Daily", label: "Harian" },
   { id: "Items", label: "Per Item" },
-  { id: "Monthly", label: "Bulanan" },
+  { id: "Transactions", label: "Per Transaksi" },
 ];
 
 const SejarahTransaksi = () => {
   const { queryCollection, query, where, orderBy } = useFirestore();
   const { isProduction, environment } = useEnvironment();
+  const { userRole } = useAuth();
+
+  const showProfit =
+    userRole === "Director" ||
+    userRole === "Wakil Rektor 2" ||
+    userRole === "Admin";
 
   // Tab selection
   const [selectedTab, setSelectedTab] = useState("Daily");
+  const [expandedTransactions, setExpandedTransactions] = useState({});
+
+  const toggleTransaction = (txId) => {
+    setExpandedTransactions((prev) => ({
+      ...prev,
+      [txId]: !prev[txId],
+    }));
+  };
 
   // Date range
   const initialRange = getInitialDateRange(14);
@@ -41,6 +56,7 @@ const SejarahTransaksi = () => {
   const [dailyData, setDailyData] = useState([]);
   const [itemsData, setItemsData] = useState([]);
   const [filteredItemsData, setFilteredItemsData] = useState([]);
+  const [stockTransactions, setStockTransactions] = useState([]);
 
   // UI states
   const [loading, setLoading] = useState(false);
@@ -97,6 +113,23 @@ const SejarahTransaksi = () => {
       }
 
       setDailyData(grouped);
+
+      // Fetch stockTransactions for matching cost/profit if user is admin
+      if (showProfit) {
+        console.log("Fetching stock transactions for profit matching...");
+        const stockTxs = await queryCollection(
+          "stockTransactions",
+          (collectionRef) =>
+            query(
+              collectionRef,
+              where("transactionType", "==", "penjualan"),
+              where("timestampInMillisEpoch", ">=", cutoff),
+              orderBy("timestampInMillisEpoch", "desc")
+            )
+        );
+        console.log(`Fetched ${stockTxs.length} stock transactions for profit matching`);
+        setStockTransactions(stockTxs);
+      }
     } catch (err) {
       console.error("Error fetching daily transactions:", err);
     } finally {
@@ -111,6 +144,7 @@ const SejarahTransaksi = () => {
     orderBy,
     environment,
     dailyData.length,
+    showProfit,
   ]);
 
   // Fetch items transactions from stockTransactions collection
@@ -165,7 +199,7 @@ const SejarahTransaksi = () => {
 
   // Effects
   useEffect(() => {
-    if (selectedTab === "Daily") {
+    if (selectedTab === "Daily" || selectedTab === "Transactions") {
       fetchDailyTransactions();
     }
   }, [selectedTab, daysLoaded, isProduction]);
@@ -283,6 +317,72 @@ const SejarahTransaksi = () => {
           Math.round(item.profitMargin),
         ]);
       });
+    } else if (selectedTab === "Transactions") {
+      const headers = [
+        "ID Transaksi",
+        "Tanggal",
+        "Waktu",
+        "Tipe Pembeli",
+        "Nama Pembeli",
+        "Nomor Anggota",
+        "Voucher",
+        "Diskon",
+        "Total",
+      ];
+      if (showProfit) {
+        headers.push("Modal", "Keuntungan");
+      }
+      headers.push("Items");
+      exportData.push(headers);
+
+      filteredDailyData.forEach((day) => {
+        day.transactions?.forEach((tx) => {
+          const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
+          const timeStr = txDate.toLocaleTimeString("id-ID", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          const buyerType = tx.isMember ? "Anggota" : tx.voucherId ? "Voucher Only" : "Non-Anggota";
+          const itemsStr = tx.items
+            ?.map((item) => `${item.itemName} (${item.quantity} ${item.unit})`)
+            .join(", ");
+
+          let txTotalCost = 0;
+          if (showProfit && stockTransactions.length > 0) {
+            tx.items?.forEach((item) => {
+              const txSeconds = tx.timestamp?.seconds;
+              const matchingStockTx = stockTransactions.find((st) => {
+                const stSeconds = st.timestampInMillisEpoch?.seconds || st.timestamp?.seconds;
+                return (
+                  stSeconds &&
+                  txSeconds &&
+                  Math.abs(stSeconds - txSeconds) <= 2 &&
+                  st.itemId === item.itemId
+                );
+              });
+              txTotalCost += matchingStockTx ? (matchingStockTx.stockWorth || 0) : 0;
+            });
+          }
+          const txTotalProfit = tx.total - txTotalCost;
+
+          const row = [
+            tx.id || "-",
+            day.formattedDate,
+            timeStr,
+            buyerType,
+            tx.memberName || "-",
+            tx.nomorAnggota || "-",
+            tx.voucherName || "-",
+            tx.voucherDiscount || 0,
+            tx.total || 0,
+          ];
+          if (showProfit) {
+            row.push(txTotalCost, txTotalProfit);
+          }
+          row.push(itemsStr || "-");
+          exportData.push(row);
+        });
+      });
     }
 
     const ws = XLSX.utils.aoa_to_sheet(exportData);
@@ -314,7 +414,7 @@ const SejarahTransaksi = () => {
       </div>
 
       {/* Controls Bar */}
-      {(selectedTab === "Daily" || selectedTab === "Items") && (
+      {(selectedTab === "Daily" || selectedTab === "Items" || selectedTab === "Transactions") && (
         <div className="st-controls">
           <span className="st-controls-label">Rentang Tanggal:</span>
           <div className="st-date-filter">
@@ -501,12 +601,156 @@ const SejarahTransaksi = () => {
         </>
       )}
 
-      {/* Monthly View (Coming Soon) */}
-      {selectedTab === "Monthly" && (
-        <div className="st-coming-soon">
-          <h3>Coming Soon</h3>
-          <p>Fitur laporan bulanan sedang dalam pengembangan</p>
-        </div>
+      {/* Transactions (Per Transaksi) View */}
+      {selectedTab === "Transactions" && (
+        <>
+          {loading ? (
+            <div className="st-loading">
+              <p>Memuat data transaksi...</p>
+            </div>
+          ) : filteredDailyData.length === 0 ? (
+            <div className="st-empty">
+              Tidak ada transaksi dalam periode ini.
+            </div>
+          ) : (
+            <div className="st-transactions-list">
+              {filteredDailyData.map((dayGroup) => (
+                <div key={dayGroup.key} className="st-day-section">
+                  <div className="st-day-section-header">
+                    <span className="st-day-section-date">{dayGroup.formattedDate}</span>
+                    <span className="st-day-section-total">
+                      Total: {formatCurrency(dayGroup.total)}
+                    </span>
+                  </div>
+                  <div className="st-day-transactions">
+                    {dayGroup.transactions?.map((tx, txIdx) => {
+                      const txId = tx.id || `tx-${dayGroup.key}-${txIdx}`;
+                      const isExpanded = !!expandedTransactions[txId];
+                      const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
+                      const timeStr = txDate.toLocaleTimeString("id-ID", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      });
+
+                      // Calculate profit if admin
+                      let txTotalCost = 0;
+                      let txTotalProfit = 0;
+                      const txItemsWithProfit = tx.items?.map((item) => {
+                        let cost = 0;
+                        if (showProfit && stockTransactions.length > 0) {
+                          const txSeconds = tx.timestamp?.seconds;
+                          const matchingStockTx = stockTransactions.find((st) => {
+                            const stSeconds = st.timestampInMillisEpoch?.seconds || st.timestamp?.seconds;
+                            return (
+                              stSeconds &&
+                              txSeconds &&
+                              Math.abs(stSeconds - txSeconds) <= 2 &&
+                              st.itemId === item.itemId
+                            );
+                          });
+                          cost = matchingStockTx ? (matchingStockTx.stockWorth || 0) : 0;
+                        }
+                        const profit = item.subtotal - cost;
+                        txTotalCost += cost;
+                        txTotalProfit += profit;
+                        return { ...item, cost, profit };
+                      });
+
+                      return (
+                        <div key={txId} className={`st-tx-card ${isExpanded ? "expanded" : ""}`}>
+                          <div
+                            className="st-tx-header"
+                            onClick={() => toggleTransaction(txId)}
+                          >
+                            <div className="st-tx-left">
+                              <span className="st-tx-time">{timeStr}</span>
+                              <div className="st-tx-buyer-info">
+                                <span className="st-tx-buyer-name">
+                                  {tx.memberName || "Non-Anggota"}
+                                </span>
+                                {tx.isMember && (
+                                  <span className="st-tx-badge st-tx-badge-member">
+                                    Anggota ({tx.nomorAnggota})
+                                  </span>
+                                )}
+                                {tx.voucherId && (
+                                  <span className="st-tx-badge st-tx-badge-voucher" title={tx.voucherName}>
+                                    🎫 Voucher
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="st-tx-right">
+                              {showProfit && txTotalProfit > 0 && (
+                                <span className="st-tx-header-profit">
+                                  Untung: {formatCurrency(txTotalProfit)}
+                                </span>
+                              )}
+                              <span className="st-tx-total">{formatCurrency(tx.total)}</span>
+                              <span className={`st-tx-chevron ${isExpanded ? "expanded" : ""}`}>
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                  <path
+                                    d="M4 6L8 10L12 6"
+                                    stroke="currentColor"
+                                    strokeWidth="1.8"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </span>
+                            </div>
+                          </div>
+
+                          {isExpanded && (
+                            <div className="st-tx-details">
+                              <div className="st-tx-items-list">
+                                {txItemsWithProfit?.map((item, itemIdx) => (
+                                  <div key={itemIdx} className="st-tx-item-row">
+                                    <span className="st-tx-item-name">
+                                      {item.itemName}
+                                      {showProfit && item.profit > 0 && (
+                                        <span className="st-tx-item-profit-badge">
+                                          (Untung: {formatCurrency(item.profit)})
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className="st-tx-item-qty">
+                                      {item.quantity} {item.unit}
+                                    </span>
+                                    <span className="st-tx-item-subtotal">
+                                      {formatCurrency(item.subtotal)}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              {tx.voucherId && (
+                                <div className="st-tx-voucher-row">
+                                  <span className="st-tx-voucher-label">
+                                    Voucher: {tx.voucherName}
+                                  </span>
+                                  <span className="st-tx-voucher-discount">
+                                    -{formatCurrency(tx.voucherDiscount)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <button
+            onClick={handleShowMore}
+            disabled={allDataLoaded}
+            className="st-show-more"
+          >
+            {allDataLoaded ? "Semua Data Ditampilkan" : "Tampilkan Lebih"}
+          </button>
+        </>
       )}
 
       {/* Day Breakdown Dialog - includes Per Item and Per Pembeli views */}

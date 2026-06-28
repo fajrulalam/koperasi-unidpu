@@ -7,6 +7,8 @@ import {
   FaSortDown,
   FaSort,
   FaExclamationTriangle,
+  FaPercentage,
+  FaCheckCircle,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { v4 as uuidv4 } from "uuid";
@@ -32,6 +34,15 @@ function parseRupiah(value) {
   if (!value) return 0;
   const numeric = value.toString().replace(/\D/g, "");
   return parseInt(numeric, 10) || 0;
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
+    img.src = src;
+  });
 }
 
 function getTimestampString() {
@@ -85,6 +96,8 @@ export default function Stocks() {
   const [showDropdown, setShowDropdown] = useState(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
+
+  const [showMargin, setShowMargin] = useState(false);
 
   // Sorting states
   const [sortConfig, setSortConfig] = useState({
@@ -181,6 +194,9 @@ export default function Stocks() {
   }
 
   function computeAverageKulakPrice(prod) {
+    if (prod.lastPurchasePrice && prod.lastPurchasePrice > 0) {
+      return formatRupiah(Math.round(prod.lastPurchasePrice));
+    }
     if (!prod.stock || prod.stock === 0 || !prod.stockValue) return "0";
     const avgKulakPrice = Math.round(prod.stockValue / prod.stock);
     return formatRupiah(avgKulakPrice);
@@ -194,6 +210,34 @@ export default function Stocks() {
         ? prod.pricePerUnit[baseUnit]
         : parseRupiah(prod.pricePerUnit[baseUnit]);
     return formatRupiah(p);
+  }
+
+  function computeMarginDetails(prod) {
+    const baseUnit = prod.base_unit || prod.smallestUnit;
+    if (!baseUnit) return { value: 0, percent: 0, formatted: "Rp 0 (0%)", isNegative: false, isPositive: false };
+    
+    const hargaJual = prod.pricePerUnit && prod.pricePerUnit[baseUnit]
+      ? (typeof prod.pricePerUnit[baseUnit] === "number"
+          ? prod.pricePerUnit[baseUnit]
+          : parseRupiah(prod.pricePerUnit[baseUnit]))
+      : 0;
+      
+    const hargaBeli = prod.lastPurchasePrice && prod.lastPurchasePrice > 0
+      ? Math.round(prod.lastPurchasePrice)
+      : (prod.stock && prod.stockValue
+          ? Math.round(prod.stockValue / prod.stock)
+          : 0);
+      
+    const value = hargaJual - hargaBeli;
+    const percent = hargaJual > 0 ? Math.round((value / hargaJual) * 100) : 0;
+    
+    return {
+      value,
+      percent,
+      formatted: `Rp ${formatRupiah(Math.abs(value))} (${percent}%)`,
+      isNegative: value < 0,
+      isPositive: value > 0
+    };
   }
 
   // ***** EVENT HANDLERS *****
@@ -656,11 +700,19 @@ export default function Stocks() {
     setSnapshotDialogOpen(false);
   };
 
-  const generatePriceTags = (productsToUse) => {
+  const generatePriceTags = async (productsToUse) => {
     // Ensure jsPDF is loaded
     if (typeof jsPDF === "undefined") {
       console.error("jsPDF library is not loaded.");
       return;
+    }
+
+    // Load logo image
+    let logoImg = null;
+    try {
+      logoImg = await loadImage("/Kop URG Logo (Latest).png");
+    } catch (e) {
+      console.error("Failed to load Kop URG Logo image:", e);
     }
 
     // --- Configuration ---
@@ -807,6 +859,18 @@ export default function Stocks() {
       // Draw 'UniMart' text with the specified pink color
       doc.setTextColor(uniMartPinkColor); // << CHANGED: Set text color to UniMart pink
       doc.text(uniMartText, uniMartTextX, uniMartTextY);
+
+      // --- Add Logo (Draw next to the UniMart text) ---
+      if (logoImg) {
+        const logoHeight = uniMartBgHeight; // Same height as UniMart text background
+        const logoAspectRatio = logoImg.naturalWidth / logoImg.naturalHeight;
+        const logoWidth = logoHeight * logoAspectRatio;
+        
+        const logoX = currentX + tagPadding;
+        const logoY = stripeStartY - uniMartBottomMargin - logoHeight;
+        
+        doc.addImage(logoImg, "PNG", logoX, logoY, logoWidth, logoHeight);
+      }
 
       // --- Add Bottom Stripes with varying opacity (Draw *after* UniMart text) ---
 
@@ -987,9 +1051,11 @@ export default function Stocks() {
         await createDoc("stockTransactions", txDoc, txId);
 
         const newStock = (prod.stock || 0) + quantityInSmallestUnit;
+        const lastPurchasePrice = quantityInSmallestUnit > 0 ? (costValue / quantityInSmallestUnit) : 0;
         await updateDoc("stocks", selectedProductId, {
           stock: newStock,
           stockValue: (prod.stockValue || 0) + costValue,
+          lastPurchasePrice: lastPurchasePrice,
         });
 
         // Update local state
@@ -999,6 +1065,7 @@ export default function Stocks() {
             ...prev[selectedProductId],
             stock: newStock,
             stockValue: (prev[selectedProductId].stockValue || 0) + costValue,
+            lastPurchasePrice: lastPurchasePrice,
           },
         }));
 
@@ -1059,9 +1126,11 @@ export default function Stocks() {
         const txId = uuidv4();
         await createDoc("stockTransactions", txDoc, txId);
 
+        const lastPurchasePrice = newStock > 0 ? (newVal / newStock) : 0;
         await updateDoc("stocks", selectedProductId, {
           stock: newStock,
           stockValue: newVal,
+          lastPurchasePrice: lastPurchasePrice,
         });
 
         setProducts((prev) => ({
@@ -1070,6 +1139,7 @@ export default function Stocks() {
             ...prev[selectedProductId],
             stock: newStock,
             stockValue: newVal,
+            lastPurchasePrice: lastPurchasePrice,
           },
         }));
 
@@ -1334,6 +1404,16 @@ export default function Stocks() {
             Export ke Excel
           </button>
           <button
+            className={`px-5 py-2.5 font-bold rounded-lg shadow-sm transition text-sm flex items-center gap-2 ${
+              showMargin
+                ? "bg-green-600 hover:bg-green-700 text-white"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+            }`}
+            onClick={() => setShowMargin(!showMargin)}
+          >
+            {showMargin ? <FaCheckCircle /> : <FaPercentage />} Kalkulasi Margin
+          </button>
+          <button
             className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm flex items-center gap-2"
             onClick={() =>
               generatePriceTags(
@@ -1449,7 +1529,7 @@ export default function Stocks() {
                     ) : <FaSort className="text-gray-400" />}
                   </div>
                 </th>
-                <th
+                 <th
                   onClick={() => requestSort("averageKulak")}
                   className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
                 >
@@ -1460,6 +1540,30 @@ export default function Stocks() {
                     ) : <FaSort className="text-gray-400" />}
                   </div>
                 </th>
+                <th
+                  onClick={() => requestSort("pricePerUnit")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  <div className="flex items-center justify-end gap-1">
+                    Harga Jual
+                    {sortConfig.key === "pricePerUnit" ? (
+                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                    ) : <FaSort className="text-gray-400" />}
+                  </div>
+                </th>
+                {showMargin && (
+                  <th
+                    onClick={() => requestSort("profitMargin")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Margin Keuntungan
+                      {sortConfig.key === "profitMargin" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
                 <th
                   onClick={() => requestSort("stockValue")}
                   className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
@@ -1495,6 +1599,23 @@ export default function Stocks() {
                   <td className="px-6 py-4 text-right text-gray-600">
                     Rp {computeAverageKulakPrice(prod)}
                   </td>
+                  <td className="px-6 py-4 text-right text-gray-600">
+                    Rp {computeHargaFormatted(prod)}
+                  </td>
+                  {showMargin && (() => {
+                    const margin = computeMarginDetails(prod);
+                    return (
+                      <td className={`px-6 py-4 text-right font-semibold ${
+                        margin.isNegative 
+                          ? "text-red-600" 
+                          : margin.isPositive 
+                            ? "text-green-600" 
+                            : "text-gray-600"
+                      }`}>
+                        {margin.isNegative ? "-" : ""}{margin.formatted}
+                      </td>
+                    );
+                  })()}
                   <td className="px-6 py-4 text-right font-medium text-gray-900">
                     Rp {computeNilaiFormatted(prod)}
                   </td>
@@ -1630,6 +1751,7 @@ export default function Stocks() {
             await updateDoc("stocks", data.id, {
               stock: data.stock,
               stockValue: data.stockValue,
+              lastPurchasePrice: data.lastPurchasePrice,
             });
             // Update local state
             setProducts((prev) => ({
@@ -1638,6 +1760,7 @@ export default function Stocks() {
                 ...prev[data.id],
                 stock: data.stock,
                 stockValue: data.stockValue,
+                lastPurchasePrice: data.lastPurchasePrice,
               },
             }));
           } else if (action === "createNotaBelanja") {

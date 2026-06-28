@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
+import { useAuth } from "../context/AuthContext";
 import { voucherService } from "../services/voucherService";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -22,6 +23,7 @@ const VoucherDetailModalNew = ({
   readOnly = false,
 }) => {
   const { isProduction } = useEnvironment();
+  const { userRole } = useAuth();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,6 +42,11 @@ const VoucherDetailModalNew = ({
 
   const isForMemberOnly = voucherGroup.isVoucherForMemberOnly !== false;
   const isCashbackCampaign = voucherGroup.type === "cashbackCampaign";
+
+  const canRemoveEarners =
+    !readOnly &&
+    !isCashbackCampaign &&
+    (userRole === "Director" || userRole === "Wakil Rektor 2");
 
   const [editData, setEditData] = useState({
     voucherName: voucherGroup.voucherName,
@@ -147,13 +154,17 @@ const VoucherDetailModalNew = ({
     if (!window.confirm("Hapus voucher ini?")) return;
     try {
       setLoading(true);
+      const newTotal = vouchers.length - 1;
       await voucherService.deleteVoucherFromGroup(voucherId, isProduction);
-      await fetchVouchers();
       await voucherService.updateVoucherGroup(
         voucherGroup.id,
-        { totalVouchers: vouchers.length - 1 },
+        { totalVouchers: newTotal },
         isProduction
       );
+      await fetchVouchers();
+      if (onVoucherGroupUpdated) {
+        onVoucherGroupUpdated();
+      }
     } catch (err) {
       setError("Gagal menghapus voucher");
     } finally {
@@ -770,49 +781,76 @@ const VoucherDetailModalNew = ({
                               )}
                           </span>
                         </div>
-                        <div className="vd-voucher-status">
-                          {isCashbackCampaign ? (
-                            // Campaign-specific status badges
-                            voucher.status === "REDEEMED" ? (
+                        <div className="vd-voucher-right">
+                          <div className="vd-voucher-status">
+                            {isCashbackCampaign ? (
+                              // Campaign-specific status badges
+                              voucher.status === "REDEEMED" ? (
+                                <span className="vd-badge vd-badge--redeemed">
+                                  Terpakai
+                                </span>
+                              ) : voucher.status === "CLAIMED" ? (
+                                <span className="vd-badge vd-badge--ready">
+                                  Siap Pakai
+                                </span>
+                              ) : (
+                                <span className="vd-badge vd-badge--progress">
+                                  Mengumpulkan
+                                </span>
+                              )
+                            ) : // Regular voucher status
+                            voucher.isOneTimeUse === false ? (
+                              (() => {
+                                const spent = voucher.amountSpent || 0;
+                                const remaining = voucher.value - spent;
+                                if (remaining <= 0) {
+                                  return (
+                                    <span className="vd-badge vd-badge--redeemed">
+                                      Saldo Habis
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="vd-badge vd-badge--multiuse">
+                                    Sisa{" "}
+                                    {voucherService.formatNumber(remaining)}
+                                  </span>
+                                );
+                              })()
+                            ) : voucher.isClaimed ? (
                               <span className="vd-badge vd-badge--redeemed">
                                 Terpakai
                               </span>
-                            ) : voucher.status === "CLAIMED" ? (
-                              <span className="vd-badge vd-badge--ready">
-                                Siap Pakai
-                              </span>
                             ) : (
-                              <span className="vd-badge vd-badge--progress">
-                                Mengumpulkan
+                              <span className="vd-badge vd-badge--available">
+                                Tersedia
                               </span>
-                            )
-                          ) : // Regular voucher status
-                          voucher.isOneTimeUse === false ? (
-                            (() => {
-                              const spent = voucher.amountSpent || 0;
-                              const remaining = voucher.value - spent;
-                              if (remaining <= 0) {
-                                return (
-                                  <span className="vd-badge vd-badge--redeemed">
-                                    Saldo Habis
-                                  </span>
-                                );
-                              }
-                              return (
-                                <span className="vd-badge vd-badge--multiuse">
-                                  Sisa{" "}
-                                  {voucherService.formatNumber(remaining)}
-                                </span>
-                              );
-                            })()
-                          ) : voucher.isClaimed ? (
-                            <span className="vd-badge vd-badge--redeemed">
-                              Terpakai
-                            </span>
-                          ) : (
-                            <span className="vd-badge vd-badge--available">
-                              Tersedia
-                            </span>
+                            )}
+                          </div>
+                          {canRemoveEarners && (
+                            <button
+                              className="vd-delete-member-btn"
+                              type="button"
+                              onClick={() => handleDeleteVoucher(voucher.id)}
+                              title="Hapus Penerima"
+                              disabled={loading}
+                            >
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                <line x1="10" y1="11" x2="10" y2="17" />
+                                <line x1="14" y1="11" x2="14" y2="17" />
+                              </svg>
+                            </button>
                           )}
                         </div>
                       </div>

@@ -467,6 +467,36 @@
   flex-shrink: 0;
 }
 
+.vd-voucher-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.vd-delete-member-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.vd-delete-member-btn:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.vd-delete-member-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .vd-badge {
   display: inline-block;
   padding: 3px 8px;
