@@ -1,70 +1,50 @@
-# Getting Started with Create React App
+# UniMart POS & Stock Management System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern Point of Sale (POS) and Inventory/Stock management application designed for **UniMart (Koperasi Unipdu)**. Built with React, Vanilla CSS/Tailwind, and integrated with Firebase.
 
-## Available Scripts
+---
+
+## 🚀 Features
+
+### 🛒 Point of Sale (POS)
+* **Smooth Checkout Flow**: Process purchases with support for cash payments, discount vouchers, and membership identification.
+* **Smart Voucher Management**: Support for both single-use campaign vouchers and **multi-use balance vouchers** (tracking starting balances, applied discounts, and remaining balances).
+* **Thermal Receipt Printing**: Custom-styled receipt formatting (`11px` monospace layout) optimized for 80mm thermal printers with automatic browser print triggers and electron printing server support.
+
+### 📦 Inventory & Stock Control
+* **Flexible Multi-Unit Relationships**: Supports base units (e.g., `pcs`, `rim`) and bulk conversion relationships (e.g., `dus`, `pack`, `rim`) with automatic pro-rated pricing logic.
+* **Interactive stock adjustments**: Modern compact modals for increasing, resetting, or editing warehouse stock values.
+* **Row-Level Highlights (Tandai)**: Highlight problematic or low-stock items with a soft yellow warning background directly from the stock action menu.
+* **Pro-rated bulk pricing calculator**: Instantly calculates and displays unit prices when creating or modifying bulk conversions (e.g. showing `PACK (Rp 100/pcs)` dynamically).
+
+---
+
+## 🛠️ Tech Stack
+* **Frontend**: React (Create React App), Context API
+* **Styling**: Tailwind CSS & Vanilla CSS (Icons via React Icons)
+* **Backend Database**: Firebase Firestore (Environment-aware collections)
+* **Deployment**: Firebase Hosting & Cloud Functions
+
+---
+
+## 💻 Available Scripts
 
 In the project directory, you can run:
 
-### `npm start`
-
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
-
-### `npm test`
-
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### `npm run dev` / `npm start`
+Runs the app in development mode at [http://localhost:3000](http://localhost:3000).
 
 ### `npm run build`
+Builds the app for production in the `build/` directory, optimizing files for performance.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### `./deploy.sh`
+Deploys the production build to Firebase hosting and redeploys the receipt-printing Firebase Cloud Functions.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 📁 Repository Structure
+* `/src/components`: UI views (Inventory, Transactions, Modals)
+* `/src/services`: Service handlers (Firestore read/write wrappers, Voucher management, Print server logic)
+* `/src/utils`: Number/currency formatting utilities
+* `/functions`: Firebase Cloud Functions for backend server integrations
+* `/print-server`: Print server runtime helper configurations
