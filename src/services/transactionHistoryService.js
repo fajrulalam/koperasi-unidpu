@@ -23,9 +23,8 @@ export function convertToKg(qty, unit) {
  * Get display quantity with proper unit handling
  */
 export function getDisplayQty(tx) {
-  // Handle box conversion first
-  if (tx.originalUnit === "box" && tx.piecesPerBox) {
-    return `${tx.originalQuantity} box (${tx.quantity} pcs)`;
+  if (tx.originalUnit && tx.originalUnit !== tx.unit) {
+    return `${tx.originalQuantity} ${tx.originalUnit} (${tx.quantity} ${tx.unit || ""})`;
   }
 
   // Convert weight units to kg

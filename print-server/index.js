@@ -17,7 +17,11 @@ app.use(bodyParser.json());
 
 // Format number with thousand separator
 function formatNumber(number) {
-  return number.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const val = Number(number);
+  if (isNaN(val)) {
+    return "0";
+  }
+  return val.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 // Print endpoint

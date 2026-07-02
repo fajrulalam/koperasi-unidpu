@@ -49,9 +49,10 @@ const ProductSuggestions = ({
               {index === activeSuggestionIndex && (
                 <div className="quantity-unit-display">
                   <div className="quantity-card">
-                    {currentQuantity.toFixed(
-                      currentQuantity % 1 === 0 ? 0 : 1
-                    )}
+                    {(() => {
+                      const qty = Number(currentQuantity) || 0;
+                      return qty.toFixed(qty % 1 === 0 ? 0 : 1);
+                    })()}
                   </div>
                   <span className="unit">
                     × {product.satuan[currentSatuanIndex]}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { FaShoppingCart, FaMoneyBillWave } from "react-icons/fa";
 import "../styles/StockModal.css";
 
 // Helper functions
@@ -92,7 +92,7 @@ const NAMA_PEMASOK_CHOICES = [
   "Lainnya",
 ];
 const SMALLEST_UNITS = ["pcs", "gram", "ons", "kg", "kardus", "karton", "pack"];
-const BULK_UNITS = ["box", "sak", "pack", "bal", "lusin"];
+const BULK_UNITS = ["box", "sak", "pack", "bal", "lusin", "rim"];
 
 function StockModal({
   dialogOpen,
@@ -147,7 +147,8 @@ function StockModal({
       originalSmallestUnit: externalTempState.originalSmallestUnit || "",
       tempLastPurchasePrice: externalTempState.tempLastPurchasePrice || "",
     });
-  }, [externalTempState, dialogType, selectedProductId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dialogType, selectedProductId]);
 
   // Update parent state whenever local state changes (debounced)
   useEffect(() => {
@@ -180,6 +181,14 @@ function StockModal({
       if (localState.tempBulkUnitName && !localState.tempBulkUnitConversion) {
         errors.tempBulkUnitConversion = "Konversi Satuan Besar wajib diisi";
       }
+
+      // Validate prices for all active units
+      const activeUnits = [localState.tempBaseUnit, localState.tempBulkUnitName].filter(Boolean);
+      for (const u of activeUnits) {
+        if (!localState.tempPricePerUnit[u] || !localState.tempPricePerUnit[u].toString().trim()) {
+          errors[`price_${u}`] = `Harga jual untuk satuan ${u} wajib diisi`;
+        }
+      }
     }
 
     if (type === "tambah" || type === "tetapkan") {
@@ -192,7 +201,6 @@ function StockModal({
     return Object.keys(errors).length === 0;
   };
 
-  const { currentUser } = useAuth();
   const firstFieldRef = useRef(null);
 
   // Focus on the first field when the modal opens
@@ -244,15 +252,48 @@ function StockModal({
     }));
   }
 
+  // Handle base unit name change
+  function handleBaseUnitChange(e) {
+    const newUnit = e.target.value;
+    setLocalState((prev) => {
+      const oldUnit = prev.tempBaseUnit;
+      const newPricePerUnit = { ...prev.tempPricePerUnit };
+      if (oldUnit && newPricePerUnit[oldUnit] !== undefined) {
+        newPricePerUnit[newUnit] = newPricePerUnit[oldUnit];
+        if (oldUnit !== newUnit) {
+          delete newPricePerUnit[oldUnit];
+        }
+      }
+      return {
+        ...prev,
+        tempBaseUnit: newUnit,
+        tempPricePerUnit: newPricePerUnit,
+      };
+    });
+  }
+
   // Handle bulk unit name change
   function handleBulkUnitNameChange(e) {
-    const unit = e.target.value;
-    setLocalState((prev) => ({
-      ...prev,
-      tempBulkUnitName: unit,
-      // If setting bulk unit name to empty, clear its conversion
-      tempBulkUnitConversion: unit ? prev.tempBulkUnitConversion : "",
-    }));
+    const newUnit = e.target.value;
+    setLocalState((prev) => {
+      const oldUnit = prev.tempBulkUnitName;
+      const baseUnit = prev.tempBaseUnit;
+      const newPricePerUnit = { ...prev.tempPricePerUnit };
+      
+      if (oldUnit && oldUnit !== baseUnit) {
+        if (newUnit) {
+          newPricePerUnit[newUnit] = prev.tempPricePerUnit[oldUnit] || "";
+        }
+        delete newPricePerUnit[oldUnit];
+      }
+      
+      return {
+        ...prev,
+        tempBulkUnitName: newUnit,
+        tempBulkUnitConversion: newUnit ? prev.tempBulkUnitConversion : "",
+        tempPricePerUnit: newPricePerUnit,
+      };
+    });
   }
   function handlePriceChange(unit, val) {
     try {
@@ -492,12 +533,7 @@ function StockModal({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Satuan Dasar (Wajib)</label>
                 <select
                   value={localState.tempBaseUnit}
-                  onChange={(e) =>
-                    setLocalState((prev) => ({
-                      ...prev,
-                      tempBaseUnit: e.target.value,
-                    }))
-                  }
+                  onChange={handleBaseUnitChange}
                   className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
                     formErrors.tempBaseUnit ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
                   }`}
@@ -532,8 +568,8 @@ function StockModal({
               </div>
 
               {localState.tempBulkUnitName && (
-                <div className="md:col-span-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                  <label className="block text-sm font-semibold text-blue-900 mb-1">Konversi Satuan Besar</label>
+                <div className="md:col-span-2 bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                  <label className="block text-sm font-semibold text-yellow-950 mb-1">Konversi Satuan Besar</label>
                   <div className="flex items-center text-sm text-gray-700 gap-1.5 mt-1">
                     <span>1 {localState.tempBulkUnitName} = </span>
                     <input
@@ -556,32 +592,55 @@ function StockModal({
               )}
 
               {/* Harga Jual per Satuan */}
-              <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
-                <label className="block text-sm font-bold text-gray-900 mb-3">Harga Jual per Satuan</label>
+              <div className="md:col-span-2 bg-green-50 p-4 rounded-xl border border-green-200 mt-2">
+                <label className="flex items-center gap-2 text-sm font-bold text-green-900 mb-3">
+                  <FaMoneyBillWave className="text-green-600" />
+                  Harga Jual per Satuan
+                </label>
                 <div className="grid grid-cols-2 gap-4">
-                  {[localState.tempBaseUnit, localState.tempBulkUnitName].filter(Boolean).map((u) => (
-                    <div key={u} className="flex flex-col">
-                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{u}</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
-                        <input
-                          type="text"
-                          value={localState.tempPricePerUnit[u] || ""}
-                          onChange={(e) => handlePriceChange(u, e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          placeholder="e.g. 10.000"
-                          inputMode="numeric"
-                          className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white font-medium text-gray-900"
-                        />
+                   {[localState.tempBaseUnit, localState.tempBulkUnitName].filter(Boolean).map((u) => {
+                    const isBulk = u === localState.tempBulkUnitName;
+                    let labelSuffix = "";
+                    if (isBulk && localState.tempBulkUnitConversion) {
+                      const bulkVal = parseRupiah(localState.tempPricePerUnit[u]);
+                      const conversion = parseInt(localState.tempBulkUnitConversion, 10);
+                      if (bulkVal > 0 && conversion > 1) {
+                        const perUnitPrice = Math.round(bulkVal / conversion);
+                        labelSuffix = ` (Rp ${formatRupiah(perUnitPrice)}/${localState.tempBaseUnit || "pcs"})`;
+                      }
+                    }
+                    return (
+                      <div key={u} className="flex flex-col">
+                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                          {u}{labelSuffix}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
+                          <input
+                            type="text"
+                            value={localState.tempPricePerUnit[u] || ""}
+                            onChange={(e) => handlePriceChange(u, e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="e.g. 10.000"
+                            inputMode="numeric"
+                            className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white font-medium text-gray-900"
+                          />
+                        </div>
+                        {formErrors[`price_${u}`] && (
+                          <span className="text-xs text-red-600 mt-1 block">{formErrors[`price_${u}`]}</span>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Harga Beli */}
-              <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
-                <label className="block text-sm font-bold text-gray-900 mb-3">Harga Beli per Satuan Dasar ({localState.tempBaseUnit || "pcs"})</label>
+              <div className="md:col-span-2 bg-blue-50 p-4 rounded-xl border border-blue-200 mt-2">
+                <label className="flex items-center gap-2 text-sm font-bold text-blue-900 mb-3">
+                  <FaShoppingCart className="text-blue-600" />
+                  Harga Beli per Satuan Dasar ({localState.tempBaseUnit || "pcs"})
+                </label>
                 <div className="relative max-w-xs">
                   <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
                   <input
@@ -611,7 +670,7 @@ function StockModal({
               Batal
             </button>
             <button
-              className="px-4 py-2 bg-primary hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
               onClick={() => {
                 if (validateForm("addNew")) {
                   onSave("addNew");
@@ -789,12 +848,7 @@ function StockModal({
                 <label className="block text-sm font-medium text-gray-700 mb-1">Satuan Dasar (Wajib)</label>
                 <select
                   value={localState.tempBaseUnit}
-                  onChange={(e) =>
-                    setLocalState((prev) => ({
-                      ...prev,
-                      tempBaseUnit: e.target.value,
-                    }))
-                  }
+                  onChange={handleBaseUnitChange}
                   className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
                     formErrors.tempBaseUnit ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
                   }`}
@@ -829,8 +883,8 @@ function StockModal({
               </div>
 
               {localState.tempBulkUnitName && (
-                <div className="md:col-span-2 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                  <label className="block text-sm font-semibold text-blue-900 mb-1">Konversi Satuan Besar</label>
+                <div className="md:col-span-2 bg-yellow-50 p-4 rounded-xl border border-yellow-200">
+                  <label className="block text-sm font-semibold text-yellow-950 mb-1">Konversi Satuan Besar</label>
                   <div className="flex items-center text-sm text-gray-700 gap-1.5 mt-1">
                     <span>1 {localState.tempBulkUnitName} = </span>
                     <input
@@ -853,32 +907,55 @@ function StockModal({
               )}
 
               {/* Harga Jual per Satuan */}
-              <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
-                <label className="block text-sm font-bold text-gray-900 mb-3">Harga Jual per Satuan</label>
+              <div className="md:col-span-2 bg-green-50 p-4 rounded-xl border border-green-200 mt-2">
+                <label className="flex items-center gap-2 text-sm font-bold text-green-900 mb-3">
+                  <FaMoneyBillWave className="text-green-600" />
+                  Harga Jual per Satuan
+                </label>
                 <div className="grid grid-cols-2 gap-4">
-                  {[localState.tempBaseUnit, localState.tempBulkUnitName].filter(Boolean).map((u) => (
-                    <div key={u} className="flex flex-col">
-                      <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{u}</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
-                        <input
-                          type="text"
-                          value={localState.tempPricePerUnit[u] || ""}
-                          onChange={(e) => handlePriceChange(u, e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          placeholder="e.g. 10.000"
-                          inputMode="numeric"
-                          className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white font-medium text-gray-900"
-                        />
+                   {[localState.tempBaseUnit, localState.tempBulkUnitName].filter(Boolean).map((u) => {
+                    const isBulk = u === localState.tempBulkUnitName;
+                    let labelSuffix = "";
+                    if (isBulk && localState.tempBulkUnitConversion) {
+                      const bulkVal = parseRupiah(localState.tempPricePerUnit[u]);
+                      const conversion = parseInt(localState.tempBulkUnitConversion, 10);
+                      if (bulkVal > 0 && conversion > 1) {
+                        const perUnitPrice = Math.round(bulkVal / conversion);
+                        labelSuffix = ` (Rp ${formatRupiah(perUnitPrice)}/${localState.tempBaseUnit || "pcs"})`;
+                      }
+                    }
+                    return (
+                      <div key={u} className="flex flex-col">
+                        <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                          {u}{labelSuffix}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
+                          <input
+                            type="text"
+                            value={localState.tempPricePerUnit[u] || ""}
+                            onChange={(e) => handlePriceChange(u, e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            placeholder="e.g. 10.000"
+                            inputMode="numeric"
+                            className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white font-medium text-gray-900"
+                          />
+                        </div>
+                        {formErrors[`price_${u}`] && (
+                          <span className="text-xs text-red-600 mt-1 block">{formErrors[`price_${u}`]}</span>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Harga Beli */}
-              <div className="md:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-200 mt-2">
-                <label className="block text-sm font-bold text-gray-900 mb-3">Harga Beli per Satuan Dasar ({localState.tempBaseUnit || "pcs"})</label>
+              <div className="md:col-span-2 bg-blue-50 p-4 rounded-xl border border-blue-200 mt-2">
+                <label className="flex items-center gap-2 text-sm font-bold text-blue-900 mb-3">
+                  <FaShoppingCart className="text-blue-600" />
+                  Harga Beli per Satuan Dasar ({localState.tempBaseUnit || "pcs"})
+                </label>
                 <div className="relative max-w-xs">
                   <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
                   <input
@@ -900,23 +977,36 @@ function StockModal({
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
+          <div className="flex justify-between items-center px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-xl">
             <button
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-              onClick={onClose}
-            >
-              Batal
-            </button>
-            <button
-              className="px-4 py-2 bg-primary hover:bg-red-700 text-white rounded-lg text-sm font-medium transition"
+              className="px-4 py-2 bg-red-50 border border-red-200 hover:bg-red-100 text-red-600 rounded-lg text-sm font-semibold transition"
               onClick={() => {
-                if (validateForm("edit")) {
-                  onSave("edit");
+                const prod = products[selectedProductId];
+                if (window.confirm(`Apakah Anda yakin ingin menghapus produk "${prod?.name}" dari sistem?`)) {
+                  onSave("delete");
                 }
               }}
             >
-              Simpan
+              Hapus Produk
             </button>
+            <div className="flex gap-3">
+              <button
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                onClick={onClose}
+              >
+                Batal
+              </button>
+              <button
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
+                onClick={() => {
+                  if (validateForm("edit")) {
+                    onSave("edit");
+                  }
+                }}
+              >
+                Simpan
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -930,39 +1020,40 @@ function StockModal({
     products[selectedProductId]
   ) {
     return (
-      <div className="stockmodal-overlay">
-        <div className="stockmodal-content">
-          <h2>Tambah Stok</h2>
-          <div className="stockmodal-body">
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
+          <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Tambah Stok</h2>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl font-semibold leading-none">&times;</button>
+          </div>
+          <div className="p-6 overflow-y-auto flex-grow space-y-4">
             {(() => {
               const prod = products[selectedProductId];
               const conv = prod.bulk_unit_conversion || prod.piecesPerBox;
               const name = prod.bulk_unit_name || (prod.satuan ? prod.satuan.find(u => u !== (prod.base_unit || prod.smallestUnit)) : "");
               if (name && conv) {
                 return (
-                  <p>
-                    <b>1 {name} =</b> {conv} {prod.base_unit || prod.smallestUnit}
-                  </p>
+                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-sm text-yellow-950 font-medium text-center">
+                    1 {name} = {conv} {prod.base_unit || prod.smallestUnit}
+                  </div>
                 );
               }
               return null;
             })()}
-            <div className="form-group">
-              <label>Jumlah dan Satuan</label>
-              <div className="input-group">
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah</label>
+              <div className="flex gap-2">
                 <input
                   ref={firstFieldRef}
                   type="text"
                   value={localState.tempAmount}
                   onChange={handleAmountChange}
-                  className={`quantity-input ${
-                    formErrors.tempAmount ? "error" : ""
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempAmount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
                   }`}
                   placeholder="Jumlah"
                 />
-                {formErrors.tempAmount && (
-                  <div className="error-message">{formErrors.tempAmount}</div>
-                )}
                 <select
                   value={localState.tempSatuan}
                   onChange={(e) =>
@@ -971,13 +1062,8 @@ function StockModal({
                       tempSatuan: e.target.value,
                     }))
                   }
-                  className={`unit-select ${
-                    formErrors.tempSatuan ? "error" : ""
-                  }`}
+                  className="w-28 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white text-gray-900 font-medium"
                 >
-                  {formErrors.tempSatuan && (
-                    <div className="error-message">{formErrors.tempSatuan}</div>
-                  )}
                   {(() => {
                     const prod = products[selectedProductId];
                     const base = prod.base_unit || prod.smallestUnit || "";
@@ -991,23 +1077,35 @@ function StockModal({
                   })()}
                 </select>
               </div>
+              {formErrors.tempAmount && (
+                <span className="text-xs text-red-600 mt-1 block">{formErrors.tempAmount}</span>
+              )}
             </div>
-            <div className="form-group">
-              <label>Total Harga Kulak (Rp)</label>
-              <div className="currency-input">
-                <span className="currency-prefix"></span>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Total Harga Kulak (Rp)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
                 <input
                   type="text"
                   value={localState.tempCost}
                   onChange={handleCostChange}
-                  placeholder=""
+                  className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm font-medium text-gray-900"
+                  placeholder="e.g. 100.000"
                 />
               </div>
             </div>
           </div>
-          <div className="stockmodal-buttons">
-            <button onClick={onClose}>Batal</button>
+
+          <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
             <button
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              onClick={onClose}
+            >
+              Batal
+            </button>
+            <button
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
               onClick={() => {
                 if (validateForm("tambah")) {
                   onSave("tambah");
@@ -1029,76 +1127,92 @@ function StockModal({
     products[selectedProductId]
   ) {
     return (
-      <div className="stockmodal-overlay">
-        <div className="stockmodal-content">
-          <h2>Tetapkan Stok</h2>
-          <div className="stockmodal-body">
+      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden max-h-[95vh] flex flex-col">
+          <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Tetapkan Stok</h2>
+            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 text-2xl font-semibold leading-none">&times;</button>
+          </div>
+          <div className="p-6 overflow-y-auto flex-grow space-y-4">
             {(() => {
               const prod = products[selectedProductId];
               const conv = prod.bulk_unit_conversion || prod.piecesPerBox;
               const name = prod.bulk_unit_name || (prod.satuan ? prod.satuan.find(u => u !== (prod.base_unit || prod.smallestUnit)) : "");
               if (name && conv) {
                 return (
-                  <p>
-                    <b>1 {name} =</b> {conv} {prod.base_unit || prod.smallestUnit}
-                  </p>
+                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-sm text-yellow-950 font-medium text-center">
+                    1 {name} = {conv} {prod.base_unit || prod.smallestUnit}
+                  </div>
                 );
               }
               return null;
             })()}
-            <div className="form-group">
-              <label>Jumlah</label>
-              <input
-                ref={firstFieldRef}
-                type="text"
-                value={localState.tempAmount}
-                onChange={handleAmountChange}
-                className={formErrors.tempAmount ? "error" : ""}
-              />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah</label>
+              <div className="flex gap-2">
+                <input
+                  ref={firstFieldRef}
+                  type="text"
+                  value={localState.tempAmount}
+                  onChange={handleAmountChange}
+                  className={`w-full p-2 border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm ${
+                    formErrors.tempAmount ? "border-red-500 ring-1 ring-red-500" : "border-gray-300"
+                  }`}
+                  placeholder="Jumlah"
+                />
+                <select
+                  value={localState.tempSatuan}
+                  onChange={(e) =>
+                    setLocalState((prev) => ({
+                      ...prev,
+                      tempSatuan: e.target.value,
+                    }))
+                  }
+                  className="w-28 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm bg-white text-gray-900 font-medium"
+                >
+                  {(() => {
+                    const prod = products[selectedProductId];
+                    const base = prod.base_unit || prod.smallestUnit || "";
+                    const bulk = prod.bulk_unit_name || (prod.satuan ? prod.satuan.find(u => u !== base) : "");
+                    const options = prod.satuan || [base, bulk].filter(Boolean);
+                    return options.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ));
+                  })()}
+                </select>
+              </div>
               {formErrors.tempAmount && (
-                <div className="error-message">{formErrors.tempAmount}</div>
+                <span className="text-xs text-red-600 mt-1 block">{formErrors.tempAmount}</span>
               )}
             </div>
-            <div className="form-group">
-              <label>Satuan</label>
-              <select
-                value={localState.tempSatuan}
-                onChange={(e) =>
-                  setLocalState((prev) => ({
-                    ...prev,
-                    tempSatuan: e.target.value,
-                  }))
-                }
-                className={formErrors.tempSatuan ? "error" : ""}
-              >
-                {formErrors.tempSatuan && (
-                  <div className="error-message">{formErrors.tempSatuan}</div>
-                )}
-                {(() => {
-                  const prod = products[selectedProductId];
-                  const base = prod.base_unit || prod.smallestUnit || "";
-                  const bulk = prod.bulk_unit_name || (prod.satuan ? prod.satuan.find(u => u !== base) : "");
-                  const options = prod.satuan || [base, bulk].filter(Boolean);
-                  return options.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ));
-                })()}
-              </select>
-            </div>
-            <div className="form-group">
-              <label>Harga Pembelian (Rp)</label>
-              <input
-                type="text"
-                value={localState.tempCost}
-                onChange={handleCostChange}
-              />
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Harga Pembelian (Rp)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
+                <input
+                  type="text"
+                  value={localState.tempCost}
+                  onChange={handleCostChange}
+                  className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm font-medium text-gray-900"
+                  placeholder="e.g. 100.000"
+                />
+              </div>
             </div>
           </div>
-          <div className="stockmodal-buttons">
-            <button onClick={onClose}>Batal</button>
+
+          <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">
             <button
+              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+              onClick={onClose}
+            >
+              Batal
+            </button>
+            <button
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
               onClick={() => {
                 if (validateForm("tetapkan")) {
                   onSave("tetapkan");

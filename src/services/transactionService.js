@@ -76,8 +76,16 @@ export const processTransaction = async (
       };
     });
 
-    // Create a unique transaction ID
-    const transactionId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+    // Create a unique transaction ID based on time precisely to the second
+    const now = new Date();
+    const YYYY = now.getFullYear();
+    const MM = String(now.getMonth() + 1).padStart(2, "0");
+    const DD = String(now.getDate()).padStart(2, "0");
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+    const transactionId = `${YYYY}${MM}${DD}-${hh}${mm}${ss}-${randomSuffix}`;
     
     // Create transaction with environment awareness
     await createDoc("transactionDetail", {
@@ -202,11 +210,7 @@ const printReceipt = async (transactionId, items, total, amountPaid, change, set
   try {
     // Get current date and time
     const now = new Date();
-    const dateTimeStr = now.toLocaleDateString('id-ID', { 
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }) + ' ' + now.toLocaleTimeString('id-ID');
+    const dateTimeStr = now.toLocaleTimeString('id-ID').replace(/\./g, ':');
     
     // Create receipt data model
     const receiptData = {

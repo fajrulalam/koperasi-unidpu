@@ -122,3 +122,120 @@
   background-color: #f5f5f5;
   text-align: left;
 }
+
+/* View Mode Toggles */
+.view-mode-chips {
+  display: flex;
+  margin-bottom: 20px;
+  gap: 8px;
+}
+
+.view-mode-chip {
+  padding: 8px 16px;
+  border: 1px solid #1a73e8;
+  border-radius: 20px;
+  background-color: #fff;
+  color: #1a73e8;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.view-mode-chip:hover {
+  background-color: #f0f6ff;
+}
+
+.view-mode-chip.active {
+  background-color: #1a73e8;
+  color: #fff;
+}
+
+/* Accordion Rows */
+.nota-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.nota-row:hover {
+  background-color: #f5f9ff !important;
+}
+
+.nota-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #1a73e8;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.nota-link-btn:hover {
+  text-decoration: underline;
+}
+
+.no-nota-text {
+  color: #888;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.expand-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #5f6368;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.expand-btn:hover {
+  background-color: #e8eaed;
+}
+
+.expanded-details-row {
+  background-color: #f8f9fa;
+}
+
+.nota-details-container {
+  padding: 16px 24px;
+  border-left: 4px solid #1a73e8;
+  background: #fdfdfd;
+}
+
+.nota-details-container h4 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  color: #202124;
+}
+
+.nota-details-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  border: 1px solid #dadce0;
+  box-shadow: 0 1px 2px 0 rgba(60,64,67,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.nota-details-table th,
+.nota-details-table td {
+  padding: 10px 14px;
+  border: 1px solid #dadce0;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.nota-details-table th {
+  background-color: #f1f3f4;
+  color: #3c4043;
+  font-weight: 600;
+}
+

@@ -13,11 +13,8 @@ import {
   convertToSmallestUnit,
   convertFromSmallestUnit,
   formatCurrency,
-  formatNumber,
   getInitialQuantity,
   getIncrement,
-  getBarcodeIncrement,
-  validateVoucher,
   CONVERSION_TABLE,
 } from "../utils/transaksiUtils";
 
@@ -35,80 +32,7 @@ export const setLocalPrintServer = (url = "http://localhost:9001") => {
 // Function to print receipt - note that setSnackbar is passed as a parameter
 // The printer service is imported at the top of the file
 
-const printReceipt = async (
-  transactionId,
-  items,
-  total,
-  amountPaid,
-  change,
-  setSnackbarFn
-) => {
-  try {
-    // Get current date and time
-    const now = new Date();
-    const dateTimeStr =
-      now.toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }) +
-      " " +
-      now.toLocaleTimeString("id-ID");
 
-    // Create receipt data model
-    const receiptData = {
-      header: {
-        storeName: "UniMart • Unipdu Mart",
-        storeAddress: "Kompleks Pondok Pesantren Darul Ulum",
-        storeCity: "Jombang, Jawa Timur",
-        title: "Struk Pembelian",
-      },
-      info: {
-        transactionId: transactionId,
-        dateTime: dateTimeStr,
-      },
-      items: items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.satuan,
-        price: item.price,
-        subtotal: item.subtotal,
-      })),
-      summary: {
-        total: total,
-        amountPaid: parseInt(amountPaid.replace(/\D/g, ""), 10) || 0,
-        change: change,
-      },
-    };
-
-    // Use the PrinterService to handle printing logic
-    // It will attempt direct local printing first, then fall back to browser printing
-    console.log("Attempting to print receipt...");
-
-    const success = await printerServicePrint(receiptData);
-
-    if (!success) {
-      console.warn("All printing methods failed");
-      if (typeof setSnackbarFn === "function") {
-        setSnackbarFn({
-          open: true,
-          message: "Gagal mencetak struk. Periksa koneksi printer.",
-          severity: "warning",
-        });
-      }
-    }
-  } catch (error) {
-    console.error("Error printing receipt:", error);
-    // Use the passed snackbar function if available
-    if (typeof setSnackbarFn === "function") {
-      setSnackbarFn({
-        open: true,
-        message: `Error mencetak struk: ${error.message}`,
-        severity: "error",
-      });
-    }
-  }
-};
 
 // Enhanced receipt printing function with voucher support
 const printReceiptWithVoucher = async (receiptData, setSnackbarFn) => {
@@ -118,14 +42,7 @@ const printReceiptWithVoucher = async (receiptData, setSnackbarFn) => {
 
     // Get current date and time
     const now = new Date();
-    const dateTimeStr =
-      now.toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }) +
-      " " +
-      now.toLocaleTimeString("id-ID");
+    const dateTimeStr = now.toLocaleTimeString("id-ID").replace(/\./g, ":");
 
     // Create receipt data model with voucher support
     const receiptItems = items.map((item) => ({
@@ -167,6 +84,7 @@ const printReceiptWithVoucher = async (receiptData, setSnackbarFn) => {
         amountPaid: parseInt(amountPaid.replace(/\D/g, ""), 10) || 0,
         change: change,
       },
+      appliedVoucher: appliedVoucher,
     };
 
     // Use the PrinterService to handle printing logic
@@ -199,12 +117,9 @@ const printReceiptWithVoucher = async (receiptData, setSnackbarFn) => {
 const Transaksi = () => {
   const { currentUser } = useAuth();
   const {
-    getCollection,
-    getDocRef,
     createDoc,
     readDoc,
     updateDoc,
-    deleteDoc,
     serverTimestamp,
     queryCollection,
   } = useFirestore();
@@ -265,6 +180,7 @@ const Transaksi = () => {
       }
     };
     checkBukuStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProduction]);
 
   const handleEnterKeyDown = (e) => {
@@ -315,6 +231,7 @@ const Transaksi = () => {
       setProductData(products);
     };
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProduction]);
 
   // Fetch active cashback campaigns
@@ -370,6 +287,7 @@ const Transaksi = () => {
       setSuggestions(newSuggestions);
       setActiveSuggestionIndex(newSuggestions.length > 0 ? 0 : -1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, useScanner, productData]);
 
   useEffect(() => {
@@ -425,20 +343,11 @@ const Transaksi = () => {
         case "]":
           if (e.key === "Shift" && e.location !== 2) break;
           e.preventDefault();
-          if (activeProduct && !isActiveDisabled) {
-            const newIndex =
-              (currentSatuanIndex + 1) % activeProduct.satuan.length;
-            handleUnitChange(newIndex, activeProduct);
-          }
+          // Disabled unit switching for Koperasi sales (only Satuan Dasar allowed)
           break;
         case "[":
           e.preventDefault();
-          if (activeProduct && !isActiveDisabled) {
-            const newIndex =
-              (currentSatuanIndex - 1 + activeProduct.satuan.length) %
-              activeProduct.satuan.length;
-            handleUnitChange(newIndex, activeProduct);
-          }
+          // Disabled unit switching for Koperasi sales (only Satuan Dasar allowed)
           break;
         case "ArrowRight":
           e.preventDefault();
@@ -482,6 +391,39 @@ const Transaksi = () => {
     } else if (e.key === "Enter") {
       addProduct();
     }
+  };
+
+  const getDynamicPriceAndSubtotal = (productId, qty, selectedUnit) => {
+    const product = productData[productId];
+    if (!product) {
+      return { price: 0, subtotal: 0 };
+    }
+
+    const baseUnit = product.base_unit || product.smallestUnit || "pcs";
+    const bulkUnit = product.bulk_unit_name || "";
+    const conversion = product.bulk_unit_conversion || product.piecesPerBox || 1;
+
+    const bulkPrice = bulkUnit ? (product.pricePerUnit?.[bulkUnit] || 0) : 0;
+
+    if (
+      selectedUnit === baseUnit &&
+      bulkUnit &&
+      bulkPrice > 0 &&
+      conversion > 1 &&
+      qty >= conversion
+    ) {
+      const proRatedPrice = bulkPrice / conversion;
+      return {
+        price: proRatedPrice,
+        subtotal: qty * proRatedPrice
+      };
+    }
+
+    const standardPrice = product.pricePerUnit?.[selectedUnit] || 0;
+    return {
+      price: standardPrice,
+      subtotal: standardPrice * qty
+    };
   };
 
   const addProductToCart = (id, satuan, quantity) => {
@@ -552,14 +494,15 @@ const Transaksi = () => {
       }
     } else {
       // If the product is not already in the cart, add it as a new entry.
+      const { price, subtotal } = getDynamicPriceAndSubtotal(id, quantity, satuan);
       const newProduct = {
         no: products.length + 1,
         id,
         name: product.name,
         quantity,
         satuan,
-        price: product.pricePerUnit[satuan],
-        subtotal: product.pricePerUnit[satuan] * quantity,
+        price,
+        subtotal,
         satuanOptions: product.satuan,
         pricePerUnit: product.pricePerUnit,
         smallestUnit: product.smallestUnit,
@@ -569,16 +512,10 @@ const Transaksi = () => {
         bulk_unit_conversion: product.bulk_unit_conversion || product.piecesPerBox,
       };
       setProducts([...products, newProduct]);
-      setTotal(total + newProduct.subtotal);
+      setTotal(total + subtotal);
     }
     // Clear the input field.
     setProductId("");
-  };
-
-  const handleUnitChange = (newIndex, product) => {
-    setCurrentSatuanIndex(newIndex);
-    const newSatuan = product.satuan[newIndex];
-    setCurrentQuantity(getInitialQuantity(newSatuan));
   };
 
   const addProduct = () => {
@@ -602,8 +539,8 @@ const Transaksi = () => {
     const updatedProducts = products
       .map((p) => {
         if (p.id === id) {
-          const newSubtotal = p.price * quantity;
-          return { ...p, quantity, subtotal: newSubtotal };
+          const { price, subtotal } = getDynamicPriceAndSubtotal(id, quantity, p.satuan);
+          return { ...p, quantity, price, subtotal };
         }
         return p;
       })
@@ -637,7 +574,6 @@ const Transaksi = () => {
     const {
       amountPaid,
       change,
-      numericAmountPaid,
       totalNumeric,
       appliedVoucher,
       originalTotal,
@@ -709,9 +645,16 @@ const Transaksi = () => {
         };
       });
 
-      // Create a unique transaction ID
-      const transactionId =
-        Date.now().toString() + Math.random().toString(36).substr(2, 5);
+      // Create a unique transaction ID based on time precisely to the second
+      const now = new Date();
+      const YYYY = now.getFullYear();
+      const MM = String(now.getMonth() + 1).padStart(2, "0");
+      const DD = String(now.getDate()).padStart(2, "0");
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      const randomSuffix = Math.random().toString(36).substr(2, 3).toUpperCase();
+      const transactionId = `${YYYY}${MM}${DD}-${hh}${mm}${ss}-${randomSuffix}`;
 
       // Create transaction with environment awareness and voucher support
       const transactionData = {
@@ -904,53 +847,6 @@ const Transaksi = () => {
     recalculateTotal(updatedProducts);
   };
 
-  const updateSatuan = (id, newSatuan) => {
-    const updatedProducts = products.map((p) => {
-      if (p.id === id) {
-        const stockProduct = productData[p.id];
-        const oldSatuan = p.satuan;
-        // Convert current quantity to the smallest unit
-        const inSmallest = convertToSmallestUnit(p.quantity, oldSatuan, stockProduct);
-
-        const baseUnit = stockProduct.base_unit || stockProduct.smallestUnit;
-        const bulkUnitName = stockProduct.bulk_unit_name || "box";
-        const bulkUnitConversion = stockProduct.bulk_unit_conversion || stockProduct.piecesPerBox;
-
-        let newQuantity;
-        if (newSatuan === bulkUnitName) {
-          newQuantity = inSmallest / bulkUnitConversion;
-        } else {
-          // We use the conversion table to recalc the quantity.
-          newQuantity =
-            (inSmallest / CONVERSION_TABLE[newSatuan]) *
-            CONVERSION_TABLE[baseUnit];
-        }
-
-        const newPrice = p.pricePerUnit[newSatuan];
-        return {
-          ...p,
-          satuan: newSatuan,
-          quantity: newQuantity,
-          price: newPrice,
-          subtotal: newPrice * newQuantity,
-        };
-      }
-      return p;
-    });
-
-    setProducts(updatedProducts);
-    recalculateTotal(updatedProducts);
-
-    // Update the local input so that the text field autopopulates
-    const changedProduct = updatedProducts.find((p) => p.id === id);
-    if (changedProduct) {
-      setQuantityInputs((prev) => ({
-        ...prev,
-        [id]: changedProduct.quantity.toString(),
-      }));
-    }
-  };
-
   const recalculateTotal = (updatedProducts) => {
     const newTotal = updatedProducts.reduce(
       (acc, curr) => acc + curr.subtotal,
@@ -1096,9 +992,10 @@ const Transaksi = () => {
                     {index === activeSuggestionIndex && (
                       <div className="quantity-unit-display">
                         <div className="quantity-card">
-                          {currentQuantity.toFixed(
-                            currentQuantity % 1 === 0 ? 0 : 1
-                          )}
+                          {(() => {
+                            const qty = Number(currentQuantity) || 0;
+                            return qty.toFixed(qty % 1 === 0 ? 0 : 1);
+                          })()}
                         </div>
                         <span className="unit">
                           × {product.satuan[currentSatuanIndex]}
@@ -1255,17 +1152,7 @@ const Transaksi = () => {
                   : "Loading..."}
               </td>
               <td>
-                {formatCurrency(product.price)} /{" "}
-                <select
-                  value={product.satuan}
-                  onChange={(e) => updateSatuan(product.id, e.target.value)}
-                >
-                  {product.satuanOptions.map((satuan) => (
-                    <option key={satuan} value={satuan}>
-                      {satuan}
-                    </option>
-                  ))}
-                </select>
+                {formatCurrency(product.price)} / {product.satuan}
               </td>
               <td>{formatCurrency(product.subtotal)}</td>
               <td>

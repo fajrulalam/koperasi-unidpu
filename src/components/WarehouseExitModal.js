@@ -852,7 +852,7 @@ const WarehouseExitModal = ({
                       >
                         <option value="">-- Satuan --</option>
                         {row.product ? (
-                          [row.product.base_unit || row.product.smallestUnit, row.product.bulk_unit_name].filter(Boolean).map((u) => (
+                          [row.product.base_unit || row.product.smallestUnit].filter(Boolean).map((u) => (
                             <option key={u} value={u}>
                               {u}
                             </option>

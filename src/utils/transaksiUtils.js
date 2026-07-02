@@ -82,11 +82,19 @@ export const convertFromSmallestUnit = (
 };
 
 export const formatCurrency = (number) => {
-  return "Rp. " + number.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const val = Number(number);
+  if (isNaN(val)) {
+    return "Rp. 0";
+  }
+  return "Rp. " + val.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 
 export const formatNumber = (number) => {
-  return number.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  const val = Number(number);
+  if (isNaN(val)) {
+    return "0";
+  }
+  return val.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 };
 
 export const getInitialQuantity = (satuan) => {

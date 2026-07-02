@@ -6,7 +6,6 @@ import {
   FaSortUp,
   FaSortDown,
   FaSort,
-  FaExclamationTriangle,
   FaPercentage,
   FaCheckCircle,
 } from "react-icons/fa";
@@ -19,7 +18,6 @@ import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
 import StockModal from "./StockModal";
-import StockDiscrepancyModal from "./StockDiscrepancies/StockDiscrepancyModal";
 import BulkPurchaseModal from "./BulkPurchaseModal";
 
 // Helper function for currency formatting
@@ -89,6 +87,7 @@ export default function Stocks() {
   const [originalSmallestUnit, setOriginalSmallestUnit] = useState("");
   const [products, setProducts] = useState(initialProductData);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [filteredProducts, setFilteredProducts] = useState(
     Object.values(products)
   );
@@ -117,8 +116,6 @@ export default function Stocks() {
   const [snapshotExists, setSnapshotExists] = useState(false);
   const [snapshotData, setSnapshotData] = useState(null);
 
-  // Stock discrepancy modal state
-  const [showDiscrepancyModal, setShowDiscrepancyModal] = useState(false);
 
   // Bulk purchase modal state
   const [showBulkPurchaseModal, setShowBulkPurchaseModal] = useState(false);
@@ -216,26 +213,26 @@ export default function Stocks() {
   function computeMarginDetails(prod) {
     const baseUnit = prod.base_unit || prod.smallestUnit;
     if (!baseUnit) return { value: 0, percent: 0, formatted: "Rp 0 (0%)", isNegative: false, isPositive: false };
-    
+
     const hargaJual = prod.pricePerUnit && prod.pricePerUnit[baseUnit]
       ? (typeof prod.pricePerUnit[baseUnit] === "number"
-          ? prod.pricePerUnit[baseUnit]
-          : parseRupiah(prod.pricePerUnit[baseUnit]))
+        ? prod.pricePerUnit[baseUnit]
+        : parseRupiah(prod.pricePerUnit[baseUnit]))
       : 0;
-      
+
     const hargaBeli = prod.lastPurchasePrice && prod.lastPurchasePrice > 0
       ? Math.round(prod.lastPurchasePrice)
       : (prod.stock && prod.stockValue
-          ? Math.round(prod.stockValue / prod.stock)
-          : 0);
-      
+        ? Math.round(prod.stockValue / prod.stock)
+        : 0);
+
     const value = hargaJual - hargaBeli;
-    const percent = hargaJual > 0 ? Math.round((value / hargaJual) * 100) : 0;
-    
+    const percent = hargaJual > 0 ? ((value / hargaJual) * 100) : 0;
+
     return {
       value,
       percent,
-      formatted: `Rp ${formatRupiah(Math.abs(value))} (${percent}%)`,
+      formatted: `Rp ${formatRupiah(Math.abs(value))} (${percent.toFixed(2)}%)`,
       isNegative: value < 0,
       isPositive: value > 0
     };
@@ -283,22 +280,29 @@ export default function Stocks() {
       setTempItemId(prod.itemId || "");
       setTempKategori(prod.kategori || "");
       setTempSubKategori(prod.subKategori || "");
+      setTempTipeStock(prod.tipeStock || "");
       setTempNamaPemasok(prod.namaPemasok || "");
-      setTempLastPurchasePrice(prod.lastPurchasePrice ? formatRupiah(prod.lastPurchasePrice) : "");
-      
+      let initialLastPurchasePrice = "";
+      if (prod.lastPurchasePrice && typeof prod.lastPurchasePrice === "number" && !isNaN(prod.lastPurchasePrice) && prod.lastPurchasePrice > 0) {
+        initialLastPurchasePrice = formatRupiah(Math.round(prod.lastPurchasePrice));
+      } else if (prod.stock && prod.stock > 0 && prod.stockValue && !isNaN(prod.stockValue)) {
+        initialLastPurchasePrice = formatRupiah(Math.round(prod.stockValue / prod.stock));
+      }
+      setTempLastPurchasePrice(initialLastPurchasePrice);
+
       const baseUnit = prod.base_unit || prod.smallestUnit || (prod.satuan || [])[0] || "";
       setOriginalSmallestUnit(baseUnit);
       setTempBaseUnit(baseUnit);
-      
+
       const bulkUnitName = prod.bulk_unit_name || ((prod.satuan || []).find((u) => u !== baseUnit) || "");
       setTempBulkUnitName(bulkUnitName);
-      
+
       setTempBulkUnitConversion(
         prod.bulk_unit_conversion || prod.piecesPerBox
           ? String(prod.bulk_unit_conversion || prod.piecesPerBox)
           : ""
       );
-      
+
       setTempPricePerUnit(
         Object.keys(prod.pricePerUnit || {}).reduce((acc, key) => {
           acc[key] = formatRupiah(prod.pricePerUnit[key]);
@@ -500,29 +504,8 @@ export default function Stocks() {
 
       // Special handling for derived fields
       if (key === "profitMargin") {
-        // Calculate profit margin for both products
-        const aBaseUnit = a.base_unit || a.smallestUnit;
-        const bBaseUnit = b.base_unit || b.smallestUnit;
-        const aMargin =
-          a.pricePerUnit &&
-            a.pricePerUnit[aBaseUnit] &&
-            a.stock &&
-            a.stockValue
-            ? a.pricePerUnit[aBaseUnit] -
-            Math.round(a.stockValue / a.stock)
-            : 0;
-
-        const bMargin =
-          b.pricePerUnit &&
-            b.pricePerUnit[bBaseUnit] &&
-            b.stock &&
-            b.stockValue
-            ? b.pricePerUnit[bBaseUnit] -
-            Math.round(b.stockValue / b.stock)
-            : 0;
-
-        aValue = aMargin;
-        bValue = bMargin;
+        aValue = computeMarginDetails(a).percent;
+        bValue = computeMarginDetails(b).percent;
       } else if (key === "pricePerUnit") {
         // Sort by price in the base/smallest unit
         const aBaseUnit = a.base_unit || a.smallestUnit;
@@ -868,10 +851,10 @@ export default function Stocks() {
         const logoHeight = uniMartBgHeight; // Same height as UniMart text background
         const logoAspectRatio = logoImg.naturalWidth / logoImg.naturalHeight;
         const logoWidth = logoHeight * logoAspectRatio;
-        
+
         const logoX = currentX + tagPadding;
         const logoY = stripeStartY - uniMartBottomMargin - logoHeight;
-        
+
         doc.addImage(logoImg, "PNG", logoX, logoY, logoWidth, logoHeight);
       }
 
@@ -1283,7 +1266,7 @@ export default function Stocks() {
 
   // Apply sorting when search results change
   useEffect(() => {
-    if (searchTerm.trim() === "") {
+    if (searchTerm.trim() === "" && selectedCategory === "") {
       sortProductsBy(
         Object.values(products),
         sortConfig.key,
@@ -1292,24 +1275,33 @@ export default function Stocks() {
     } else {
       sortProductsBy(filteredProducts, sortConfig.key, sortConfig.direction);
     }
-  }, [searchTerm, products]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, selectedCategory, products]);
 
-  // Handle search term changes
+  // Handle search term and category changes
   useEffect(() => {
     const input = searchTerm.trim();
+    let list = Object.values(products);
+
+    if (selectedCategory) {
+      list = list.filter((p) => p.kategori === selectedCategory);
+    }
+
     if (!input) {
-      setFilteredProducts(Object.values(products));
+      setFilteredProducts(list);
+      sortProductsBy(list, sortConfig.key, sortConfig.direction);
       return;
     }
+
     const numericRegex = /^[0-9]+$/;
     if (numericRegex.test(input)) {
-      const exactMatch = Object.values(products).find(
+      const exactMatch = list.find(
         (p) => p.itemId && p.itemId.toString() === input
       );
       setFilteredProducts(exactMatch ? [exactMatch] : []);
     } else {
       const words = input.toLowerCase().split(/\s+/);
-      const newList = Object.values(products).filter((prod) => {
+      const newList = list.filter((prod) => {
         const name = prod.name.toLowerCase();
         return words.every((w) => name.includes(w));
       });
@@ -1318,7 +1310,8 @@ export default function Stocks() {
       // Maintain current sort order with new filtered results
       sortProductsBy(newList, sortConfig.key, sortConfig.direction);
     }
-  }, [searchTerm, products]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, selectedCategory, products]);
 
   // Handle click outside dropdown
   useEffect(() => {
@@ -1409,11 +1402,10 @@ export default function Stocks() {
             Export ke Excel
           </button>
           <button
-            className={`px-5 py-2.5 font-bold rounded-lg shadow-sm transition text-sm flex items-center gap-2 ${
-              showMargin
-                ? "bg-green-600 hover:bg-green-700 text-white"
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-            }`}
+            className={`px-5 py-2.5 font-bold rounded-lg shadow-sm transition text-sm flex items-center gap-2 ${showMargin
+              ? "bg-green-600 hover:bg-green-700 text-white"
+              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
             onClick={() => setShowMargin(!showMargin)}
           >
             {showMargin ? <FaCheckCircle /> : <FaPercentage />} Kalkulasi Margin
@@ -1430,12 +1422,7 @@ export default function Stocks() {
           >
             <FaTag /> Generate Price Tags
           </button>
-          <button
-            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm flex items-center gap-2"
-            onClick={() => setShowDiscrepancyModal(true)}
-          >
-            <FaExclamationTriangle className="text-yellow-500" /> Cek Ketidaksesuaian
-          </button>
+
           <button
             className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-sm transition text-sm"
             onClick={() => setShowBulkPurchaseModal(true)}
@@ -1470,18 +1457,30 @@ export default function Stocks() {
         />
       </div>
 
-      {/* Search Bar */}
-      <div className="mb-6 relative">
-        <input
-          type="text"
-          placeholder="Cari produk atau ID..."
-          className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <svg className="w-5 h-5 absolute left-3 top-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+      {/* Search Bar & Category Filter */}
+      <div className="mb-6 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-grow">
+          <input
+            type="text"
+            placeholder="Cari produk atau ID..."
+            className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <svg className="w-5 h-5 absolute left-3 top-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none text-gray-600 bg-white min-w-[200px]"
+        >
+          <option value="">Semua Kategori</option>
+          {Array.from(new Set(Object.values(products).map(p => p.kategori).filter(Boolean))).sort().map(cat => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
       </div>
 
       {/* Table Section */}
@@ -1513,6 +1512,17 @@ export default function Stocks() {
                   </div>
                 </th>
                 <th
+                  onClick={() => requestSort("kategori")}
+                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
+                >
+                  <div className="flex items-center gap-1">
+                    Kategori
+                    {sortConfig.key === "kategori" ? (
+                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                    ) : <FaSort className="text-gray-400" />}
+                  </div>
+                </th>
+                <th
                   onClick={() => requestSort("smallestUnit")}
                   className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
                 >
@@ -1534,7 +1544,7 @@ export default function Stocks() {
                     ) : <FaSort className="text-gray-400" />}
                   </div>
                 </th>
-                 <th
+                <th
                   onClick={() => requestSort("averageKulak")}
                   className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
                 >
@@ -1587,7 +1597,13 @@ export default function Stocks() {
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
               {filteredProducts.map((prod) => (
-                <tr key={prod.id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={prod.id}
+                  className={`${prod.isMarked
+                    ? "bg-yellow-50 hover:bg-yellow-100/80"
+                    : "hover:bg-gray-50"
+                    } transition-colors`}
+                >
                   <td className="px-6 py-4 text-center">
                     <input
                       type="checkbox"
@@ -1597,6 +1613,7 @@ export default function Stocks() {
                     />
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{prod.name}</td>
+                  <td className="px-6 py-4 text-gray-600">{prod.kategori || "-"}</td>
                   <td className="px-6 py-4">{prod.base_unit || prod.smallestUnit}</td>
                   <td className="px-6 py-4 text-right font-bold text-gray-900">
                     {prod.stock}
@@ -1610,13 +1627,12 @@ export default function Stocks() {
                   {showMargin && (() => {
                     const margin = computeMarginDetails(prod);
                     return (
-                      <td className={`px-6 py-4 text-right font-semibold ${
-                        margin.isNegative 
-                          ? "text-red-600" 
-                          : margin.isPositive 
-                            ? "text-green-600" 
-                            : "text-gray-600"
-                      }`}>
+                      <td className={`px-6 py-4 text-right font-semibold ${margin.isNegative
+                        ? "text-red-600"
+                        : margin.isPositive
+                          ? "text-green-600"
+                          : "text-gray-600"
+                        }`}>
                         {margin.isNegative ? "-" : ""}{margin.formatted}
                       </td>
                     );
@@ -1741,11 +1757,7 @@ export default function Stocks() {
           {snackbar.message}
         </div>
       )}
-      {/* Stock Discrepancy Modal */}
-      <StockDiscrepancyModal
-        isOpen={showDiscrepancyModal}
-        onRequestClose={() => setShowDiscrepancyModal(false)}
-      />
+
 
       {/* Bulk Purchase Modal */}
       <BulkPurchaseModal
@@ -1817,17 +1829,31 @@ export default function Stocks() {
             }}
             className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
           >
-            Edit Stock
+            Edit Barang
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               const p = products[showDropdown];
               setShowDropdown(null);
-              openDialog("delete", p.id);
+              try {
+                const nextMarked = !p.isMarked;
+                await updateDoc("stocks", p.id, {
+                  isMarked: nextMarked,
+                });
+                setProducts((prev) => ({
+                  ...prev,
+                  [p.id]: {
+                    ...prev[p.id],
+                    isMarked: nextMarked,
+                  },
+                }));
+              } catch (error) {
+                alert("Gagal memperbarui status tanda: " + error.message);
+              }
             }}
-            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-medium"
+            className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium"
           >
-            Delete Stock
+            {products[showDropdown]?.isMarked ? "Hapus Tanda" : "Tandai"}
           </button>
         </div>
       )}

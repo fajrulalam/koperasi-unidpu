@@ -16,6 +16,7 @@ import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { uploadFile } from "../firebase";
 import BulkPurchaseModal from "./BulkPurchaseModal";
+import { convertToSmallestUnit } from "../utils/transaksiUtils";
 
 // Helper function for currency formatting
 function formatRupiah(value) {
@@ -321,17 +322,19 @@ const NotaBelanjaB2B = () => {
         const quantity = parseFloat(row.quantity);
         const subtotal = parseRupiah(row.subtotal);
         const product = freshProductsMap[row.product.id] || row.product;
+        const quantityInSmallestUnit = convertToSmallestUnit(quantity, row.unit, product);
 
         const transactionDoc = {
           itemId: row.product.itemId || row.product.id,
           itemName: row.product.name,
           kategori: row.product.kategori || "",
           subKategori: row.product.subKategori || "",
-          unit: row.unit,
+          unit: product.base_unit || product.smallestUnit || "pcs",
           cost: subtotal,
-          quantity: quantity,
+          quantity: quantityInSmallestUnit,
           originalQuantity: quantity,
           originalUnit: row.unit,
+          piecesPerBox: product.bulk_unit_conversion || product.piecesPerBox || null,
           transactionType: "pengadaan",
           transactionVia: "bulkPurchase",
           isDeleted: false,
@@ -343,7 +346,7 @@ const NotaBelanjaB2B = () => {
         const txId = uuidv4();
         await createDoc("stockTransactions_b2b", transactionDoc, txId);
 
-        const newStock = (product.stock || 0) + quantity;
+        const newStock = (product.stock || 0) + quantityInSmallestUnit;
         const newStockValue = (product.stockValue || 0) + subtotal;
 
         await updateDoc("stocks_b2b", row.product.id, {
@@ -514,6 +517,7 @@ const NotaBelanjaB2B = () => {
   useEffect(() => {
     fetchRecords();
     fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Calculate pagination
