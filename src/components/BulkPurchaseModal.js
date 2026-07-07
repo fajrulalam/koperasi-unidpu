@@ -575,7 +575,7 @@ const BulkPurchaseModal = ({
             id: row.product.id,
             stock: newStock,
             stockValue: newStockValue,
-            lastPurchasePrice: subtotal / quantityInSmallestUnit,
+            lastPurchasePrice: Math.round(subtotal / quantityInSmallestUnit),
           });
         }
 

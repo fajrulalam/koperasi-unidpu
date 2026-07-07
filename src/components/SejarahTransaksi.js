@@ -396,6 +396,19 @@ const SejarahTransaksi = () => {
     (day) => day.date >= dateRange.start && day.date <= dateRange.end
   );
 
+  // Calculate summary stats for items
+  const itemSummary = (() => {
+    if (selectedTab !== "Items" || filteredItemsData.length === 0) {
+      return { totalUnique: 0, totalVolume: 0, totalRevenue: 0, totalProfit: 0, avgMargin: 0 };
+    }
+    const totalUnique = filteredItemsData.length;
+    const totalVolume = filteredItemsData.reduce((acc, item) => acc + (item.quantity || 0), 0);
+    const totalRevenue = filteredItemsData.reduce((acc, item) => acc + (item.revenue || 0), 0);
+    const totalProfit = filteredItemsData.reduce((acc, item) => acc + (item.profitMargin || 0), 0);
+    const avgMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
+    return { totalUnique, totalVolume, totalRevenue, totalProfit, avgMargin };
+  })();
+
   return (
     <div className="st-container">
       <h1>Sejarah Transaksi</h1>
@@ -499,6 +512,51 @@ const SejarahTransaksi = () => {
             </span>
           </div>
 
+          {!loading && filteredItemsData.length > 0 && (
+            <div className="st-summary-cards">
+              <div className="st-summary-card">
+                <span className="st-summary-card-label">Volume Penjualan</span>
+                <span className="st-summary-card-value">
+                  {Math.round(itemSummary.totalVolume)} Unit
+                </span>
+                <span className="st-summary-card-sublabel">
+                  Dari {itemSummary.totalUnique} jenis item
+                </span>
+              </div>
+              <div className="st-summary-card">
+                <span className="st-summary-card-label">Total Pendapatan</span>
+                <span className="st-summary-card-value">
+                  {formatCurrency(itemSummary.totalRevenue)}
+                </span>
+                <span className="st-summary-card-sublabel">
+                  Kotor (omset)
+                </span>
+              </div>
+              {showProfit && (
+                <>
+                  <div className="st-summary-card">
+                    <span className="st-summary-card-label">Total Keuntungan</span>
+                    <span className="st-summary-card-value st-profit-value">
+                      {formatCurrency(itemSummary.totalProfit)}
+                    </span>
+                    <span className="st-summary-card-sublabel">
+                      Bersih (margin)
+                    </span>
+                  </div>
+                  <div className="st-summary-card">
+                    <span className="st-summary-card-label">Rata-rata Margin</span>
+                    <span className="st-summary-card-value">
+                      {itemSummary.avgMargin.toFixed(1)}%
+                    </span>
+                    <span className="st-summary-card-sublabel">
+                      Profitabilitas
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           {loading ? (
             <div className="st-loading">
               <p>Memuat data item...</p>
@@ -553,47 +611,87 @@ const SejarahTransaksi = () => {
                     >
                       Pendapatan
                     </th>
-                    <th
-                      className={`sortable right ${
-                        itemSortConfig.key === "stockWorth"
-                          ? `sorted-${itemSortConfig.direction}`
-                          : ""
-                      }`}
-                      onClick={() => requestItemSort("stockWorth")}
-                    >
-                      Modal
-                    </th>
-                    <th
-                      className={`sortable right ${
-                        itemSortConfig.key === "profitMargin"
-                          ? `sorted-${itemSortConfig.direction}`
-                          : ""
-                      }`}
-                      onClick={() => requestItemSort("profitMargin")}
-                    >
-                      Profit
-                    </th>
+                    {showProfit && (
+                      <>
+                        <th
+                          className={`sortable right ${
+                            itemSortConfig.key === "stockWorth"
+                              ? `sorted-${itemSortConfig.direction}`
+                              : ""
+                          }`}
+                          onClick={() => requestItemSort("stockWorth")}
+                        >
+                          Modal
+                        </th>
+                        <th
+                          className={`sortable right ${
+                            itemSortConfig.key === "profitMargin"
+                              ? `sorted-${itemSortConfig.direction}`
+                              : ""
+                          }`}
+                          onClick={() => requestItemSort("profitMargin")}
+                        >
+                          Profit
+                        </th>
+                      </>
+                    )}
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItemsData.map((item, index) => (
-                    <tr
-                      key={`item-${index}`}
-                      onClick={() => openItemDialog(item)}
-                    >
-                      <td>{item.itemName || "N/A"}</td>
-                      <td>{item.kategori || "N/A"}</td>
-                      <td className="center">{Math.round(item.quantity)}</td>
-                      <td className="center">{item.unit || "N/A"}</td>
-                      <td className="right">{formatCurrency(item.revenue)}</td>
-                      <td className="right">
-                        {formatCurrency(item.stockWorth)}
-                      </td>
-                      <td className="right">
-                        {formatCurrency(item.profitMargin)}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredItemsData.map((item, index) => {
+                    const categoryClass = item.kategori
+                      ? `st-cat-${item.kategori.toLowerCase().replace(/\s+/g, "-")}`
+                      : "st-cat-default";
+
+                    return (
+                      <tr
+                        key={`item-${index}`}
+                        onClick={() => openItemDialog(item)}
+                      >
+                        <td>
+                          <span className="st-item-title">{item.itemName || "N/A"}</span>
+                        </td>
+                        <td>
+                          <span className={`st-category-badge ${categoryClass}`}>
+                            {item.kategori || "N/A"}
+                          </span>
+                        </td>
+                        <td className="center">
+                          <span className="st-qty-value">{Math.round(item.quantity)}</span>
+                        </td>
+                        <td className="center">
+                          <span className="st-qty-unit">{item.unit || "N/A"}</span>
+                        </td>
+                        <td className="right">{formatCurrency(item.revenue)}</td>
+                        {showProfit && (
+                          <>
+                            <td className="right">
+                              {formatCurrency(item.stockWorth)}
+                            </td>
+                            <td className="right">
+                              <span className="st-profit-value">
+                                {formatCurrency(item.profitMargin)}
+                              </span>
+                            </td>
+                          </>
+                        )}
+                        <td className="right">
+                          <div className="st-item-chevron">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <path
+                                d="M6 12L10 8L6 4"
+                                stroke="currentColor"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -766,6 +864,7 @@ const SejarahTransaksi = () => {
         onClose={closeItemDialog}
         item={selectedItem}
         transactions={itemTransactions}
+        showProfit={showProfit}
       />
 
       {/* Snackbar */}

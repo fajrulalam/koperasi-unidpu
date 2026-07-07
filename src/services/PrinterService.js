@@ -60,9 +60,10 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
           width: 260px;
           margin: 0 auto;
           padding: 10px 0 20px 0;
-          font-size: 11px;
+          font-size: 12.5px;
           color: #000;
-          line-height: 1.3;
+          line-height: 1.35;
+          font-weight: bold;
         }
         .header-container {
           display: flex;
@@ -70,7 +71,7 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
           justify-content: center;
           gap: 10px;
           margin-bottom: 12px;
-          border-bottom: 1px dashed #000;
+          border-bottom: 1.5px dashed #000;
           padding-bottom: 10px;
         }
         .logo {
@@ -80,20 +81,19 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
         }
         .header-text {
           display: flex;
-          flex-direction: column;
           align-items: flex-start;
           text-align: left;
         }
         .title {
-          font-size: 24px;
-          font-weight: bold;
+          font-size: 26px;
+          font-weight: 900;
           letter-spacing: 1.5px;
           line-height: 1;
           margin: 0;
         }
         .info-section {
           margin-bottom: 8px;
-          font-size: 10.5px;
+          font-size: 12px;
         }
         .info-row {
           display: flex;
@@ -101,7 +101,7 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
           margin-bottom: 2px;
         }
         .divider {
-          border-top: 1px dashed #000;
+          border-top: 1.5px dashed #000;
           margin: 8px 0;
           width: 100%;
         }
@@ -111,18 +111,18 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
           margin: 5px 0;
         }
         .item-name {
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: bold;
           padding-top: 4px;
         }
         .item-details {
-          font-size: 10.5px;
-          color: #333;
+          font-size: 12px;
+          color: #000;
           padding-bottom: 4px;
         }
         .item-total {
           text-align: right;
-          font-size: 11px;
+          font-size: 12.5px;
           font-weight: bold;
           vertical-align: bottom;
           padding-bottom: 4px;
@@ -130,7 +130,7 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
         .total-section {
           width: 100%;
           margin-top: 8px;
-          font-size: 11px;
+          font-size: 12.5px;
         }
         .total-row {
           display: flex;
@@ -138,17 +138,17 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
           margin-bottom: 3px;
         }
         .total-row.grand-total {
-          font-weight: bold;
-          font-size: 12px;
-          border-top: 1px dashed #000;
+          font-weight: 900;
+          font-size: 13.5px;
+          border-top: 1.5px dashed #000;
           padding-top: 4px;
         }
         .footer-note {
           text-align: center;
           margin-top: 20px;
-          font-size: 10px;
-          color: #555;
-          border-top: 1px dashed #000;
+          font-size: 11px;
+          color: #000;
+          border-top: 1.5px dashed #000;
           padding-top: 8px;
         }
         @media print {
@@ -160,6 +160,7 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
             width: 72mm;
             margin: 0 auto;
             padding: 5mm 2mm;
+            font-weight: bold;
           }
           title {
             display: none;

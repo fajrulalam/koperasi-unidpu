@@ -532,30 +532,144 @@
   font-size: 0.8rem;
 }
 
+/* KPI Summary Cards */
+.st-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.st-summary-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.st-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-color: #cbd5e1;
+}
+
+.st-summary-card-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.st-summary-card-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.st-summary-card-sublabel {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* Category Badges */
+.st-category-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.st-cat-default {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.st-cat-makanan, .st-cat-food {
+  background-color: #ecfdf5;
+  color: #047857;
+}
+
+.st-cat-minuman, .st-cat-drink {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.st-cat-atk, .st-cat-stationery, .st-cat-buku {
+  background-color: #fffbeb;
+  color: #b45309;
+}
+
+.st-cat-jasa, .st-cat-service {
+  background-color: #faf5ff;
+  color: #6b21a8;
+}
+
+.st-cat-pakaian, .st-cat-fashion, .st-cat-atribut {
+  background-color: #fff1f2;
+  color: #be123c;
+}
+
+/* Item Name Avatar Layout */
+.st-item-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.st-item-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.st-item-title {
+  font-weight: 600;
+  color: #0f172a;
+}
+
 /* Items Table */
 .st-table-container {
   overflow-x: auto;
   border-radius: 12px;
-  border: 1px solid #e5e5e5;
 }
 
 .st-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 8px;
 }
 
 .st-table th,
 .st-table td {
   padding: 14px 16px;
   text-align: left;
-  border-bottom: 1px solid #f0f0f0;
 }
 
 .st-table th {
-  background: #fafafa;
-  font-size: 0.8rem;
+  background: #f8fafc;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #555;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   position: sticky;
@@ -592,17 +706,31 @@
   color: #3b82f6;
 }
 
-.st-table tr:last-child td {
-  border-bottom: none;
-}
-
 .st-table tbody tr {
+  background: #ffffff;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: all 0.2s ease;
 }
 
 .st-table tbody tr:hover {
   background: #f8fafc;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.st-table tbody tr td {
+  border-top: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.st-table tbody tr td:first-child {
+  border-left: 1px solid #f1f5f9;
+  border-radius: 8px 0 0 8px;
+}
+
+.st-table tbody tr td:last-child {
+  border-right: 1px solid #f1f5f9;
+  border-radius: 0 8px 8px 0;
 }
 
 .st-table td.center,
@@ -613,6 +741,36 @@
 .st-table td.right,
 .st-table th.right {
   text-align: right;
+}
+
+/* Chevrons & Indicators */
+.st-item-chevron {
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.st-table tbody tr:hover .st-item-chevron {
+  transform: translateX(2px);
+  color: #3b82f6;
+}
+
+.st-profit-value {
+  font-weight: 600;
+  color: #10b981;
+}
+
+.st-qty-value {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.st-qty-unit {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-left: 4px;
 }
 
 /* Show More Button */

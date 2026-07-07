@@ -66,6 +66,15 @@ const SUBKATEGORI_ATK = [
   "Lainnya",
 ];
 
+const SUBKATEGORI_SEMBAKO = [
+  "Beras",
+  "Minyak",
+  "Gula",
+  "Tepung",
+  "Telur",
+  "Lainnya",
+];
+
 const TIPE_STOCK_CHOICES = [
   "Produksi Sendiri",
   "Kulak",
@@ -257,7 +266,8 @@ function WarehouseStockModal({
       kategori !== "Minuman" &&
       kategori !== "Kesehatan" &&
       kategori !== "ATK" &&
-      kategori !== "Perawatan Diri"
+      kategori !== "Perawatan Diri" &&
+      kategori !== "Sembako"
     ) {
       subKategori = kategori;
     } else {
@@ -283,6 +293,8 @@ function WarehouseStockModal({
     subKategoriChoices = SUBKATEGORI_PERAWATAN_DIRI;
   } else if (localState.tempKategori === "ATK") {
     subKategoriChoices = SUBKATEGORI_ATK;
+  } else if (localState.tempKategori === "Sembako") {
+    subKategoriChoices = SUBKATEGORI_SEMBAKO;
   }
 
   // Delete Confirmation

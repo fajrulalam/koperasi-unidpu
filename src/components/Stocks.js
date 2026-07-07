@@ -57,6 +57,25 @@ function getTimestampString() {
 // Constants
 const initialProductData = {};
 
+const VIEW_PRESETS = {
+  default: {
+    label: "Default",
+    columns: ["name", "kategori", "subKategori", "smallestUnit", "stock", "averageKulak", "pricePerUnit", "profitMargin", "potentialProfit", "stockValue"]
+  },
+  keuntungan: {
+    label: "Keuntungan",
+    columns: ["name", "stock", "smallestUnit", "averageKulak", "pricePerUnit", "profitMargin", "potentialProfit"]
+  },
+  kategorik: {
+    label: "Kategorik",
+    columns: ["name", "kategori", "subKategori"]
+  },
+  logistik: {
+    label: "Stok & Logistik",
+    columns: ["name", "smallestUnit", "stock", "stockValue"]
+  }
+};
+
 // Summary Card Component (styled like SDRG's StatCard)
 const SummaryCard = ({ title, value, color }) => (
   <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between min-h-[140px]">
@@ -97,6 +116,22 @@ export default function Stocks() {
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
   const [showMargin, setShowMargin] = useState(false);
+
+  const [selectedViewPreset, setSelectedViewPreset] = useState("default");
+
+  const isColumnVisible = (colKey) => {
+    if (colKey === "profitMargin") {
+      return showMargin && VIEW_PRESETS[selectedViewPreset].columns.includes(colKey);
+    }
+    return VIEW_PRESETS[selectedViewPreset].columns.includes(colKey);
+  };
+
+  const handleViewPresetChange = (presetKey) => {
+    setSelectedViewPreset(presetKey);
+    if (presetKey === "keuntungan") {
+      setShowMargin(true);
+    }
+  };
 
   // Sorting states
   const [sortConfig, setSortConfig] = useState({
@@ -233,6 +268,18 @@ export default function Stocks() {
       value,
       percent,
       formatted: `Rp ${formatRupiah(Math.abs(value))} (${percent.toFixed(2)}%)`,
+      isNegative: value < 0,
+      isPositive: value > 0
+    };
+  }
+
+  function computePotentialProfitDetails(prod) {
+    const margin = computeMarginDetails(prod);
+    const stock = prod.stock || 0;
+    const value = margin.value * stock;
+    return {
+      value,
+      formatted: `Rp ${formatRupiah(Math.abs(value))}`,
       isNegative: value < 0,
       isPositive: value > 0
     };
@@ -506,6 +553,9 @@ export default function Stocks() {
       if (key === "profitMargin") {
         aValue = computeMarginDetails(a).percent;
         bValue = computeMarginDetails(b).percent;
+      } else if (key === "potentialProfit") {
+        aValue = computePotentialProfitDetails(a).value;
+        bValue = computePotentialProfitDetails(b).value;
       } else if (key === "pricePerUnit") {
         // Sort by price in the base/smallest unit
         const aBaseUnit = a.base_unit || a.smallestUnit;
@@ -973,7 +1023,7 @@ export default function Stocks() {
         subKategori: tempSubKategori || tempKategori,
         tipeStock: tempTipeStock,
         namaPemasok: tempNamaPemasok,
-        lastPurchasePrice: parseRupiah(tempLastPurchasePrice),
+        lastPurchasePrice: Math.round(parseRupiah(tempLastPurchasePrice)),
         // Renamed fields:
         base_unit: tempBaseUnit,
         bulk_unit_name: tempBulkUnitName || null,
@@ -985,7 +1035,7 @@ export default function Stocks() {
           new Set([tempBaseUnit, tempBulkUnitName].filter(Boolean))
         ),
         pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, key) => {
-          acc[key] = parseRupiah(tempPricePerUnit[key]);
+          acc[key] = Math.round(parseRupiah(tempPricePerUnit[key]));
           return acc;
         }, {}),
         stock: 0,
@@ -1038,7 +1088,7 @@ export default function Stocks() {
         await createDoc("stockTransactions", txDoc, txId);
 
         const newStock = (prod.stock || 0) + quantityInSmallestUnit;
-        const lastPurchasePrice = quantityInSmallestUnit > 0 ? (costValue / quantityInSmallestUnit) : 0;
+        const lastPurchasePrice = quantityInSmallestUnit > 0 ? Math.round(costValue / quantityInSmallestUnit) : 0;
         await updateDoc("stocks", selectedProductId, {
           stock: newStock,
           stockValue: (prod.stockValue || 0) + costValue,
@@ -1113,7 +1163,7 @@ export default function Stocks() {
         const txId = uuidv4();
         await createDoc("stockTransactions", txDoc, txId);
 
-        const lastPurchasePrice = newStock > 0 ? (newVal / newStock) : 0;
+        const lastPurchasePrice = newStock > 0 ? Math.round(newVal / newStock) : 0;
         await updateDoc("stocks", selectedProductId, {
           stock: newStock,
           stockValue: newVal,
@@ -1162,7 +1212,7 @@ export default function Stocks() {
           subKategori: tempSubKategori,
           tipeStock: tempTipeStock,
           namaPemasok: tempNamaPemasok,
-          lastPurchasePrice: parseRupiah(tempLastPurchasePrice),
+          lastPurchasePrice: Math.round(parseRupiah(tempLastPurchasePrice)),
           // Renamed fields:
           base_unit: tempBaseUnit,
           bulk_unit_name: tempBulkUnitName || null,
@@ -1172,7 +1222,7 @@ export default function Stocks() {
           piecesPerBox: tempBulkUnitName ? parseInt(tempBulkUnitConversion, 10) : null,
           satuan: Array.from(new Set([tempBaseUnit, tempBulkUnitName].filter(Boolean))),
           pricePerUnit: Object.keys(tempPricePerUnit).reduce((acc, unit) => {
-            acc[unit] = parseRupiah(tempPricePerUnit[unit]);
+            acc[unit] = Math.round(parseRupiah(tempPricePerUnit[unit]));
             return acc;
           }, {}),
         };
@@ -1258,11 +1308,12 @@ export default function Stocks() {
 
   // ***** LIFECYCLE EFFECTS *****
 
-  // Initial data fetching
+  // Initial and environment change data fetching
   useEffect(() => {
     fetchAllStocks();
     fetchSummaryData();
-  }, []);
+    setSelectedItems({}); // Reset checkboxes when environment changes
+  }, [isProduction]);
 
   // Apply sorting when search results change
   useEffect(() => {
@@ -1457,6 +1508,23 @@ export default function Stocks() {
         />
       </div>
 
+      {/* View Presets Segmented Controls */}
+      <div className="flex flex-wrap gap-2 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
+        {Object.entries(VIEW_PRESETS).map(([key, preset]) => (
+          <button
+            key={key}
+            onClick={() => handleViewPresetChange(key)}
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+              selectedViewPreset === key
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-905"
+            }`}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+
       {/* Search Bar & Category Filter */}
       <div className="mb-6 flex flex-col sm:flex-row gap-3">
         <div className="relative flex-grow">
@@ -1511,62 +1579,85 @@ export default function Stocks() {
                     ) : <FaSort className="text-gray-400" />}
                   </div>
                 </th>
-                <th
-                  onClick={() => requestSort("kategori")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  <div className="flex items-center gap-1">
-                    Kategori
-                    {sortConfig.key === "kategori" ? (
-                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
-                    ) : <FaSort className="text-gray-400" />}
-                  </div>
-                </th>
-                <th
-                  onClick={() => requestSort("smallestUnit")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  <div className="flex items-center gap-1">
-                    Satuan
-                    {sortConfig.key === "smallestUnit" ? (
-                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
-                    ) : <FaSort className="text-gray-400" />}
-                  </div>
-                </th>
-                <th
-                  onClick={() => requestSort("stock")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    Jumlah Stock
-                    {sortConfig.key === "stock" ? (
-                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
-                    ) : <FaSort className="text-gray-400" />}
-                  </div>
-                </th>
-                <th
-                  onClick={() => requestSort("averageKulak")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    Harga Beli
-                    {sortConfig.key === "averageKulak" ? (
-                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
-                    ) : <FaSort className="text-gray-400" />}
-                  </div>
-                </th>
-                <th
-                  onClick={() => requestSort("pricePerUnit")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    Harga Jual
-                    {sortConfig.key === "pricePerUnit" ? (
-                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
-                    ) : <FaSort className="text-gray-400" />}
-                  </div>
-                </th>
-                {showMargin && (
+                {isColumnVisible("kategori") && (
+                  <th
+                    onClick={() => requestSort("kategori")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      Kategori
+                      {sortConfig.key === "kategori" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
+                {isColumnVisible("subKategori") && (
+                  <th
+                    onClick={() => requestSort("subKategori")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      Sub Kategori
+                      {sortConfig.key === "subKategori" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
+                {isColumnVisible("smallestUnit") && (
+                  <th
+                    onClick={() => requestSort("smallestUnit")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center gap-1">
+                      Satuan
+                      {sortConfig.key === "smallestUnit" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
+                {isColumnVisible("stock") && (
+                  <th
+                    onClick={() => requestSort("stock")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Jumlah Stock
+                      {sortConfig.key === "stock" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
+                {isColumnVisible("averageKulak") && (
+                  <th
+                    onClick={() => requestSort("averageKulak")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Harga Beli
+                      {sortConfig.key === "averageKulak" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
+                {isColumnVisible("pricePerUnit") && (
+                  <th
+                    onClick={() => requestSort("pricePerUnit")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Harga Jual
+                      {sortConfig.key === "pricePerUnit" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
+                {isColumnVisible("profitMargin") && (
                   <th
                     onClick={() => requestSort("profitMargin")}
                     className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
@@ -1579,17 +1670,32 @@ export default function Stocks() {
                     </div>
                   </th>
                 )}
-                <th
-                  onClick={() => requestSort("stockValue")}
-                  className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
-                >
-                  <div className="flex items-center justify-end gap-1">
-                    Total Nilai
-                    {sortConfig.key === "stockValue" ? (
-                      sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
-                    ) : <FaSort className="text-gray-400" />}
-                  </div>
-                </th>
+                {isColumnVisible("potentialProfit") && (
+                  <th
+                    onClick={() => requestSort("potentialProfit")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Potensi Keuntungan
+                      {sortConfig.key === "potentialProfit" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
+                {isColumnVisible("stockValue") && (
+                  <th
+                    onClick={() => requestSort("stockValue")}
+                    className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-right cursor-pointer hover:bg-gray-100 transition select-none"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Total Nilai
+                      {sortConfig.key === "stockValue" ? (
+                        sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />
+                      ) : <FaSort className="text-gray-400" />}
+                    </div>
+                  </th>
+                )}
                 <th className="px-6 py-3 font-bold text-gray-900 uppercase tracking-wider text-xs text-center w-16">
                   Aksi
                 </th>
@@ -1613,18 +1719,31 @@ export default function Stocks() {
                     />
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{prod.name}</td>
-                  <td className="px-6 py-4 text-gray-600">{prod.kategori || "-"}</td>
-                  <td className="px-6 py-4">{prod.base_unit || prod.smallestUnit}</td>
-                  <td className="px-6 py-4 text-right font-bold text-gray-900">
-                    {prod.stock}
-                  </td>
-                  <td className="px-6 py-4 text-right text-gray-600">
-                    Rp {computeAverageKulakPrice(prod)}
-                  </td>
-                  <td className="px-6 py-4 text-right text-gray-600">
-                    Rp {computeHargaFormatted(prod)}
-                  </td>
-                  {showMargin && (() => {
+                  {isColumnVisible("kategori") && (
+                    <td className="px-6 py-4 text-gray-600">{prod.kategori || "-"}</td>
+                  )}
+                  {isColumnVisible("subKategori") && (
+                    <td className="px-6 py-4 text-gray-600">{prod.subKategori || "-"}</td>
+                  )}
+                  {isColumnVisible("smallestUnit") && (
+                    <td className="px-6 py-4">{prod.base_unit || prod.smallestUnit}</td>
+                  )}
+                  {isColumnVisible("stock") && (
+                    <td className="px-6 py-4 text-right font-bold text-gray-900">
+                      {prod.stock}
+                    </td>
+                  )}
+                  {isColumnVisible("averageKulak") && (
+                    <td className="px-6 py-4 text-right text-gray-600">
+                      Rp {computeAverageKulakPrice(prod)}
+                    </td>
+                  )}
+                  {isColumnVisible("pricePerUnit") && (
+                    <td className="px-6 py-4 text-right text-gray-600">
+                      Rp {computeHargaFormatted(prod)}
+                    </td>
+                  )}
+                  {isColumnVisible("profitMargin") && (() => {
                     const margin = computeMarginDetails(prod);
                     return (
                       <td className={`px-6 py-4 text-right font-semibold ${margin.isNegative
@@ -1637,9 +1756,24 @@ export default function Stocks() {
                       </td>
                     );
                   })()}
-                  <td className="px-6 py-4 text-right font-medium text-gray-900">
-                    Rp {computeNilaiFormatted(prod)}
-                  </td>
+                  {isColumnVisible("potentialProfit") && (() => {
+                    const potProfit = computePotentialProfitDetails(prod);
+                    return (
+                      <td className={`px-6 py-4 text-right font-semibold ${potProfit.isNegative
+                        ? "text-red-600"
+                        : potProfit.isPositive
+                          ? "text-green-600"
+                          : "text-gray-600"
+                        }`}>
+                        {potProfit.isNegative ? "-" : ""}{potProfit.formatted}
+                      </td>
+                    );
+                  })()}
+                  {isColumnVisible("stockValue") && (
+                    <td className="px-6 py-4 text-right font-medium text-gray-900">
+                      Rp {computeNilaiFormatted(prod)}
+                    </td>
+                  )}
                   <td className="px-6 py-4 text-center">
                     <button
                       onClick={(e) => handleActionClick(e, prod.id)}

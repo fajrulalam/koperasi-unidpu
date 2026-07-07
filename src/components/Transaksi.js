@@ -343,11 +343,17 @@ const Transaksi = () => {
         case "]":
           if (e.key === "Shift" && e.location !== 2) break;
           e.preventDefault();
-          // Disabled unit switching for Koperasi sales (only Satuan Dasar allowed)
+          if (activeProduct) {
+            setCurrentSatuanIndex((prev) =>
+              Math.min(prev + 1, activeProduct.satuan.length - 1)
+            );
+          }
           break;
         case "[":
           e.preventDefault();
-          // Disabled unit switching for Koperasi sales (only Satuan Dasar allowed)
+          if (activeProduct) {
+            setCurrentSatuanIndex((prev) => Math.max(prev - 1, 0));
+          }
           break;
         case "ArrowRight":
           e.preventDefault();
@@ -560,6 +566,24 @@ const Transaksi = () => {
       return updatedInputs;
     });
 
+    recalculateTotal(updatedProducts);
+  };
+
+  const updateSatuan = (id, newSatuan) => {
+    const updatedProducts = products.map((p) => {
+      if (p.id === id) {
+        const { price, subtotal } = getDynamicPriceAndSubtotal(id, p.quantity, newSatuan);
+        return {
+          ...p,
+          satuan: newSatuan,
+          price,
+          subtotal,
+        };
+      }
+      return p;
+    });
+
+    setProducts(updatedProducts);
     recalculateTotal(updatedProducts);
   };
 
@@ -1152,7 +1176,35 @@ const Transaksi = () => {
                   : "Loading..."}
               </td>
               <td>
-                {formatCurrency(product.price)} / {product.satuan}
+                <div className="unit-price-container" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span>{formatCurrency(product.price)} / </span>
+                  {product.satuanOptions && product.satuanOptions.length > 1 ? (
+                    <select
+                      value={product.satuan}
+                      onChange={(e) => updateSatuan(product.id, e.target.value)}
+                      className="unit-select"
+                      style={{
+                        padding: '2px 8px 2px 4px',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        fontSize: '0.85rem',
+                        backgroundColor: '#fff',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        color: '#333',
+                        outline: 'none'
+                      }}
+                    >
+                      {product.satuanOptions.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span>{product.satuan}</span>
+                  )}
+                </div>
               </td>
               <td>{formatCurrency(product.subtotal)}</td>
               <td>

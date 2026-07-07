@@ -73,6 +73,15 @@ const SUBKATEGORI_ATK = [
   "Lainnya",
 ];
 
+const SUBKATEGORI_SEMBAKO = [
+  "Beras",
+  "Minyak",
+  "Gula",
+  "Tepung",
+  "Telur",
+  "Lainnya",
+];
+
 const TIPE_STOCK_CHOICES = [
   "Produksi Sendiri",
   "Kulak",
@@ -329,7 +338,10 @@ function StockModal({
     if (
       kategori !== "Makanan" &&
       kategori !== "Minuman" &&
-      kategori !== "Kesehatan"
+      kategori !== "Kesehatan" &&
+      kategori !== "Perawatan Diri" &&
+      kategori !== "ATK" &&
+      kategori !== "Sembako"
     ) {
       subKategori = kategori;
     } else {
@@ -355,6 +367,8 @@ function StockModal({
     subKategoriChoices = SUBKATEGORI_PERAWATAN_DIRI;
   } else if (localState.tempKategori === "ATK") {
     subKategoriChoices = SUBKATEGORI_ATK;
+  } else if (localState.tempKategori === "Sembako") {
+    subKategoriChoices = SUBKATEGORI_SEMBAKO;
   }
 
   // Delete Confirmation Dialog
@@ -760,11 +774,7 @@ function StockModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sub Kategori</label>
-                {localState.tempKategori === "Makanan" ||
-                localState.tempKategori === "Minuman" ||
-                localState.tempKategori === "Perawatan Diri" ||
-                localState.tempKategori === "ATK" ||
-                localState.tempKategori === "Kesehatan" ? (
+                {subKategoriChoices.length > 0 ? (
                   <select
                     value={localState.tempSubKategori}
                     onChange={(e) =>

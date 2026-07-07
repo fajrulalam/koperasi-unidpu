@@ -710,3 +710,38 @@
     opacity: 1;
   }
 }
+
+/* Unit Selection Styles */
+.unit-price-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.unit-select {
+  padding: 3px 20px 3px 6px;
+  border: 1px solid #dcdcdc;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background-color: #ffffff;
+  cursor: pointer;
+  font-weight: 500;
+  color: #333333;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23555555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 12px;
+}
+
+.unit-select:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+}
+
+.unit-select:hover {
+  border-color: #bbbbbb;
+  background-color: #fcfcfc;
+}

@@ -6,7 +6,7 @@ import "../styles/SejarahTransaksiNew.css";
  * Item Detail Dialog
  * Shows detailed transaction history for a specific item
  */
-const ItemDetailDialog = ({ isOpen, onClose, item, transactions }) => {
+const ItemDetailDialog = ({ isOpen, onClose, item, transactions, showProfit }) => {
   // Keyboard handler for Escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -58,18 +58,22 @@ const ItemDetailDialog = ({ isOpen, onClose, item, transactions }) => {
                 {formatCurrency(item.revenue)}
               </span>
             </div>
-            <div className="st-item-detail-row">
-              <span className="st-item-detail-label">Total Modal:</span>
-              <span className="st-item-detail-value">
-                {formatCurrency(item.stockWorth)}
-              </span>
-            </div>
-            <div className="st-item-detail-row">
-              <span className="st-item-detail-label">Profit Margin:</span>
-              <span className="st-item-detail-value">
-                {formatCurrency(item.profitMargin)}
-              </span>
-            </div>
+            {showProfit && (
+              <>
+                <div className="st-item-detail-row">
+                  <span className="st-item-detail-label">Total Modal:</span>
+                  <span className="st-item-detail-value">
+                    {formatCurrency(item.stockWorth)}
+                  </span>
+                </div>
+                <div className="st-item-detail-row">
+                  <span className="st-item-detail-label">Profit Margin:</span>
+                  <span className="st-item-detail-value">
+                    {formatCurrency(item.profitMargin)}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
           <h3>Riwayat Transaksi</h3>
@@ -80,8 +84,12 @@ const ItemDetailDialog = ({ isOpen, onClose, item, transactions }) => {
                   <th>Tanggal</th>
                   <th className="center">Qty</th>
                   <th className="right">Pendapatan</th>
-                  <th className="right">Modal</th>
-                  <th className="right">Profit</th>
+                  {showProfit && (
+                    <>
+                      <th className="right">Modal</th>
+                      <th className="right">Profit</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -107,8 +115,12 @@ const ItemDetailDialog = ({ isOpen, onClose, item, transactions }) => {
                         {txQuantity} {tx.originalUnit || tx.unit}
                       </td>
                       <td className="right">{formatCurrency(txRevenue)}</td>
-                      <td className="right">{formatCurrency(txCost)}</td>
-                      <td className="right">{formatCurrency(txProfit)}</td>
+                      {showProfit && (
+                        <>
+                          <td className="right">{formatCurrency(txCost)}</td>
+                          <td className="right">{formatCurrency(txProfit)}</td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}
