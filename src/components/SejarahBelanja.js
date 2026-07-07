@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import ReactDatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import * as XLSX from "xlsx";
@@ -7,6 +7,11 @@ import {
   FaChevronDown,
   FaChevronUp,
   FaExternalLinkAlt,
+  FaCalendarAlt,
+  FaTruck,
+  FaFileExcel,
+  FaExclamationTriangle,
+  FaBox
 } from "react-icons/fa";
 import "../styles/SejarahBelanja.css";
 import { useFirestore } from "../context/FirestoreContext";
@@ -25,10 +30,13 @@ export default function SejarahBelanja() {
   const [transactions, setTransactions] = useState([]);
   const [displayed, setDisplayed] = useState([]);
 
-  // View mode: "table" (item details) or "transaction" (grouped per invoice)
-  const [viewMode, setViewMode] = useState("table");
+  // View mode: "table" (item details) or "transaction" (grouped per invoice/date)
+  const [viewMode, setViewMode] = useState("transaction");
   const [notaList, setNotaList] = useState([]);
   const [displayedNotas, setDisplayedNotas] = useState([]);
+  
+  // Date grouping expand/collapse
+  const [expandedDates, setExpandedDates] = useState({});
   const [expandedNotas, setExpandedNotas] = useState({});
 
   // For date range
@@ -166,19 +174,14 @@ export default function SejarahBelanja() {
     const transactionsMap = {};
     const individualAdditions = [];
 
-    // Filter transactions to only keep transactionType === "pengadaan"
-    const procurementTxns = transactions.filter(
-      (tx) => tx.transactionType === "pengadaan"
-    );
-
-    procurementTxns.forEach((tx) => {
+    // Filter transactions to only keep transactionType === "pengadaan" or "pengurangan"
+    transactions.forEach((tx) => {
       if (tx.transactionVia === "bulkPurchase" && tx.bulkPurchaseId) {
         if (!transactionsMap[tx.bulkPurchaseId]) {
           transactionsMap[tx.bulkPurchaseId] = [];
         }
         transactionsMap[tx.bulkPurchaseId].push(tx);
       } else {
-        // manual stockAddition or others without bulkPurchaseId
         individualAdditions.push(tx);
       }
     });
@@ -188,13 +191,11 @@ export default function SejarahBelanja() {
     // 1. Process grouped bulk purchases
     Object.keys(transactionsMap).forEach((bulkId) => {
       const txs = transactionsMap[bulkId];
-      // Find if there is an existing notaBelanja for this bulkPurchaseId
       const matchingNota = notaList.find((nota) => nota.bulkPurchaseId === bulkId);
 
       if (matchingNota) {
         reconstructedList.push(matchingNota);
       } else {
-        // Reconstruct transaction block from stockTransactions
         const firstTx = txs[0];
         const items = txs.map((t) => ({
           itemId: t.itemId,
@@ -219,11 +220,12 @@ export default function SejarahBelanja() {
             ? firstTx.timestampInMillisEpoch.toDate().toISOString()
             : new Date(firstTx.timestampInMillisEpoch).toISOString(),
           isReconstructed: true,
+          type: "pengadaan"
         });
       }
     });
 
-    // 2. Process individual manual additions
+    // 2. Process individual manual additions/adjustments
     individualAdditions.forEach((tx) => {
       const txId = tx.id || `${tx.itemId}_${tx.timestampInMillisEpoch}`;
       const matchingNota = notaList.find(
@@ -231,11 +233,14 @@ export default function SejarahBelanja() {
       );
 
       if (matchingNota) {
-        reconstructedList.push(matchingNota);
+        reconstructedList.push({
+          ...matchingNota,
+          type: tx.transactionType || "pengadaan"
+        });
       } else {
         reconstructedList.push({
           id: txId,
-          supplierName: tx.supplierName || "Penyesuaian Stok (Manual)",
+          supplierName: tx.supplierName || (tx.transactionType === "pengurangan" ? "Penyesuaian Stok (Pengurangan)" : "Penyesuaian Stok (Tambah Manual)"),
           items: [
             {
               itemId: tx.itemId,
@@ -255,6 +260,7 @@ export default function SejarahBelanja() {
             ? tx.timestampInMillisEpoch.toDate().toISOString()
             : new Date(tx.timestampInMillisEpoch).toISOString(),
           isReconstructed: true,
+          type: tx.transactionType || "pengadaan"
         });
       }
     });
@@ -276,6 +282,52 @@ export default function SejarahBelanja() {
       setDisplayedNotas(filtered);
     }
   }, [transactions, notaList, chips]);
+
+  // Group transactions by date key for accordion view
+  const groupedTransactions = useMemo(() => {
+    return displayedNotas.reduce((groups, nota) => {
+      const date = nota.createdAt.toDate ? nota.createdAt.toDate() : new Date(nota.createdAt);
+      const dateKey = date.toLocaleDateString("id-ID", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(nota);
+      return groups;
+    }, {});
+  }, [displayedNotas]);
+
+  // Summary statistics calculation
+  const stats = useMemo(() => {
+    let totalPengadaan = 0;
+    let totalPengurangan = 0;
+
+    displayed.forEach((tx) => {
+      if (tx.transactionType === "pengadaan") {
+        totalPengadaan += tx.cost || 0;
+      } else if (tx.transactionType === "pengurangan") {
+        totalPengurangan += tx.cost || 0;
+      }
+    });
+
+    return {
+      totalPengadaan,
+      totalPengurangan,
+      transactionCount: displayedNotas.length,
+      itemCount: displayed.length
+    };
+  }, [displayed, displayedNotas]);
+
+  const toggleDateExpand = (dateKey) => {
+    setExpandedDates((prev) => ({
+      ...prev,
+      [dateKey]: !prev[dateKey]
+    }));
+  };
 
   const toggleNotaExpand = (notaId) => {
     setExpandedNotas((prev) => ({
@@ -306,6 +358,7 @@ export default function SejarahBelanja() {
           const date = nota.createdAt.toDate ? nota.createdAt.toDate() : new Date(nota.createdAt);
           return {
             Tanggal: nota.createdAt ? formatDateDDMMYYYY(date) : "",
+            Tipe: nota.type === "pengurangan" ? "Pengurangan" : "Pengadaan",
             Supplier: nota.supplierName || "",
             "Dibuat Oleh": nota.uploadedBy?.email || "unknown",
             "Nama Produk": item.itemName || "",
@@ -321,7 +374,7 @@ export default function SejarahBelanja() {
         Nama: tx.itemName || "",
         Kategori: tx.kategori || "",
         SubKategori: tx.subKategori || "",
-        Jenis: tx.transactionType,
+        Jenis: tx.transactionType === "pengurangan" ? "Pengurangan" : "Pengadaan",
         Qty: getDisplayQty(tx),
         Cost: tx.cost || 0,
         Via: tx.transactionVia || "",
@@ -337,224 +390,327 @@ export default function SejarahBelanja() {
   }
 
   return (
-    <div className="sejarah-belanja-container">
-      <h1>Sejarah Belanja</h1>
-
-      {/* View Mode Switcher */}
-      <div className="view-mode-chips">
-        <button
-          className={`view-mode-chip ${viewMode === "table" ? "active" : ""}`}
-          onClick={() => setViewMode("table")}
-        >
-          Item Details Table
-        </button>
-        <button
-          className={`view-mode-chip ${
-            viewMode === "transaction" ? "active" : ""
-          }`}
-          onClick={() => setViewMode("transaction")}
-        >
-          Per Transaction List
-        </button>
-      </div>
-
-      <div className="filters-row">
-        <div className="search-options">
-          <label>
-            <input
-              type="checkbox"
-              checked={useScanner}
-              onChange={(e) => setUseScanner(e.target.checked)}
-            />
-            Barcode Scanner
-          </label>
+    <div className="sb-container">
+      {/* Header block with Page Title & Tab Selector */}
+      <div className="sb-header-row">
+        <div>
+          <h1>Sejarah Belanja</h1>
+          <p className="sb-subtitle">Rentang waktu untuk melihat riwayat transaksi pengadaan (B2B)</p>
         </div>
 
-        <div className="chips-search">
-          <div className="chips-row">
-            {chips.map((c) => (
-              <div key={c} className="chip">
-                <span>{c}</span>
-                <FaTimes className="chip-close" onClick={() => removeChip(c)} />
+        {/* View Mode Switching Tabs */}
+        <div className="sb-tabs">
+          <button
+            className={`sb-tab ${viewMode === "transaction" ? "active" : ""}`}
+            onClick={() => setViewMode("transaction")}
+          >
+            Per Transaksi
+          </button>
+          <button
+            className={`sb-tab ${viewMode === "table" ? "active" : ""}`}
+            onClick={() => setViewMode("table")}
+          >
+            Daftar Item
+          </button>
+        </div>
+      </div>
+
+      {/* Modern Filter Card */}
+      <div className="sb-filter-card">
+        <div className="sb-filter-grid">
+          {/* Item searching with Chips */}
+          <div className="sb-filter-col">
+            <label className="sb-label">Cari Nama Barang</label>
+            <div className="sb-search-wrapper">
+              <div className="sb-chips-input-container">
+                {chips.map((c) => (
+                  <span key={c} className="sb-chip">
+                    {c}
+                    <FaTimes className="sb-chip-close" onClick={() => removeChip(c)} />
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  placeholder={chips.length > 0 ? "" : "Ketik nama barang..."}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
-            ))}
-            <input
-              type="text"
-              placeholder="Cari item..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              {suggestions.length > 0 && (
+                <div className="sb-suggestion-dropdown">
+                  {suggestions.map((s, i) => (
+                    <div
+                      key={i}
+                      className="sb-suggestion-item"
+                      onClick={() => addChip(s)}
+                    >
+                      {s.itemName}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="sb-scanner-checkbox">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={useScanner}
+                  onChange={(e) => setUseScanner(e.target.checked)}
+                />
+                Mode Barcode Scanner
+              </label>
+            </div>
+          </div>
+
+          {/* Date Picker Range */}
+          <div className="sb-filter-col">
+            <label className="sb-label">Periode Transaksi</label>
+            <DateRangeFilter
+              startDate={startDate}
+              endDate={endDate}
+              onChange={handleDateChange}
             />
           </div>
-          {suggestions.length > 0 && (
-            <div className="suggestion-dropdown">
-              {suggestions.map((s, i) => (
-                <div
-                  key={i}
-                  className="suggestion-item"
-                  onClick={() => addChip(s)}
-                >
-                  {s.itemName}
-                </div>
-              ))}
-            </div>
-          )}
+
+          {/* Action buttons */}
+          <div className="sb-filter-col sb-actions-col">
+            <button className="sb-btn sb-btn-export" onClick={exportToExcel}>
+              <FaFileExcel size={14} /> Export ke Excel
+            </button>
+          </div>
         </div>
-
-        <DateRangeFilter
-          startDate={startDate}
-          endDate={endDate}
-          onChange={handleDateChange}
-        />
-
-        <button className="export-button" onClick={exportToExcel}>
-          Export ke Excel
-        </button>
       </div>
 
+      {/* Summary Analytics Widget */}
+      <div className="sb-stats-grid">
+        <div className="sb-stat-card sb-card-procure">
+          <div className="sb-stat-icon-wrapper">
+            <FaTruck size={22} />
+          </div>
+          <div>
+            <p className="sb-stat-label">Total Pengadaan</p>
+            <p className="sb-stat-value">{formatCurrency(stats.totalPengadaan)}</p>
+          </div>
+        </div>
+        <div className="sb-stat-card sb-card-reduction">
+          <div className="sb-stat-icon-wrapper">
+            <FaExclamationTriangle size={20} />
+          </div>
+          <div>
+            <p className="sb-stat-label">Total Pengurangan</p>
+            <p className="sb-stat-value">{formatCurrency(stats.totalPengurangan)}</p>
+          </div>
+        </div>
+        <div className="sb-stat-card sb-card-totals">
+          <div className="sb-stat-icon-wrapper">
+            <FaBox size={20} />
+          </div>
+          <div>
+            <p className="sb-stat-label">Jumlah Catatan</p>
+            <p className="sb-stat-value">
+              {viewMode === "transaction" 
+                ? `${stats.transactionCount} Transaksi` 
+                : `${stats.itemCount} Detail Item`}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Content views */}
       {viewMode === "transaction" ? (
-        <table className="sejarah-belanja-table">
-          <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>Nama Supplier</th>
-              <th>Jumlah Barang</th>
-              <th>Total Pembelian</th>
-              <th>Dibuat Oleh</th>
-              <th>File Nota</th>
-              <th>Detail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayedNotas.map((nota) => {
-              const notaId = nota.id || nota.bulkPurchaseId;
-              const isExpanded = !!expandedNotas[notaId];
+        <div className="sb-grouped-list">
+          {Object.keys(groupedTransactions).length === 0 ? (
+            <div className="sb-empty-state">
+              <FaCalendarAlt size={40} />
+              <p>Tidak ada transaksi belanja ditemukan untuk rentang tanggal terpilih.</p>
+            </div>
+          ) : (
+            Object.entries(groupedTransactions).map(([dateKey, dayNotas]) => {
+              const isDateExpanded = expandedDates[dateKey] !== false; // Default expanded
+              const dayTotal = dayNotas.reduce((sum, n) => sum + getNotaTotal(n), 0);
+              const procureCount = dayNotas.filter(n => n.type !== "pengurangan").length;
+              const reductionCount = dayNotas.filter(n => n.type === "pengurangan").length;
+
               return (
-                <React.Fragment key={notaId}>
-                  <tr
-                    className="nota-row"
-                    onClick={() => toggleNotaExpand(notaId)}
+                <div key={dateKey} className="sb-date-group">
+                  {/* Collapsible Date Header */}
+                  <button
+                    onClick={() => toggleDateExpand(dateKey)}
+                    className="sb-date-header"
                   >
-                    <td>
-                      {nota.createdAt
-                        ? (nota.createdAt.toDate ? nota.createdAt.toDate() : new Date(nota.createdAt)).toLocaleString("id-ID")
-                        : ""}
-                    </td>
-                    <td>{nota.supplierName || "Lainnya"}</td>
-                    <td>{(nota.items || []).length} jenis barang</td>
-                    <td>{formatCurrency(getNotaTotal(nota))}</td>
-                    <td>{nota.uploadedBy?.email || "unknown"}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      {nota.downloadURL ? (
-                        <a
-                          href={nota.downloadURL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="nota-link-btn"
-                        >
-                          <FaExternalLinkAlt /> Lihat Nota
-                        </a>
-                      ) : (
-                        <span className="no-nota-text">Tidak ada file</span>
-                      )}
-                    </td>
-                    <td>
-                      <button className="expand-btn">
-                        {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
-                      </button>
-                    </td>
-                  </tr>
-                  {isExpanded && (
-                    <tr className="expanded-details-row">
-                      <td colSpan="7">
-                        <div className="nota-details-container">
-                          <h4>Daftar Barang Belanja</h4>
-                          <table className="nota-details-table">
-                            <thead>
-                              <tr>
-                                <th>Nama Produk</th>
-                                <th>Kategori</th>
-                                <th>Satuan</th>
-                                <th>Qty</th>
-                                <th>Harga Satuan</th>
-                                <th>Subtotal</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {(nota.items || []).map((item, idx) => (
-                                <tr key={idx}>
-                                  <td>{item.itemName}</td>
-                                  <td>{getItemCategory(item)}</td>
-                                  <td>{item.unit}</td>
-                                  <td>{item.quantity}</td>
-                                  <td>{formatCurrency(item.price)}</td>
-                                  <td>{formatCurrency(item.subtotal)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </td>
-                    </tr>
+                    <div className="sb-date-header-left">
+                      <FaCalendarAlt className="sb-calendar-icon" />
+                      <div>
+                        <h3>{dateKey}</h3>
+                        <p>{procureCount} pengadaan, {reductionCount} pengurangan</p>
+                      </div>
+                    </div>
+                    <div className="sb-date-header-right">
+                      <div>
+                        <span className="sb-total-lbl">Total</span>
+                        <span className="sb-total-val">{formatCurrency(dayTotal)}</span>
+                      </div>
+                      {isDateExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                    </div>
+                  </button>
+
+                  {/* Transactions inside this Date Group */}
+                  {isDateExpanded && (
+                    <div className="sb-date-transactions">
+                      {dayNotas.map((nota) => {
+                        const notaId = nota.id || nota.bulkPurchaseId;
+                        const isNotaExpanded = !!expandedNotas[notaId];
+                        const isAdjustment = nota.type === "pengurangan";
+
+                        return (
+                          <div key={notaId} className="sb-tx-tile">
+                            <div className="sb-tx-tile-header" onClick={() => toggleNotaExpand(notaId)}>
+                              <div className="sb-tx-tile-info">
+                                {/* Type icon wrapper */}
+                                <div className={`sb-tx-icon ${isAdjustment ? "adjustment" : "procure"}`}>
+                                  {isAdjustment ? <FaExclamationTriangle size={15} /> : <FaTruck size={15} />}
+                                </div>
+                                <div className="sb-tx-text-block">
+                                  <div className="sb-tx-main-line">
+                                    <span className="sb-tx-id">{notaId}</span>
+                                    <span className={`sb-tx-badge ${isAdjustment ? "adjustment" : "procure"}`}>
+                                      {isAdjustment ? "Pengurangan" : "Pengadaan"}
+                                    </span>
+                                    <span className="sb-tx-sep">|</span>
+                                    <span className="sb-tx-supplier">
+                                      {nota.supplierName || "Lainnya"}
+                                    </span>
+                                  </div>
+                                  <div className="sb-tx-meta">
+                                    <span>
+                                      Jam: {nota.createdAt 
+                                        ? (nota.createdAt.toDate ? nota.createdAt.toDate() : new Date(nota.createdAt)).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+                                        : ""
+                                      }
+                                    </span>
+                                    <span>Oleh: {nota.uploadedBy?.email || "unknown"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="sb-tx-right-block">
+                                <div className="sb-tx-price-summary">
+                                  <span className="sb-tx-total-lbl">Total Nota</span>
+                                  <span className="sb-tx-total-val">{formatCurrency(getNotaTotal(nota))}</span>
+                                </div>
+                                {isNotaExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                              </div>
+                            </div>
+
+                            {/* Collapsible Details list inside Tile */}
+                            {isNotaExpanded && (
+                              <div className="sb-tx-details-content">
+                                <div className="sb-details-box">
+                                  <h4>Daftar Item Detail</h4>
+                                  <table className="sb-details-table">
+                                    <thead>
+                                      <tr>
+                                        <th>Nama Produk</th>
+                                        <th>Kategori</th>
+                                        <th>Satuan</th>
+                                        <th>Qty</th>
+                                        <th>Harga Satuan</th>
+                                        <th>Subtotal</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {(nota.items || []).map((item, idx) => (
+                                        <tr key={idx}>
+                                          <td className="font-semibold">{item.itemName}</td>
+                                          <td>{getItemCategory(item)}</td>
+                                          <td>{item.unit}</td>
+                                          <td>{item.quantity}</td>
+                                          <td>{formatCurrency(item.price)}</td>
+                                          <td className="font-semibold text-gray-800">{formatCurrency(item.subtotal)}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+
+                                  {/* Attachment Action */}
+                                  {nota.downloadURL && (
+                                    <div className="sb-attachment-block">
+                                      <a
+                                        href={nota.downloadURL}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="sb-attachment-link"
+                                      >
+                                        <FaExternalLinkAlt size={12} /> Buka/Lihat File Lampiran Nota
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
-                </React.Fragment>
+                </div>
               );
-            })}
-            {displayedNotas.length === 0 && (
-              <tr>
-                <td colSpan="7" style={{ textAlign: "center", color: "#888" }}>
-                  Tidak ada data transaksi pengadaan yang ditemukan.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            })
+          )}
+        </div>
       ) : (
-        <table className="sejarah-belanja-table">
-          <thead>
-            <tr>
-              <th>Nama</th>
-              <th>Kategori</th>
-              <th>SubKategori</th>
-              <th>Jenis</th>
-              <th>Qty</th>
-              <th>Cost</th>
-              <th>Via</th>
-              <th>Tanggal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayed.map((tx, idx) => (
-              <tr key={idx}>
-                <td>{tx.itemName}</td>
-                <td>{tx.kategori}</td>
-                <td>{tx.subKategori}</td>
-                <td>{tx.transactionType}</td>
-                <td>{getDisplayQty(tx)}</td>
-                <td>{formatCurrency(tx.cost)}</td>
-                <td>{tx.transactionVia}</td>
-                <td>
-                  {tx.timestampInMillisEpoch
-                    ? formatDateDDMMYYYY(tx.timestampInMillisEpoch)
-                    : ""}
-                </td>
-              </tr>
-            ))}
-            {displayed.length === 0 && (
+        /* Flat Item Details Table View */
+        <div className="sb-table-wrapper">
+          <table className="sb-details-table flat-table">
+            <thead>
               <tr>
-                <td colSpan="8" style={{ textAlign: "center", color: "#888" }}>
-                  Tidak ada detail item transaksi belanja yang ditemukan.
-                </td>
+                <th>Nama Barang</th>
+                <th>Kategori</th>
+                <th>Sub Kategori</th>
+                <th>Tipe Transaksi</th>
+                <th>Qty</th>
+                <th>Total Cost</th>
+                <th>Metode Input</th>
+                <th>Tanggal</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {displayed.map((tx, idx) => (
+                <tr key={idx}>
+                  <td className="font-semibold text-gray-900">{tx.itemName}</td>
+                  <td>{tx.kategori}</td>
+                  <td>{tx.subKategori}</td>
+                  <td>
+                    <span className={`sb-tx-badge ${tx.transactionType === "pengurangan" ? "adjustment" : "procure"}`}>
+                      {tx.transactionType === "pengurangan" ? "Pengurangan" : "Pengadaan"}
+                    </span>
+                  </td>
+                  <td>{getDisplayQty(tx)}</td>
+                  <td className="font-semibold text-gray-800">{formatCurrency(tx.cost)}</td>
+                  <td>{tx.transactionVia}</td>
+                  <td>
+                    {tx.timestampInMillisEpoch
+                      ? formatDateDDMMYYYY(tx.timestampInMillisEpoch)
+                      : ""}
+                  </td>
+                </tr>
+              ))}
+              {displayed.length === 0 && (
+                <tr>
+                  <td colSpan="8" style={{ textAlign: "center", color: "#888", padding: "30px 10px" }}>
+                    Tidak ada data detail item pengadaan yang ditemukan.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
 }
 
 /**
- * Date range filter component
+ * Custom styled Date range filter component using ReactDatePicker
  */
 function DateRangeFilter({ startDate, endDate, onChange }) {
   const [tempStart, setTempStart] = useState(startDate);
@@ -567,39 +723,46 @@ function DateRangeFilter({ startDate, endDate, onChange }) {
 
   function applyDates() {
     if (!tempStart || !tempEnd) {
-      alert("Please pick valid dates");
+      alert("Silakan pilih tanggal mulai dan akhir.");
       return;
     }
     if (tempStart > tempEnd) {
-      alert("Start date cannot exceed end date");
+      alert("Tanggal mulai tidak boleh melebihi tanggal akhir.");
       return;
     }
     onChange(tempStart, tempEnd);
   }
 
   return (
-    <div className="date-range-filter">
-      <ReactDatePicker
-        selected={tempStart}
-        onChange={(date) => setTempStart(date)}
-        selectsStart
-        startDate={tempStart}
-        endDate={tempEnd}
-        dateFormat="dd/MM/yyyy"
-        placeholderText="Start"
-      />
-      <ReactDatePicker
-        selected={tempEnd}
-        onChange={(date) => setTempEnd(date)}
-        selectsEnd
-        startDate={tempStart}
-        endDate={tempEnd}
-        minDate={tempStart}
-        dateFormat="dd/MM/yyyy"
-        placeholderText="End"
-      />
-      <button onClick={applyDates} style={{ marginLeft: 8 }}>
-        Filter
+    <div className="sb-date-range">
+      <div className="sb-datepicker-box">
+        <ReactDatePicker
+          selected={tempStart}
+          onChange={(date) => setTempStart(date)}
+          selectsStart
+          startDate={tempStart}
+          endDate={tempEnd}
+          dateFormat="dd/MM/yyyy"
+          placeholderText="Mulai"
+          className="sb-datepicker-input"
+        />
+      </div>
+      <span className="sb-date-sep">s/d</span>
+      <div className="sb-datepicker-box">
+        <ReactDatePicker
+          selected={tempEnd}
+          onChange={(date) => setTempEnd(date)}
+          selectsEnd
+          startDate={tempStart}
+          endDate={tempEnd}
+          minDate={tempStart}
+          dateFormat="dd/MM/yyyy"
+          placeholderText="Akhir"
+          className="sb-datepicker-input"
+        />
+      </div>
+      <button onClick={applyDates} className="sb-btn sb-btn-filter">
+        Tampilkan
       </button>
     </div>
   );
