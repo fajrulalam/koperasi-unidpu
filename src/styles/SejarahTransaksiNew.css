@@ -1320,6 +1320,11 @@
   color: #2563eb;
 }
 
+.st-day-section-profit {
+  color: #10b981;
+  font-weight: 600;
+}
+
 .st-day-transactions {
   display: flex;
   flex-direction: column;

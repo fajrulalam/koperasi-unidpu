@@ -720,9 +720,36 @@ const SejarahTransaksi = () => {
           ) : (
             <div className="st-transactions-list">
               {filteredDailyData.map((dayGroup, dayGroupIdx) => {
-                const isDateExpanded = expandedDates[dayGroup.key] !== undefined
-                  ? !!expandedDates[dayGroup.key]
-                  : dayGroupIdx === 0;
+                const isDateExpanded = !!expandedDates[dayGroup.key];
+
+                // Calculate daily profit
+                let dayTotalProfit = 0;
+                if (showProfit && dayGroup.transactions) {
+                  dayGroup.transactions.forEach((tx) => {
+                    let txProfit = 0;
+                    tx.items?.forEach((item) => {
+                      let cost = 0;
+                      if (stockTransactions.length > 0) {
+                        const txSeconds = tx.timestamp?.seconds;
+                        const matchingStockTx = stockTransactions.find((st) => {
+                          const stSeconds = st.timestampInMillisEpoch?.seconds || st.timestamp?.seconds;
+                          return (
+                            stSeconds &&
+                            txSeconds &&
+                            Math.abs(stSeconds - txSeconds) <= 2 &&
+                            st.itemId === item.itemId
+                          );
+                        });
+                        cost = matchingStockTx ? (matchingStockTx.stockWorth || 0) : 0;
+                      }
+                      txProfit += (item.subtotal - cost);
+                    });
+                    if (tx.voucherDiscount) {
+                      txProfit -= tx.voucherDiscount;
+                    }
+                    dayTotalProfit += txProfit;
+                  });
+                }
 
                 return (
                   <div key={dayGroup.key} className="st-day-section">
@@ -746,6 +773,11 @@ const SejarahTransaksi = () => {
                       </div>
                       <span className="st-day-section-total">
                         Total: {formatCurrency(dayGroup.total)}
+                        {showProfit && (
+                          <span className="st-day-section-profit">
+                            {" | Untung: "}{formatCurrency(dayTotalProfit)}
+                          </span>
+                        )}
                       </span>
                     </div>
                     {isDateExpanded && (
@@ -783,6 +815,11 @@ const SejarahTransaksi = () => {
                             return { ...item, cost, profit };
                           });
 
+                          let txNetProfit = txTotalProfit;
+                          if (tx.voucherDiscount) {
+                            txNetProfit -= tx.voucherDiscount;
+                          }
+
                           return (
                             <div key={txId} className={`st-tx-card ${isExpanded ? "expanded" : ""}`}>
                               <div
@@ -808,9 +845,9 @@ const SejarahTransaksi = () => {
                                   </div>
                                 </div>
                                 <div className="st-tx-right">
-                                  {showProfit && txTotalProfit > 0 && (
+                                  {showProfit && txNetProfit > 0 && (
                                     <span className="st-tx-header-profit">
-                                      Untung: {formatCurrency(txTotalProfit)}
+                                      Untung: {formatCurrency(txNetProfit)}
                                     </span>
                                   )}
                                   <span className="st-tx-total">{formatCurrency(tx.total)}</span>
