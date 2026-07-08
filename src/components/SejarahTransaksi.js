@@ -37,11 +37,19 @@ const SejarahTransaksi = () => {
   // Tab selection
   const [selectedTab, setSelectedTab] = useState("Transactions");
   const [expandedTransactions, setExpandedTransactions] = useState({});
+  const [expandedDates, setExpandedDates] = useState({});
 
   const toggleTransaction = (txId) => {
     setExpandedTransactions((prev) => ({
       ...prev,
       [txId]: !prev[txId],
+    }));
+  };
+
+  const toggleDate = (dateKey) => {
+    setExpandedDates((prev) => ({
+      ...prev,
+      [dateKey]: !prev[dateKey],
     }));
   };
 
@@ -711,133 +719,157 @@ const SejarahTransaksi = () => {
             </div>
           ) : (
             <div className="st-transactions-list">
-              {filteredDailyData.map((dayGroup) => (
-                <div key={dayGroup.key} className="st-day-section">
-                  <div className="st-day-section-header">
-                    <span className="st-day-section-date">{dayGroup.formattedDate}</span>
-                    <span className="st-day-section-total">
-                      Total: {formatCurrency(dayGroup.total)}
-                    </span>
-                  </div>
-                  <div className="st-day-transactions">
-                    {dayGroup.transactions?.map((tx, txIdx) => {
-                      const txId = tx.id || `tx-${dayGroup.key}-${txIdx}`;
-                      const isExpanded = !!expandedTransactions[txId];
-                      const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
-                      const timeStr = txDate.toLocaleTimeString("id-ID", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      });
+              {filteredDailyData.map((dayGroup, dayGroupIdx) => {
+                const isDateExpanded = expandedDates[dayGroup.key] !== undefined
+                  ? !!expandedDates[dayGroup.key]
+                  : dayGroupIdx === 0;
 
-                      // Calculate profit if admin
-                      let txTotalCost = 0;
-                      let txTotalProfit = 0;
-                      const txItemsWithProfit = tx.items?.map((item) => {
-                        let cost = 0;
-                        if (showProfit && stockTransactions.length > 0) {
-                          const txSeconds = tx.timestamp?.seconds;
-                          const matchingStockTx = stockTransactions.find((st) => {
-                            const stSeconds = st.timestampInMillisEpoch?.seconds || st.timestamp?.seconds;
-                            return (
-                              stSeconds &&
-                              txSeconds &&
-                              Math.abs(stSeconds - txSeconds) <= 2 &&
-                              st.itemId === item.itemId
-                            );
+                return (
+                  <div key={dayGroup.key} className="st-day-section">
+                    <div
+                      className="st-day-section-header"
+                      onClick={() => toggleDate(dayGroup.key)}
+                    >
+                      <div className="st-day-section-left">
+                        <span className={`st-day-section-chevron ${isDateExpanded ? "expanded" : ""}`}>
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path
+                              d="M4 6L8 10L12 6"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </span>
+                        <span className="st-day-section-date">{dayGroup.formattedDate}</span>
+                      </div>
+                      <span className="st-day-section-total">
+                        Total: {formatCurrency(dayGroup.total)}
+                      </span>
+                    </div>
+                    {isDateExpanded && (
+                      <div className="st-day-transactions">
+                        {dayGroup.transactions?.map((tx, txIdx) => {
+                          const txId = tx.id || `tx-${dayGroup.key}-${txIdx}`;
+                          const isExpanded = !!expandedTransactions[txId];
+                          const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
+                          const timeStr = txDate.toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
                           });
-                          cost = matchingStockTx ? (matchingStockTx.stockWorth || 0) : 0;
-                        }
-                        const profit = item.subtotal - cost;
-                        txTotalCost += cost;
-                        txTotalProfit += profit;
-                        return { ...item, cost, profit };
-                      });
 
-                      return (
-                        <div key={txId} className={`st-tx-card ${isExpanded ? "expanded" : ""}`}>
-                          <div
-                            className="st-tx-header"
-                            onClick={() => toggleTransaction(txId)}
-                          >
-                            <div className="st-tx-left">
-                              <span className="st-tx-time">{timeStr}</span>
-                              <div className="st-tx-buyer-info">
-                                <span className="st-tx-buyer-name">
-                                  {tx.memberName || "Non-Anggota"}
-                                </span>
-                                {tx.isMember && (
-                                  <span className="st-tx-badge st-tx-badge-member">
-                                    Anggota ({tx.nomorAnggota})
-                                  </span>
-                                )}
-                                {tx.voucherId && (
-                                  <span className="st-tx-badge st-tx-badge-voucher" title={tx.voucherName}>
-                                    🎫 Voucher
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="st-tx-right">
-                              {showProfit && txTotalProfit > 0 && (
-                                <span className="st-tx-header-profit">
-                                  Untung: {formatCurrency(txTotalProfit)}
-                                </span>
-                              )}
-                              <span className="st-tx-total">{formatCurrency(tx.total)}</span>
-                              <span className={`st-tx-chevron ${isExpanded ? "expanded" : ""}`}>
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                  <path
-                                    d="M4 6L8 10L12 6"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </span>
-                            </div>
-                          </div>
+                          // Calculate profit if admin
+                          let txTotalCost = 0;
+                          let txTotalProfit = 0;
+                          const txItemsWithProfit = tx.items?.map((item) => {
+                            let cost = 0;
+                            if (showProfit && stockTransactions.length > 0) {
+                              const txSeconds = tx.timestamp?.seconds;
+                              const matchingStockTx = stockTransactions.find((st) => {
+                                const stSeconds = st.timestampInMillisEpoch?.seconds || st.timestamp?.seconds;
+                                return (
+                                  stSeconds &&
+                                  txSeconds &&
+                                  Math.abs(stSeconds - txSeconds) <= 2 &&
+                                  st.itemId === item.itemId
+                                );
+                              });
+                              cost = matchingStockTx ? (matchingStockTx.stockWorth || 0) : 0;
+                            }
+                            const profit = item.subtotal - cost;
+                            txTotalCost += cost;
+                            txTotalProfit += profit;
+                            return { ...item, cost, profit };
+                          });
 
-                          {isExpanded && (
-                            <div className="st-tx-details">
-                              <div className="st-tx-items-list">
-                                {txItemsWithProfit?.map((item, itemIdx) => (
-                                  <div key={itemIdx} className="st-tx-item-row">
-                                    <span className="st-tx-item-name">
-                                      {item.itemName}
-                                      {showProfit && item.profit > 0 && (
-                                        <span className="st-tx-item-profit-badge">
-                                          (Untung: {formatCurrency(item.profit)})
-                                        </span>
-                                      )}
+                          return (
+                            <div key={txId} className={`st-tx-card ${isExpanded ? "expanded" : ""}`}>
+                              <div
+                                className="st-tx-header"
+                                onClick={() => toggleTransaction(txId)}
+                              >
+                                <div className="st-tx-left">
+                                  <span className="st-tx-time">{timeStr}</span>
+                                  <div className="st-tx-buyer-info">
+                                    <span className="st-tx-buyer-name">
+                                      {tx.memberName || "Non-Anggota"}
                                     </span>
-                                    <span className="st-tx-item-qty">
-                                      {item.quantity} {item.unit}
-                                    </span>
-                                    <span className="st-tx-item-subtotal">
-                                      {formatCurrency(item.subtotal)}
-                                    </span>
+                                    {tx.isMember && (
+                                      <span className="st-tx-badge st-tx-badge-member">
+                                        Anggota ({tx.nomorAnggota})
+                                      </span>
+                                    )}
+                                    {tx.voucherId && (
+                                      <span className="st-tx-badge st-tx-badge-voucher" title={tx.voucherName}>
+                                        🎫 Voucher
+                                      </span>
+                                    )}
                                   </div>
-                                ))}
+                                </div>
+                                <div className="st-tx-right">
+                                  {showProfit && txTotalProfit > 0 && (
+                                    <span className="st-tx-header-profit">
+                                      Untung: {formatCurrency(txTotalProfit)}
+                                    </span>
+                                  )}
+                                  <span className="st-tx-total">{formatCurrency(tx.total)}</span>
+                                  <span className={`st-tx-chevron ${isExpanded ? "expanded" : ""}`}>
+                                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                      <path
+                                        d="M4 6L8 10L12 6"
+                                        stroke="currentColor"
+                                        strokeWidth="1.8"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      />
+                                    </svg>
+                                  </span>
+                                </div>
                               </div>
-                              {tx.voucherId && (
-                                <div className="st-tx-voucher-row">
-                                  <span className="st-tx-voucher-label">
-                                    Voucher: {tx.voucherName}
-                                  </span>
-                                  <span className="st-tx-voucher-discount">
-                                    -{formatCurrency(tx.voucherDiscount)}
-                                  </span>
+
+                              {isExpanded && (
+                                <div className="st-tx-details">
+                                  <div className="st-tx-items-list">
+                                    {txItemsWithProfit?.map((item, itemIdx) => (
+                                      <div key={itemIdx} className="st-tx-item-row">
+                                        <span className="st-tx-item-name">
+                                          {item.itemName}
+                                          {showProfit && item.profit > 0 && (
+                                            <span className="st-tx-item-profit-badge">
+                                              (Untung: {formatCurrency(item.profit)})
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span className="st-tx-item-qty">
+                                          {item.quantity} {item.unit}
+                                        </span>
+                                        <span className="st-tx-item-subtotal">
+                                          {formatCurrency(item.subtotal)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {tx.voucherId && (
+                                    <div className="st-tx-voucher-row">
+                                      <span className="st-tx-voucher-label">
+                                        Voucher: {tx.voucherName}
+                                      </span>
+                                      <span className="st-tx-voucher-discount">
+                                        -{formatCurrency(tx.voucherDiscount)}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
                               )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
           <button

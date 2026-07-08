@@ -1277,9 +1277,35 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 4px;
-  border-bottom: 2px solid #f0f0f0;
-  padding-bottom: 8px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.st-day-section-header:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.st-day-section-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.st-day-section-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+  transition: transform 0.2s ease;
+}
+
+.st-day-section-chevron.expanded {
+  transform: rotate(180deg);
 }
 
 .st-day-section-date {
