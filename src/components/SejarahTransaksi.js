@@ -744,9 +744,6 @@ const SejarahTransaksi = () => {
                       }
                       txProfit += (item.subtotal - cost);
                     });
-                    if (tx.voucherDiscount) {
-                      txProfit -= tx.voucherDiscount;
-                    }
                     dayTotalProfit += txProfit;
                   });
                 }
@@ -815,11 +812,6 @@ const SejarahTransaksi = () => {
                             return { ...item, cost, profit };
                           });
 
-                          let txNetProfit = txTotalProfit;
-                          if (tx.voucherDiscount) {
-                            txNetProfit -= tx.voucherDiscount;
-                          }
-
                           return (
                             <div key={txId} className={`st-tx-card ${isExpanded ? "expanded" : ""}`}>
                               <div
@@ -845,9 +837,9 @@ const SejarahTransaksi = () => {
                                   </div>
                                 </div>
                                 <div className="st-tx-right">
-                                  {showProfit && txNetProfit > 0 && (
+                                  {showProfit && txTotalProfit > 0 && (
                                     <span className="st-tx-header-profit">
-                                      Untung: {formatCurrency(txNetProfit)}
+                                      Untung: {formatCurrency(txTotalProfit)}
                                     </span>
                                   )}
                                   <span className="st-tx-total">{formatCurrency(tx.total)}</span>
