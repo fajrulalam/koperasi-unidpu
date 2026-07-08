@@ -317,3 +317,52 @@ export function searchStockItems(stockList, searchTerm, useScanner = false) {
   });
 }
 
+/**
+ * Generates a PREFIX-YYYYMMDD-COUNTER formatted transaction ID
+ */
+export async function generateIncrementalId(queryCollection, query, where, collectionName, prefix) {
+  const now = new Date();
+  const yyyy = String(now.getFullYear());
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const dateStr = `${yyyy}${mm}${dd}`;
+
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  let count = 0;
+  try {
+    if (collectionName === "stockTransactions") {
+      const results = await queryCollection(collectionName, (collectionRef) =>
+        query(
+          collectionRef,
+          where("timestampInMillisEpoch", ">=", startOfDay),
+          where("timestampInMillisEpoch", "<=", endOfDay)
+        )
+      );
+      if (results && results.length > 0) {
+        const matchPrefix = `${prefix}-${dateStr}-`;
+        const matched = results.filter(r => r.id && r.id.startsWith(matchPrefix));
+        count = matched.length;
+      }
+    } else if (collectionName === "notaBelanja") {
+      const results = await queryCollection(collectionName);
+      const matched = results.filter(nota => {
+        if (!nota.createdAt) return false;
+        const date = nota.createdAt.toDate ? nota.createdAt.toDate() : new Date(nota.createdAt);
+        if (date < startOfDay || date > endOfDay) return false;
+        
+        const matchPrefix = `${prefix}-${dateStr}-`;
+        const id = nota.id || nota.bulkPurchaseId || "";
+        return id.startsWith(matchPrefix);
+      });
+      count = matched.length;
+    }
+  } catch (err) {
+    console.error("Error counting transactions for incremental ID:", err);
+  }
+
+  const nextNum = String(count + 1).padStart(3, "0");
+  return `${prefix}-${dateStr}-${nextNum}`;
+}
+

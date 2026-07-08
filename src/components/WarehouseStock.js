@@ -3,10 +3,10 @@ import {
   FaCalendarAlt,
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
-import { v4 as uuidv4 } from "uuid";
 import "../styles/Stocks.css";
 import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
+import { generateIncrementalId } from "../services/transactionHistoryService";
 import WarehouseStockModal from "./WarehouseStockModal";
 import StockDiscrepancyModal from "./StockDiscrepancies/StockDiscrepancyModal";
 import BulkPurchaseModal from "./BulkPurchaseModal";
@@ -53,7 +53,7 @@ const StatCard = ({ title, value, color }) => (
 // Main Warehouse Stock Component
 export default function WarehouseStock() {
   const { currentUser } = useAuth();
-  const { createDoc, readDoc, updateDoc, deleteDoc, queryCollection } =
+  const { createDoc, readDoc, updateDoc, deleteDoc, queryCollection, query, where } =
     useFirestore();
 
   // State variables
@@ -620,7 +620,13 @@ export default function WarehouseStock() {
           originalUnit: tempSatuan,
         };
 
-        const txId = uuidv4();
+        const txId = await generateIncrementalId(
+          queryCollection,
+          query,
+          where,
+          "stockTransactions_b2b",
+          "ADD"
+        );
         await createDoc("stockTransactions_b2b", txDoc, txId);
 
         const newStock = (prod.stock || 0) + quantityInSmallestUnit;
@@ -695,7 +701,13 @@ export default function WarehouseStock() {
           unit: prod.base_unit || prod.smallestUnit,
         };
 
-        const txId = uuidv4();
+        const txId = await generateIncrementalId(
+          queryCollection,
+          query,
+          where,
+          "stockTransactions_b2b",
+          "SET"
+        );
         await createDoc("stockTransactions_b2b", txDoc, txId);
 
         const newCostPrice = newStock > 0 ? Math.round(newVal / newStock) : prod.cost_price;
@@ -778,7 +790,13 @@ export default function WarehouseStock() {
       try {
         const product = products[selectedProductId];
 
-        const txId = uuidv4();
+        const txId = await generateIncrementalId(
+          queryCollection,
+          query,
+          where,
+          "stockTransactions_b2b",
+          "DEL"
+        );
         await createDoc(
           "stockTransactions_b2b",
           {

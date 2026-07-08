@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import { FaTimes, FaPlus, FaTrash, FaUpload, FaFileAlt } from "react-icons/fa";
-import { v4 as uuidv4 } from "uuid";
 import { uploadFile } from "../firebase";
 import "../styles/BulkPurchaseModal.css";
 import { convertToSmallestUnit } from "../utils/transaksiUtils";
+import { useFirestore } from "../context/FirestoreContext";
+import { generateIncrementalId } from "../services/transactionHistoryService";
 
 
 // Helper function for currency formatting
@@ -84,6 +85,8 @@ const BulkPurchaseModal = ({
   const rowsKey = isWarehouse ? "b2b_purchase_draft_rows" : "retail_purchase_draft_rows";
   const supplierKey = isWarehouse ? "b2b_purchase_draft_supplier" : "retail_purchase_draft_supplier";
   const uploadedNotaKey = isWarehouse ? "b2b_purchase_draft_uploaded_nota" : "retail_purchase_draft_uploaded_nota";
+
+  const { queryCollection, query, where } = useFirestore();
 
   const [rows, setRows] = useState(() => {
     try {
@@ -539,7 +542,14 @@ const BulkPurchaseModal = ({
         });
       } else {
         // Create mode: process each row individually
-        const bulkPurchaseId = uuidv4();
+        const collectionNameForNota = isWarehouse ? "notaBelanja_b2b" : "notaBelanja";
+        const bulkPurchaseId = await generateIncrementalId(
+          queryCollection,
+          query,
+          where,
+          collectionNameForNota,
+          "BP"
+        );
 
         for (const row of validRows) {
           const quantity = parseFloat(row.quantity);
@@ -565,7 +575,7 @@ const BulkPurchaseModal = ({
             items: items,
           };
 
-          const txId = uuidv4();
+          const txId = `${bulkPurchaseId}_${row.product.id}`;
           await onSave("createTransaction", transactionDoc, txId);
 
           const newStock = (row.product.stock || 0) + quantityInSmallestUnit;
