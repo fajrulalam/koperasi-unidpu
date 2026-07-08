@@ -20,9 +20,8 @@ import ItemDetailDialog from "./ItemDetailDialog";
 
 // Tab configuration - clean, no emojis
 const TABS = [
-  { id: "Daily", label: "Harian" },
-  { id: "Items", label: "Per Item" },
   { id: "Transactions", label: "Per Transaksi" },
+  { id: "Items", label: "Per Item" },
 ];
 
 const SejarahTransaksi = () => {
@@ -36,7 +35,7 @@ const SejarahTransaksi = () => {
     userRole === "Admin";
 
   // Tab selection
-  const [selectedTab, setSelectedTab] = useState("Daily");
+  const [selectedTab, setSelectedTab] = useState("Transactions");
   const [expandedTransactions, setExpandedTransactions] = useState({});
 
   const toggleTransaction = (txId) => {
