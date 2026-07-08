@@ -90,7 +90,8 @@ const SummaryCard = ({ title, value, color }) => (
 
 // Main Stocks Component
 export default function Stocks() {
-  const { currentUser } = useAuth();
+  const { currentUser, userRole } = useAuth();
+  const canSeeProfit = userRole === "Wakil Rektor 2";
   const { createDoc, readDoc, updateDoc, deleteDoc, queryCollection, query, where } =
     useFirestore();
   const { isProduction } = useEnvironment();
@@ -120,8 +121,8 @@ export default function Stocks() {
   const [selectedViewPreset, setSelectedViewPreset] = useState("default");
 
   const isColumnVisible = (colKey) => {
-    if (colKey === "profitMargin") {
-      return showMargin && VIEW_PRESETS[selectedViewPreset].columns.includes(colKey);
+    if (colKey === "profitMargin" || colKey === "potentialProfit") {
+      return canSeeProfit && showMargin && VIEW_PRESETS[selectedViewPreset].columns.includes(colKey);
     }
     return VIEW_PRESETS[selectedViewPreset].columns.includes(colKey);
   };
@@ -1470,15 +1471,17 @@ export default function Stocks() {
           >
             Export ke Excel
           </button>
-          <button
-            className={`px-5 py-2.5 font-bold rounded-lg shadow-sm transition text-sm flex items-center gap-2 ${showMargin
-              ? "bg-green-600 hover:bg-green-700 text-white"
-              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
-              }`}
-            onClick={() => setShowMargin(!showMargin)}
-          >
-            {showMargin ? <FaCheckCircle /> : <FaPercentage />} Kalkulasi Margin
-          </button>
+          {canSeeProfit && (
+            <button
+              className={`px-5 py-2.5 font-bold rounded-lg shadow-sm transition text-sm flex items-center gap-2 ${showMargin
+                ? "bg-green-600 hover:bg-green-700 text-white"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              onClick={() => setShowMargin(!showMargin)}
+            >
+              {showMargin ? <FaCheckCircle /> : <FaPercentage />} Kalkulasi Margin
+            </button>
+          )}
           <button
             className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm flex items-center gap-2"
             onClick={() =>
@@ -1528,7 +1531,9 @@ export default function Stocks() {
 
       {/* View Presets Segmented Controls */}
       <div className="flex flex-wrap gap-2 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-        {Object.entries(VIEW_PRESETS).map(([key, preset]) => (
+        {Object.entries(VIEW_PRESETS)
+          .filter(([key]) => canSeeProfit || key !== "keuntungan")
+          .map(([key, preset]) => (
           <button
             key={key}
             onClick={() => handleViewPresetChange(key)}

@@ -29,10 +29,7 @@ const SejarahTransaksi = () => {
   const { isProduction, environment } = useEnvironment();
   const { userRole } = useAuth();
 
-  const showProfit =
-    userRole === "Director" ||
-    userRole === "Wakil Rektor 2" ||
-    userRole === "Admin";
+  const showProfit = userRole === "Wakil Rektor 2";
 
   // Tab selection
   const [selectedTab, setSelectedTab] = useState("Transactions");
