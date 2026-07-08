@@ -279,7 +279,7 @@ export function filterItemsBySearch(items, searchTerm) {
 /**
  * Get initial date range (last N days)
  */
-export function getInitialDateRange(days = 14) {
+export function getInitialDateRange(days = 7) {
   const end = new Date();
   const start = new Date();
   start.setDate(end.getDate() - days);

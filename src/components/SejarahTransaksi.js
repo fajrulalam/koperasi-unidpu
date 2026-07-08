@@ -46,7 +46,7 @@ const SejarahTransaksi = () => {
   };
 
   // Date range
-  const initialRange = getInitialDateRange(14);
+  const initialRange = getInitialDateRange(7);
   const [dateRange, setDateRange] = useState(initialRange);
   const [tempStart, setTempStart] = useState(initialRange.start);
   const [tempEnd, setTempEnd] = useState(initialRange.end);
@@ -59,7 +59,7 @@ const SejarahTransaksi = () => {
 
   // UI states
   const [loading, setLoading] = useState(false);
-  const [daysLoaded, setDaysLoaded] = useState(14);
+  const [daysLoaded, setDaysLoaded] = useState(7);
   const [allDataLoaded, setAllDataLoaded] = useState(false);
   const [itemSearchTerm, setItemSearchTerm] = useState("");
   const [itemSortConfig, setItemSortConfig] = useState({
