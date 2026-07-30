@@ -1,6 +1,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { voucherService } from "./voucherService";
+import { buildVoucherReportData } from "./voucherReportData";
 
 const loadImage = (src) =>
   new Promise((resolve, reject) => {
@@ -49,16 +50,70 @@ const formatShortDate = (dateObj) => {
   });
 };
 
+const formatLongDateTime = (dateObj) => {
+  if (!dateObj) return "-";
+  let d;
+  if (dateObj.toDate && typeof dateObj.toDate === "function") {
+    d = dateObj.toDate();
+  } else if (dateObj.seconds) {
+    d = new Date(dateObj.seconds * 1000);
+  } else {
+    d = new Date(dateObj);
+  }
+  if (isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatQuantity = (value) =>
+  new Intl.NumberFormat("id-ID", {
+    maximumFractionDigits: 3,
+  }).format(Number(value) || 0);
+
+const formatUnitPrices = (unitPrices) => {
+  if (!unitPrices || unitPrices.length === 0) return "Rp 0";
+  if (unitPrices.length === 1) {
+    return voucherService.formatCurrency(unitPrices[0]);
+  }
+  return `${voucherService.formatCurrency(
+    unitPrices[0]
+  )} - ${voucherService.formatCurrency(unitPrices[unitPrices.length - 1])}`;
+};
+
 export const generateVoucherProgramReportPdf = async ({
   voucherGroup,
   isProduction = true,
+  reportVouchers = null,
+  reportTransactions = null,
+  includeLogos = true,
+  shouldSave = true,
+  reportGeneratedAt = new Date(),
 }) => {
   try {
     // 1. Fetch vouchers and transactions for this voucher group
-    const [vouchers, transactions] = await Promise.all([
-      voucherService.getVouchersByGroupId(voucherGroup.id, isProduction),
-      voucherService.getTransactionsByVoucherGroupId(voucherGroup.id, isProduction),
-    ]);
+    const [vouchers, transactions] =
+      reportVouchers && reportTransactions
+        ? [reportVouchers, reportTransactions]
+        : await Promise.all([
+            voucherService.getVouchersByGroupId(
+              voucherGroup.id,
+              isProduction
+            ),
+            voucherService.getTransactionsByVoucherGroupId(
+              voucherGroup.id,
+              isProduction
+            ),
+          ]);
+    const reportData = buildVoucherReportData({
+      voucherGroup,
+      vouchers,
+      transactions,
+    });
 
     const doc = new jsPDF();
     doc.setFont("helvetica");
@@ -66,15 +121,19 @@ export const generateVoucherProgramReportPdf = async ({
     // Load logo assets
     let logoYapetidu = null;
     let logoUrg = null;
-    try {
-      logoYapetidu = await loadImage("/Logo YAPETIDU (Transparent bg).png");
-    } catch (e) {
-      console.warn("Could not load YAPETIDU logo:", e);
-    }
-    try {
-      logoUrg = await loadImage("/Kop URG Logo (Latest).png");
-    } catch (e) {
-      console.warn("Could not load Kop URG logo:", e);
+    if (includeLogos) {
+      try {
+        logoYapetidu = await loadImage(
+          "/Logo YAPETIDU (Transparent bg).png"
+        );
+      } catch (e) {
+        console.warn("Could not load YAPETIDU logo:", e);
+      }
+      try {
+        logoUrg = await loadImage("/Kop URG Logo (Latest).png");
+      } catch (e) {
+        console.warn("Could not load Kop URG logo:", e);
+      }
     }
 
     // Header Logos
@@ -111,25 +170,16 @@ export const generateVoucherProgramReportPdf = async ({
     )} s/d ${formatShortDate(voucherGroup.expireDate)}`;
     doc.text(`Masa Berlaku: ${activeRangeStr}`, textX, 33);
 
-    const todayStr = new Date().toLocaleDateString("id-ID", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    doc.text(`Dicetak Pada: ${todayStr}`, 14, 42);
+    const reportDateRange = `${formatLongDateTime(
+      voucherGroup.activeDate
+    )} s/d ${formatLongDateTime(reportGeneratedAt)}`;
+    doc.text(`Periode Laporan: ${reportDateRange}`, 14, 42);
 
     // Metadata Summary Box
-    let totalDiscountUsed = 0;
-    transactions.forEach((tx) => {
-      totalDiscountUsed += Number(tx.voucherDiscount || 0);
-    });
-
     const summaryBoxY = 46;
     doc.setDrawColor(229, 231, 235);
     doc.setFillColor(249, 250, 251);
-    doc.roundedRect(14, summaryBoxY, 182, 18, 2, 2, "FD");
+    doc.roundedRect(14, summaryBoxY, 182, 24, 2, 2, "FD");
 
     doc.setFontSize(9);
     doc.setFont(undefined, "bold");
@@ -137,24 +187,41 @@ export const generateVoucherProgramReportPdf = async ({
 
     doc.setFont(undefined, "normal");
     doc.text(
-      `Total Penerima: ${vouchers.length} orang`,
+      `Total Penerima: ${reportData.recipients.length} orang`,
       18,
       summaryBoxY + 12
     );
     doc.text(
-      `Total Transaksi: ${transactions.length} kali`,
-      78,
+      `Sudah Belanja: ${reportData.purchasedRecipientCount} orang`,
+      75,
       summaryBoxY + 12
     );
     doc.text(
-      `Total Diskon Voucher Digunakan: ${voucherService.formatCurrency(
-        totalDiscountUsed
-      )}`,
+      `Belum Belanja: ${reportData.notPurchasedRecipientCount} orang`,
       132,
       summaryBoxY + 12
     );
+    doc.text(
+      `Total Transaksi: ${reportData.totalTransactions} kali`,
+      18,
+      summaryBoxY + 18
+    );
+    doc.text(
+      `Total Penjualan: ${voucherService.formatCurrency(
+        reportData.grandSalesValue
+      )}`,
+      75,
+      summaryBoxY + 18
+    );
+    doc.text(
+      `Voucher Digunakan: ${voucherService.formatCurrency(
+        reportData.totalVoucherUsed
+      )}`,
+      132,
+      summaryBoxY + 18
+    );
 
-    let startY = summaryBoxY + 24;
+    let startY = summaryBoxY + 30;
 
     // --- SECTION 1: SUMMARY OF ITEMS BOUGHT ---
     doc.setFontSize(11);
@@ -163,48 +230,11 @@ export const generateVoucherProgramReportPdf = async ({
     doc.text("Bagian 1: Ringkasan Barang Dibeli (Summary of Items)", 14, startY);
     startY += 4;
 
-    // Aggregate items across transactions
-    const itemsMap = {};
-    let grandQty = 0;
-    let grandSalesValue = 0;
-
-    transactions.forEach((tx) => {
-      const itemsList = Array.isArray(tx.items) ? tx.items : [];
-      itemsList.forEach((item) => {
-        const itemName =
-          item.itemName ||
-          item.nama ||
-          item.name ||
-          item.productName ||
-          item.title ||
-          "Barang Tanpa Nama";
-        const itemKey = item.itemId || item.id || item.productId || itemName;
-        const unitPrice = Number(item.price ?? item.harga ?? item.unitPrice ?? 0);
-        const qty = Number(item.quantity ?? item.qty ?? item.jumlah ?? 1);
-        const subtotal = Number(
-          item.subtotal ?? item.total ?? unitPrice * qty
-        );
-
-        if (!itemsMap[itemKey]) {
-          itemsMap[itemKey] = {
-            name: itemName,
-            unitPrice: unitPrice,
-            quantity: 0,
-            totalValue: 0,
-          };
-        }
-        itemsMap[itemKey].quantity += qty;
-        itemsMap[itemKey].totalValue += subtotal;
-        grandQty += qty;
-        grandSalesValue += subtotal;
-      });
-    });
-
-    const itemsRows = Object.values(itemsMap).map((item, idx) => [
+    const itemsRows = reportData.items.map((item, idx) => [
       idx + 1,
       item.name,
-      voucherService.formatCurrency(item.unitPrice),
-      item.quantity,
+      formatUnitPrices(item.unitPrices),
+      formatQuantity(item.quantity),
       voucherService.formatCurrency(item.totalValue),
     ]);
 
@@ -214,6 +244,7 @@ export const generateVoucherProgramReportPdf = async ({
 
     autoTable(doc, {
       theme: "grid",
+      rowPageBreak: "avoid",
       head: [["No.", "Nama Barang", "Harga Satuan", "Qty Terjual", "Total Sales Value"]],
       body: itemsRows,
       foot: [
@@ -221,10 +252,11 @@ export const generateVoucherProgramReportPdf = async ({
           "TOTAL",
           "",
           "",
-          grandQty,
-          voucherService.formatCurrency(grandSalesValue),
+          formatQuantity(reportData.grandQuantity),
+          voucherService.formatCurrency(reportData.grandSalesValue),
         ],
       ],
+      showFoot: "lastPage",
       startY: startY,
       styles: {
         fontSize: 8.5,
@@ -246,7 +278,7 @@ export const generateVoucherProgramReportPdf = async ({
       },
       columnStyles: {
         0: { halign: "center", cellWidth: 16 },
-        1: { cellWidth: 66 },
+        1: { cellWidth: 65.78 },
         2: { halign: "right", cellWidth: 32 },
         3: { halign: "center", cellWidth: 26 },
         4: { halign: "right", cellWidth: 42 },
@@ -265,47 +297,13 @@ export const generateVoucherProgramReportPdf = async ({
     doc.setFont(undefined, "bold");
     doc.setTextColor(31, 41, 55);
     doc.text(
-      "Bagian 2: Riwayat Transaksi per Anggota (Member Transaction History)",
+      "Bagian 2: Ringkasan Riwayat Transaksi per Anggota",
       14,
       startY
     );
     startY += 4;
 
-    // Group vouchers and transactions by member
-    const memberMap = {};
-
-    // First populate from vouchers list (ensures all recipients appear)
-    vouchers.forEach((v) => {
-      const memberKey = v.userId || v.nomorAnggota || v.nama || "non_member";
-      if (!memberMap[memberKey]) {
-        memberMap[memberKey] = {
-          name: v.nama || "Voucher Cetak (Non-Member)",
-          nomorAnggota: v.nomorAnggota || v.kantor || "-",
-          office: v.kantor || "-",
-          voucherValue: v.value || voucherGroup.value || 0,
-          remainingValue: v.remainingValue ?? (v.isClaimed ? 0 : v.value || voucherGroup.value || 0),
-          transactions: [],
-        };
-      }
-    });
-
-    // Populate transactions into corresponding member bucket
-    transactions.forEach((tx) => {
-      const memberKey = tx.userId || tx.nomorAnggota || tx.memberName || "non_member";
-      if (!memberMap[memberKey]) {
-        memberMap[memberKey] = {
-          name: tx.memberName || "Tanpa Nama",
-          nomorAnggota: tx.nomorAnggota || "-",
-          office: "-",
-          voucherValue: voucherGroup.value || 0,
-          remainingValue: 0,
-          transactions: [],
-        };
-      }
-      memberMap[memberKey].transactions.push(tx);
-    });
-
-    const memberList = Object.values(memberMap);
+    const memberList = reportData.recipients;
 
     if (memberList.length === 0) {
       autoTable(doc, {
@@ -316,24 +314,105 @@ export const generateVoucherProgramReportPdf = async ({
         styles: { fontSize: 8.5 },
       });
     } else {
-      memberList.forEach((m, idx) => {
+      const memberSummaryRows = memberList.map((member, index) => [
+        index + 1,
+        member.name,
+        member.nomorAnggota,
+        member.office,
+        member.hasPurchased ? "SUDAH BELANJA" : "BELUM BELANJA",
+        member.totalTransactions,
+        voucherService.formatCurrency(member.totalSalesValue),
+        voucherService.formatCurrency(member.totalVoucherUsed),
+      ]);
+
+      autoTable(doc, {
+        theme: "grid",
+        rowPageBreak: "avoid",
+        head: [
+          [
+            "No.",
+            "Nama Anggota",
+            "No. Anggota",
+            "Unit",
+            "Status",
+            "Jml. Tx",
+            "Total Belanja",
+            "Voucher Digunakan",
+          ],
+        ],
+        body: memberSummaryRows,
+        startY,
+        styles: {
+          fontSize: 7.3,
+          cellPadding: 1.7,
+          valign: "middle",
+          lineColor: [229, 231, 235],
+          lineWidth: 0.1,
+        },
+        headStyles: {
+          fillColor: [79, 70, 229],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
+        },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 9 },
+          1: { cellWidth: 38.78 },
+          2: { cellWidth: 21 },
+          3: { cellWidth: 27 },
+          4: { halign: "center", cellWidth: 24 },
+          5: { halign: "center", cellWidth: 13 },
+          6: { halign: "right", cellWidth: 23 },
+          7: { halign: "right", cellWidth: 26 },
+        },
+        didParseCell: (data) => {
+          if (data.section !== "body" || data.column.index !== 4) return;
+          if (data.cell.raw === "SUDAH BELANJA") {
+            data.cell.styles.textColor = [22, 101, 52];
+            data.cell.styles.fillColor = [240, 253, 244];
+            data.cell.styles.fontStyle = "bold";
+          } else {
+            data.cell.styles.textColor = [153, 27, 27];
+            data.cell.styles.fillColor = [254, 242, 242];
+            data.cell.styles.fontStyle = "bold";
+          }
+        },
+      });
+
+      startY = doc.lastAutoTable.finalY + 10;
+      const purchasedMembers = memberList.filter(
+        (member) => member.hasPurchased
+      );
+
+      if (purchasedMembers.length > 0) {
+        if (startY > doc.internal.pageSize.height - 30) {
+          doc.addPage();
+          startY = 16;
+        }
+        doc.setFontSize(10);
+        doc.setFont(undefined, "bold");
+        doc.setTextColor(31, 41, 55);
+        doc.text(
+          "Rincian Transaksi Anggota yang Sudah Belanja",
+          14,
+          startY
+        );
+        startY += 6;
+      }
+
+      purchasedMembers.forEach((member, memberIndex) => {
         if (startY > doc.internal.pageSize.height - 35) {
           doc.addPage();
           startY = 16;
         }
 
-        const totalMemberTx = m.transactions.length;
-        let totalMemberDiscount = 0;
-        m.transactions.forEach((t) => {
-          totalMemberDiscount += Number(t.voucherDiscount || 0);
-        });
-
-        // Member Header line
         doc.setFontSize(9.5);
         doc.setFont(undefined, "bold");
         doc.setTextColor(30, 58, 138);
         doc.text(
-          `${idx + 1}. ${m.name} ${m.nomorAnggota !== "-" ? `(${m.nomorAnggota})` : ""}`,
+          `${memberIndex + 1}. ${member.name} ${
+            member.nomorAnggota !== "-" ? `(${member.nomorAnggota})` : ""
+          }`,
           14,
           startY
         );
@@ -342,8 +421,12 @@ export const generateVoucherProgramReportPdf = async ({
         doc.setFont(undefined, "normal");
         doc.setTextColor(75, 85, 99);
         doc.text(
-          `Unit: ${m.office} | Total Transaksi: ${totalMemberTx} | Total Voucher Digunakan: ${voucherService.formatCurrency(
-            totalMemberDiscount
+          `Unit: ${member.office} | Total Transaksi: ${
+            member.totalTransactions
+          } | Total Belanja: ${voucherService.formatCurrency(
+            member.totalSalesValue
+          )} | Voucher Digunakan: ${voucherService.formatCurrency(
+            member.totalVoucherUsed
           )}`,
           14,
           startY + 4
@@ -351,8 +434,7 @@ export const generateVoucherProgramReportPdf = async ({
 
         startY += 7;
 
-        // Transactions table for this member
-        const txRows = m.transactions.map((tx, tIdx) => {
+        const txRows = member.transactions.map((tx, transactionIndex) => {
           const itemsListStr = Array.isArray(tx.items)
             ? tx.items
                 .map(
@@ -370,28 +452,18 @@ export const generateVoucherProgramReportPdf = async ({
             : "-";
 
           return [
-            tIdx + 1,
+            transactionIndex + 1,
             tx.id || "-",
-            formatDate(tx.updatedAt || tx.createdAt),
+            formatDate(tx.createdAt || tx.updatedAt),
             itemsListStr,
             voucherService.formatCurrency(tx.total || 0),
             voucherService.formatCurrency(tx.voucherDiscount || 0),
           ];
         });
 
-        if (txRows.length === 0) {
-          txRows.push([
-            "-",
-            "-",
-            "-",
-            "Belum ada transaksi penggunaan voucher",
-            "Rp 0",
-            "Rp 0",
-          ]);
-        }
-
         autoTable(doc, {
           theme: "plain",
+          rowPageBreak: "avoid",
           head: [
             [
               "No.",
@@ -421,7 +493,7 @@ export const generateVoucherProgramReportPdf = async ({
             0: { halign: "center", cellWidth: 10 },
             1: { cellWidth: 32 },
             2: { cellWidth: 32 },
-            3: { cellWidth: 58 },
+            3: { cellWidth: 57.78 },
             4: { halign: "right", cellWidth: 25 },
             5: { halign: "right", cellWidth: 25 },
           },
@@ -431,11 +503,28 @@ export const generateVoucherProgramReportPdf = async ({
       });
     }
 
+    const pageCount = doc.getNumberOfPages();
+    for (let pageNumber = 1; pageNumber <= pageCount; pageNumber += 1) {
+      doc.setPage(pageNumber);
+      doc.setFontSize(8);
+      doc.setFont(undefined, "normal");
+      doc.setTextColor(107, 114, 128);
+      doc.text(
+        `Halaman ${pageNumber} dari ${pageCount}`,
+        doc.internal.pageSize.width - 14,
+        doc.internal.pageSize.height - 8,
+        { align: "right" }
+      );
+    }
+
     // Save PDF
     const fileName = `Laporan_Program_Voucher_${(
       voucherGroup.voucherName || "Detail"
     ).replace(/\s+/g, "_")}.pdf`;
-    doc.save(fileName);
+    if (shouldSave) {
+      doc.save(fileName);
+    }
+    return { doc, fileName, reportData };
   } catch (err) {
     console.error("Gagal membuat PDF Laporan Program Voucher:", err);
     throw err;
