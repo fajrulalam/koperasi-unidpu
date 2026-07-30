@@ -423,6 +423,33 @@ export default function Stocks() {
     }));
   };
 
+  const handleSelectAllMarked = () => {
+    const markedProducts = filteredProducts.filter((prod) => prod.isMarked);
+
+    if (markedProducts.length === 0) {
+      setSnackbar({
+        open: true,
+        message: "Tidak ada barang ditandai di daftar saat ini",
+      });
+      setTimeout(() => setSnackbar((o) => ({ ...o, open: false })), 3000);
+      return;
+    }
+
+    setSelectedItems((prev) => {
+      const newSelected = { ...prev };
+      markedProducts.forEach((prod) => {
+        newSelected[prod.id] = true;
+      });
+      return newSelected;
+    });
+
+    setSnackbar({
+      open: true,
+      message: `Berhasil memilih ${markedProducts.length} barang ditandai`,
+    });
+    setTimeout(() => setSnackbar((o) => ({ ...o, open: false })), 3000);
+  };
+
 
 
   // Function to handle click on sortable column headers
@@ -1493,6 +1520,13 @@ export default function Stocks() {
             }
           >
             <FaTag /> Generate Price Tags
+          </button>
+
+          <button
+            className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg shadow-sm hover:bg-gray-50 transition text-sm flex items-center gap-2"
+            onClick={handleSelectAllMarked}
+          >
+            <FaCheckCircle className="text-yellow-500" /> Pilih Semua Ditandai
           </button>
 
           <button

@@ -855,4 +855,46 @@ export const voucherService = {
       throw error;
     }
   },
+
+  /**
+   * Get all transactions that used a voucher from a specific voucher group
+   */
+  async getTransactionsByVoucherGroupId(voucherGroupId, isProduction = true) {
+    try {
+      const vouchers = await this.getVouchersByGroupId(voucherGroupId, isProduction);
+      if (!vouchers || vouchers.length === 0) {
+        return [];
+      }
+
+      const voucherIds = vouchers.map((v) => v.id).filter(Boolean);
+      if (voucherIds.length === 0) return [];
+
+      const txRef = getEnvironmentCollection("transactionDetail", isProduction);
+      const transactions = [];
+
+      // Query in chunks of 30 due to Firestore `in` limit
+      const chunkSize = 30;
+      for (let i = 0; i < voucherIds.length; i += chunkSize) {
+        const chunk = voucherIds.slice(i, i + chunkSize);
+        const q = query(txRef, where("voucherId", "in", chunk));
+        const snapshot = await getDocs(q);
+        snapshot.docs.forEach((doc) => {
+          transactions.push({ id: doc.id, ...doc.data() });
+        });
+      }
+
+      // Sort by timestamp descending
+      transactions.sort((a, b) => {
+        const timeA = a.updatedAt?.seconds || a.createdAt?.seconds || 0;
+        const timeB = b.updatedAt?.seconds || b.createdAt?.seconds || 0;
+        return timeB - timeA;
+      });
+
+      return transactions;
+    } catch (error) {
+      console.error("Error fetching transactions for voucher group:", error);
+      throw error;
+    }
+  },
 };
+

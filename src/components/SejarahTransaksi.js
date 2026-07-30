@@ -15,6 +15,7 @@ import {
   filterItemsBySearch,
   getInitialDateRange,
 } from "../services/transactionHistoryService";
+import { printReceipt } from "../services/PrinterService";
 import DayBreakdownDialog from "./DayBreakdownDialog";
 import ItemDetailDialog from "./ItemDetailDialog";
 
@@ -30,6 +31,7 @@ const SejarahTransaksi = () => {
   const { userRole } = useAuth();
 
   const showProfit = userRole === "Wakil Rektor 2";
+  const isAdmin = userRole === "Admin" || userRole === "admin";
 
   // Tab selection
   const [selectedTab, setSelectedTab] = useState("Transactions");
@@ -271,6 +273,47 @@ const SejarahTransaksi = () => {
     setItemDialogOpen(false);
     setSelectedItem(null);
     setItemTransactions([]);
+  };
+
+  // Reprint a previous receipt (admin only)
+  const handleReprintReceipt = (tx) => {
+    const txDate = tx.timestamp?.toDate ? tx.timestamp.toDate() : new Date(tx.timestamp);
+    const dateTimeStr = txDate.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    const receiptData = {
+      info: {
+        transactionId: tx.id || "-",
+        dateTime: dateTimeStr,
+      },
+      items: (tx.items || []).map((item) => ({
+        name: item.itemName || item.name || "-",
+        quantity: item.quantity || 0,
+        unit: item.unit || "pcs",
+        price: item.price || (item.quantity > 0 ? item.subtotal / item.quantity : 0),
+        subtotal: item.subtotal || 0,
+      })),
+      summary: {
+        total: tx.total || 0,
+        amountPaid: tx.amountPaid || tx.tunai || tx.total || 0,
+        change: tx.change || tx.kembali || 0,
+      },
+      appliedVoucher: tx.voucherId
+        ? {
+            name: tx.voucherName || tx.voucherId,
+            isOneTimeUse: true,
+          }
+        : null,
+    };
+
+    printReceipt(receiptData);
   };
 
   // Export to XLSX
@@ -884,6 +927,19 @@ const SejarahTransaksi = () => {
                                       <span className="st-tx-voucher-discount">
                                         -{formatCurrency(tx.voucherDiscount)}
                                       </span>
+                                    </div>
+                                  )}
+                                  {isAdmin && (
+                                    <div className="st-tx-reprint-row">
+                                      <button
+                                        className="st-btn-reprint"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleReprintReceipt(tx);
+                                        }}
+                                      >
+                                        🖨️ Cetak Ulang Struk
+                                      </button>
                                     </div>
                                   )}
                                 </div>

@@ -111,18 +111,18 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
           margin: 5px 0;
         }
         .item-name {
-          font-size: 12.5px;
+          font-size: 14px;
           font-weight: bold;
           padding-top: 4px;
         }
         .item-details {
-          font-size: 12px;
+          font-size: 13.5px;
           color: #000;
           padding-bottom: 4px;
         }
         .item-total {
           text-align: right;
-          font-size: 12.5px;
+          font-size: 14px;
           font-weight: bold;
           vertical-align: bottom;
           padding-bottom: 4px;
@@ -130,7 +130,7 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
         .total-section {
           width: 100%;
           margin-top: 8px;
-          font-size: 12.5px;
+          font-size: 14px;
         }
         .total-row {
           display: flex;
@@ -139,7 +139,7 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
         }
         .total-row.grand-total {
           font-weight: 900;
-          font-size: 13.5px;
+          font-size: 15px;
           border-top: 1.5px dashed #000;
           padding-top: 4px;
         }
@@ -157,10 +157,11 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
             size: 80mm auto;
           }
           body {
-            width: 72mm;
-            margin: 0 auto;
-            padding: 5mm 2mm;
+            width: 68mm;
+            margin: 0;
+            padding: 5mm 4mm;
             font-weight: bold;
+            box-sizing: border-box;
           }
           title {
             display: none;

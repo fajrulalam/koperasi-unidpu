@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { useAuth } from "../context/AuthContext";
 import { voucherService } from "../services/voucherService";
+import { generateVoucherProgramReportPdf } from "../services/voucherReportPdfService";
 import VoucherModalNew from "../components/VoucherModalNew";
 import VoucherDetailModalNew from "../components/VoucherDetailModalNew";
 import "../styles/VoucherKoperasiPageNew.css";
@@ -28,6 +29,7 @@ const VoucherKoperasiPageNew = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedVoucherGroup, setSelectedVoucherGroup] = useState(null);
   const [error, setError] = useState(null);
+  const [generatingPdfGroupId, setGeneratingPdfGroupId] = useState(null);
 
   // Wrapper to reset state and fetch the first page
   const resetAndFetch = () => {
@@ -149,6 +151,22 @@ const VoucherKoperasiPageNew = () => {
     setSelectedVoucherGroup(null);
   };
 
+  const handleDownloadReportPdf = async (e, group) => {
+    e.stopPropagation();
+    try {
+      setGeneratingPdfGroupId(group.id);
+      await generateVoucherProgramReportPdf({
+        voucherGroup: group,
+        isProduction,
+      });
+    } catch (err) {
+      console.error("Gagal mendownload laporan PDF:", err);
+      alert("Gagal mendownload laporan PDF voucher.");
+    } finally {
+      setGeneratingPdfGroupId(null);
+    }
+  };
+
   const handleVoucherGroupUpdated = () => {
     setShowDetailModal(false);
     setSelectedVoucherGroup(null);
@@ -267,6 +285,7 @@ const VoucherKoperasiPageNew = () => {
                     <th>Mulai</th>
                     <th>Berakhir</th>
                     <th>Dibuat</th>
+                    <th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -285,6 +304,22 @@ const VoucherKoperasiPageNew = () => {
                       <td>{formatDate(group.expireDate)}</td>
                       <td className="text-muted">
                         {formatDate(group.createdAt)}
+                      </td>
+                      <td>
+                        <button
+                          className="btn-download-pdf-row"
+                          onClick={(e) => handleDownloadReportPdf(e, group)}
+                          disabled={generatingPdfGroupId === group.id}
+                          title="Download Laporan PDF 2 Bagian"
+                        >
+                          {generatingPdfGroupId === group.id ? (
+                            "Memuat..."
+                          ) : (
+                            <>
+                              <span>📄</span> PDF
+                            </>
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))}
