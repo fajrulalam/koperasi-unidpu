@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { useAuth } from "../context/AuthContext";
 import { voucherService } from "../services/voucherService";
@@ -28,8 +28,8 @@ const VoucherDetailModalNew = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [showCloseConfirmation, setShowCloseConfirmation] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [generatingReport, setGeneratingReport] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -59,6 +59,21 @@ const VoucherDetailModalNew = ({
     isActive: voucherGroup.isActive,
   });
 
+  const fetchVouchers = useCallback(async () => {
+    try {
+      setLoading(true);
+      const vouchersData = await voucherService.getVouchersByGroupId(
+        voucherGroup.id,
+        isProduction
+      );
+      setVouchers(vouchersData);
+    } catch (err) {
+      setError("Gagal memuat data voucher");
+    } finally {
+      setLoading(false);
+    }
+  }, [voucherGroup.id, isProduction]);
+
   useEffect(() => {
     fetchVouchers();
     if (voucherGroup.activeDate) {
@@ -79,22 +94,7 @@ const VoucherDetailModalNew = ({
         expireDate: expireDate.toISOString().slice(0, 16),
       }));
     }
-  }, [voucherGroup, isProduction]);
-
-  const fetchVouchers = async () => {
-    try {
-      setLoading(true);
-      const vouchersData = await voucherService.getVouchersByGroupId(
-        voucherGroup.id,
-        isProduction
-      );
-      setVouchers(vouchersData);
-    } catch (err) {
-      setError("Gagal memuat data voucher");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [voucherGroup, isProduction, fetchVouchers]);
 
   const fetchAvailableMembers = async () => {
     try {
@@ -172,17 +172,17 @@ const VoucherDetailModalNew = ({
     }
   };
 
-  const handleDeleteVoucherGroup = async () => {
+  const handleCloseVoucherGroup = async () => {
     try {
-      setDeleting(true);
-      await voucherService.deleteVoucherGroup(voucherGroup.id, isProduction);
-      setShowDeleteConfirmation(false);
+      setClosing(true);
+      await voucherService.closeVoucherGroup(voucherGroup.id, isProduction);
+      setShowCloseConfirmation(false);
       onVoucherGroupUpdated();
       onClose();
     } catch (err) {
-      setError("Gagal menghapus grup voucher");
-      setShowDeleteConfirmation(false);
-      setDeleting(false);
+      setError("Gagal menutup program voucher");
+      setShowCloseConfirmation(false);
+      setClosing(false);
     }
   };
 
@@ -436,9 +436,6 @@ const VoucherDetailModalNew = ({
   const redeemedCount = isCashbackCampaign
     ? vouchers.filter((v) => v.status === "REDEEMED").length
     : 0;
-  const inProgressCount = isCashbackCampaign
-    ? vouchers.filter((v) => v.status === "IN_PROGRESS").length
-    : 0;
   const filteredAvailableMembers = availableMembers.filter((m) =>
     m.nama?.toLowerCase().includes(memberSearch.toLowerCase())
   );
@@ -472,487 +469,619 @@ const VoucherDetailModalNew = ({
         <div className="vd-body">
           {error && <div className="vd-error">{error}</div>}
 
-          {/* Stats Row */}
-          <div className="vd-stats">
-            <div className="vd-stat">
-              <span className="vd-stat-value">
-                {voucherService.formatCurrency(voucherGroup.value)}
-              </span>
-              <span className="vd-stat-label">
-                {isCashbackCampaign ? "Hadiah" : "Nilai"}
-              </span>
-            </div>
-            {/* {isCashbackCampaign && (
-              <div className="vd-stat">
-                <span className="vd-stat-value">
-                  {voucherService.formatCurrency(voucherGroup.threshold || 0)}
-                </span>
-                <span className="vd-stat-label">Target</span>
-              </div>
-            )} */}
-            <div className="vd-stat">
-              <span className="vd-stat-value">{vouchers.length}</span>
-              <span className="vd-stat-label">
-                {isCashbackCampaign ? "Peserta" : "Total"}
-              </span>
-            </div>
-            {isCashbackCampaign ? (
-              <>
-                {/* <div className="vd-stat">
-                  <span className="vd-stat-value">{inProgressCount}</span>
-                  <span className="vd-stat-label">Mengumpulkan</span>
-                </div> */}
-                <div className="vd-stat">
-                  <span className="vd-stat-value">{claimedCount}</span>
-                  <span className="vd-stat-label">Siap Pakai</span>
-                </div>
-                <div className="vd-stat">
-                  <span className="vd-stat-value">{redeemedCount}</span>
-                  <span className="vd-stat-label">Terpakai</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="vd-stat">
-                  <span className="vd-stat-value">{claimedCount}</span>
-                  <span className="vd-stat-label">Diklaim</span>
-                </div>
+          <div className="vd-grid">
+            <div className="vd-col vd-col-left">
+              {/* Stats Row */}
+              <div className="vd-stats">
                 <div className="vd-stat">
                   <span className="vd-stat-value">
-                    {vouchers.length - claimedCount}
+                    {voucherService.formatCurrency(voucherGroup.value)}
                   </span>
-                  <span className="vd-stat-label">Tersisa</span>
+                  <span className="vd-stat-label">
+                    {isCashbackCampaign ? "Hadiah" : "Nilai"}
+                  </span>
                 </div>
-              </>
-            )}
-          </div>
-
-          {/* Date Info */}
-          <div className="vd-dates">
-            <div className="vd-date-item">
-              <span className="vd-date-label">Mulai</span>
-              <span className="vd-date-value">
-                {formatShortDate(voucherGroup.activeDate)}
-              </span>
-            </div>
-            <div className="vd-date-divider">→</div>
-            <div className="vd-date-item">
-              <span className="vd-date-label">Berakhir</span>
-              <span className="vd-date-value">
-                {formatShortDate(voucherGroup.expireDate)}
-              </span>
-            </div>
-          </div>
-
-          {/* PDF Download for Non-Member Vouchers */}
-          {!isForMemberOnly && !readOnly && (
-            <div className="vd-pdf-section">
-              <button
-                className="vd-pdf-btn"
-                onClick={generateVouchersPdf}
-                disabled={generatingPdf || loading || vouchers.length === 0}
-              >
-                {generatingPdf ? (
+                <div className="vd-stat">
+                  <span className="vd-stat-value">{vouchers.length}</span>
+                  <span className="vd-stat-label">
+                    {isCashbackCampaign ? "Peserta" : "Total"}
+                  </span>
+                </div>
+                {isCashbackCampaign ? (
                   <>
-                    <span className="vd-spinner"></span>
-                    Membuat PDF...
+                    <div className="vd-stat">
+                      <span className="vd-stat-value">{claimedCount}</span>
+                      <span className="vd-stat-label">Siap Pakai</span>
+                    </div>
+                    <div className="vd-stat">
+                      <span className="vd-stat-value">{redeemedCount}</span>
+                      <span className="vd-stat-label">Terpakai</span>
+                    </div>
                   </>
                 ) : (
                   <>
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7,10 12,15 17,10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    Download PDF ({vouchers.length} voucher)
+                    <div className="vd-stat">
+                      <span className="vd-stat-value">{claimedCount}</span>
+                      <span className="vd-stat-label">Diklaim</span>
+                    </div>
+                    <div className="vd-stat">
+                      <span className="vd-stat-value">
+                        {vouchers.length - claimedCount}
+                      </span>
+                      <span className="vd-stat-label">Tersisa</span>
+                    </div>
                   </>
                 )}
-              </button>
-              <p className="vd-pdf-hint">
-                File PDF siap cetak dengan barcode untuk setiap voucher
-              </p>
-            </div>
-          )}
+              </div>
 
-          {/* Member Voucher List - Also show for campaigns but without add member option */}
-          {(isForMemberOnly || isCashbackCampaign) && (
-            <div className="vd-section">
-              <div className="vd-section-header">
-                <h3>
-                  {isCashbackCampaign ? "Daftar Peserta" : "Daftar Penerima"}
-                </h3>
-                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <button
-                    className="vd-link-btn"
-                    type="button"
-                    onClick={handleCopyNames}
-                    disabled={loading || vouchers.length === 0}
-                    style={{ color: "#2563eb", fontWeight: "600" }}
-                  >
-                    {copied ? "Tersalin!" : "Salin"}
-                  </button>
-                  {!isCashbackCampaign && !readOnly && (
-                    <button
-                      className="vd-link-btn"
-                      type="button"
-                      onClick={handleAddMembersToggle}
-                      disabled={loading}
-                    >
-                      {showAddMembers ? "Batal" : "+ Tambah"}
-                    </button>
-                  )}
+              {/* Date Info */}
+              <div className="vd-dates">
+                <div className="vd-date-item">
+                  <span className="vd-date-label">Mulai</span>
+                  <span className="vd-date-value">
+                    {formatShortDate(voucherGroup.activeDate)}
+                  </span>
+                </div>
+                <div className="vd-date-divider">→</div>
+                <div className="vd-date-item">
+                  <span className="vd-date-label">Berakhir</span>
+                  <span className="vd-date-value">
+                    {formatShortDate(voucherGroup.expireDate)}
+                  </span>
                 </div>
               </div>
 
-              {showAddMembers && !isCashbackCampaign && (
-                <div className="vd-add-members">
-                  <input
-                    type="text"
-                    className="vd-search"
-                    placeholder="Cari nama anggota..."
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                  />
-                  <div className="vd-member-list">
-                    {filteredAvailableMembers.length === 0 ? (
-                      <div className="vd-empty">Tidak ada anggota tersedia</div>
+              {/* PDF Download for Non-Member Vouchers */}
+              {!isForMemberOnly && !readOnly && (
+                <div className="vd-pdf-section">
+                  <button
+                    className="vd-pdf-btn"
+                    onClick={generateVouchersPdf}
+                    disabled={generatingPdf || loading || vouchers.length === 0}
+                  >
+                    {generatingPdf ? (
+                      <>
+                        <span className="vd-spinner"></span>
+                        Membuat PDF...
+                      </>
                     ) : (
-                      filteredAvailableMembers.map((member) => (
-                        <label key={member.id} className="vd-member-item">
-                          <input
-                            type="checkbox"
-                            checked={selectedNewMembers.some(
-                              (m) => m.id === member.id
-                            )}
-                            onChange={() => handleMemberSelect(member)}
-                          />
-                          <div className="vd-member-info">
-                            <span className="vd-member-name">
-                              {member.nama}
-                            </span>
-                            <span className="vd-member-detail">
-                              {member.kantor}
-                            </span>
-                          </div>
-                        </label>
-                      ))
+                      <>
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="7,10 12,15 17,10" />
+                          <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Download PDF ({vouchers.length} voucher)
+                      </>
+                    )}
+                  </button>
+                  <p className="vd-pdf-hint">
+                    File PDF siap cetak dengan barcode untuk setiap voucher
+                  </p>
+                </div>
+              )}
+
+              {/* Settings Section (Left column when member/campaign list is shown) */}
+              {(isForMemberOnly || isCashbackCampaign) && !readOnly && (
+                <div className="vd-section vd-section--settings">
+                  <div className="vd-section-header">
+                    <h3>Pengaturan</h3>
+                    {!isEditing ? (
+                      <button
+                        className="vd-link-btn"
+                        onClick={() => setIsEditing(true)}
+                        disabled={loading}
+                      >
+                        Edit
+                      </button>
+                    ) : (
+                      <div className="vd-edit-actions">
+                        <button
+                          className="vd-link-btn"
+                          onClick={() => setIsEditing(false)}
+                        >
+                          Batal
+                        </button>
+                        <button
+                          className="vd-save-btn"
+                          onClick={handleSaveEdit}
+                          disabled={loading}
+                        >
+                          Simpan
+                        </button>
+                      </div>
                     )}
                   </div>
-                  {selectedNewMembers.length > 0 && (
-                    <button
-                      className="vd-add-btn"
-                      onClick={handleAddSelectedMembers}
-                      disabled={loading}
-                    >
-                      Tambah {selectedNewMembers.length} Anggota
-                    </button>
-                  )}
-                </div>
-              )}
 
-              {(!showAddMembers || isCashbackCampaign) && (
-                <div className="vd-voucher-list">
-                  {loading ? (
-                    <div className="vd-loading">Memuat...</div>
-                  ) : vouchers.length === 0 ? (
-                    <div className="vd-empty">
-                      {isCashbackCampaign
-                        ? "Belum ada peserta"
-                        : "Belum ada voucher"}
+                  <div className="vd-settings-grid">
+                    <div className="vd-field">
+                      <label>
+                        {isCashbackCampaign ? "Nama Kampanye" : "Nama Voucher"}
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editData.voucherName}
+                          onChange={(e) =>
+                            handleEditDataChange("voucherName", e.target.value)
+                          }
+                        />
+                      ) : (
+                        <span>{voucherGroup.voucherName}</span>
+                      )}
                     </div>
-                  ) : (
-                    vouchers.map((voucher) => (
-                      <div key={voucher.id} className="vd-voucher-item">
-                        <div className="vd-voucher-info">
-                          <span className="vd-voucher-name">
-                            {voucher.nama || "-"}
-                          </span>
-                          <span className="vd-voucher-detail">
-                            {voucher.kantor}
-                            {isCashbackCampaign &&
-                              voucher.userPoints !== undefined && (
-                                <>
-                                  {" "}
-                                  •{" "}
-                                  {voucherService.formatCurrency(
-                                    voucher.userPoints
-                                  )}{" "}
-                                  poin
-                                </>
-                              )}
-                          </span>
-                        </div>
-                        <div className="vd-voucher-right">
-                          <div className="vd-voucher-status">
-                            {isCashbackCampaign ? (
-                              // Campaign-specific status badges
-                              voucher.status === "REDEEMED" ? (
-                                <span className="vd-badge vd-badge--redeemed">
-                                  Terpakai
-                                </span>
-                              ) : voucher.status === "CLAIMED" ? (
-                                <span className="vd-badge vd-badge--ready">
-                                  Siap Pakai
-                                </span>
-                              ) : (
-                                <span className="vd-badge vd-badge--progress">
-                                  Mengumpulkan
-                                </span>
-                              )
-                            ) : // Regular voucher status
-                            voucher.isOneTimeUse === false ? (
-                              (() => {
-                                const spent = voucher.amountSpent || 0;
-                                const remaining = voucher.value - spent;
-                                if (remaining <= 0) {
-                                  return (
-                                    <span className="vd-badge vd-badge--redeemed">
-                                      Saldo Habis
-                                    </span>
-                                  );
-                                }
-                                return (
-                                  <span className="vd-badge vd-badge--multiuse">
-                                    Sisa{" "}
-                                    {voucherService.formatNumber(remaining)}
-                                  </span>
-                                );
-                              })()
-                            ) : voucher.isClaimed ? (
-                              <span className="vd-badge vd-badge--redeemed">
-                                Terpakai
-                              </span>
-                            ) : (
-                              <span className="vd-badge vd-badge--available">
-                                Tersedia
-                              </span>
+                    <div className="vd-field">
+                      <label>
+                        {isCashbackCampaign ? "Nilai Hadiah" : "Nilai"}
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editData.value}
+                          onChange={(e) =>
+                            handleEditDataChange("value", e.target.value)
+                          }
+                        />
+                      ) : (
+                        <span>
+                          {voucherService.formatCurrency(voucherGroup.value)}
+                        </span>
+                      )}
+                    </div>
+                    {isCashbackCampaign && (
+                      <div className="vd-field">
+                        <label>Target Belanja</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editData.threshold}
+                            onChange={(e) =>
+                              handleEditDataChange("threshold", e.target.value)
+                            }
+                          />
+                        ) : (
+                          <span>
+                            {voucherService.formatCurrency(
+                              voucherGroup.threshold || 0
                             )}
-                          </div>
-                          {canRemoveEarners && (
-                            <button
-                              className="vd-delete-member-btn"
-                              type="button"
-                              onClick={() => handleDeleteVoucher(voucher.id)}
-                              title="Hapus Penerima"
-                              disabled={loading}
-                            >
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                <line x1="10" y1="11" x2="10" y2="17" />
-                                <line x1="14" y1="11" x2="14" y2="17" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
+                          </span>
+                        )}
                       </div>
-                    ))
-                  )}
+                    )}
+                    <div className="vd-field">
+                      <label>Tanggal Mulai</label>
+                      {isEditing ? (
+                        <input
+                          type="datetime-local"
+                          value={editData.activeDate}
+                          onChange={(e) =>
+                            handleEditDataChange("activeDate", e.target.value)
+                          }
+                        />
+                      ) : (
+                        <span>{formatDate(voucherGroup.activeDate)}</span>
+                      )}
+                    </div>
+                    <div className="vd-field">
+                      <label>Tanggal Berakhir</label>
+                      {isEditing ? (
+                        <input
+                          type="datetime-local"
+                          value={editData.expireDate}
+                          onChange={(e) =>
+                            handleEditDataChange("expireDate", e.target.value)
+                          }
+                        />
+                      ) : (
+                        <span>{formatDate(voucherGroup.expireDate)}</span>
+                      )}
+                    </div>
+                    <div className="vd-field">
+                      <label>Status</label>
+                      {isEditing ? (
+                        <select
+                          value={editData.isActive}
+                          onChange={(e) =>
+                            handleEditDataChange(
+                              "isActive",
+                              e.target.value === "true"
+                            )
+                          }
+                        >
+                          <option value="true">Aktif</option>
+                          <option value="false">Nonaktif</option>
+                        </select>
+                      ) : (
+                        <span>
+                          {voucherGroup.isActive ? "Aktif" : "Nonaktif"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Danger Zone */}
+                  <div className="vd-danger">
+                    <button
+                      className="vd-danger-btn"
+                      type="button"
+                      onClick={() => setShowCloseConfirmation(true)}
+                      disabled={loading || closing || isEditing || status.type === "expired"}
+                    >
+                      {status.type === "expired"
+                        ? "Program Sudah Ditutup"
+                        : "Tutup Program Voucher"}
+                    </button>
+                    <button
+                      className="vd-report-btn"
+                      type="button"
+                      onClick={generateReportPdf}
+                      disabled={loading || generatingReport || vouchers.length === 0}
+                    >
+                      {generatingReport ? "Membuat PDF..." : "Cetak Laporan"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-          )}
 
-          {/* Settings Section - hidden for read-only users */}
-          {!readOnly && (
-            <div className="vd-section vd-section--settings">
-              <div className="vd-section-header">
-                <h3>Pengaturan</h3>
-                {!isEditing ? (
-                  <button
-                    className="vd-link-btn"
-                    onClick={() => setIsEditing(true)}
-                    disabled={loading}
-                  >
-                    Edit
-                  </button>
-                ) : (
-                  <div className="vd-edit-actions">
-                    <button
-                      className="vd-link-btn"
-                      onClick={() => setIsEditing(false)}
-                    >
-                      Batal
-                    </button>
-                    <button
-                      className="vd-save-btn"
-                      onClick={handleSaveEdit}
-                      disabled={loading}
-                    >
-                      Simpan
-                    </button>
+            <div className="vd-col vd-col-right">
+              {/* Member Voucher List */}
+              {(isForMemberOnly || isCashbackCampaign) ? (
+                <div className="vd-section vd-section--members">
+                  <div className="vd-section-header">
+                    <h3>
+                      {isCashbackCampaign ? "Daftar Peserta" : "Daftar Penerima"}
+                    </h3>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                      <button
+                        className="vd-link-btn"
+                        type="button"
+                        onClick={handleCopyNames}
+                        disabled={loading || vouchers.length === 0}
+                        style={{ color: "#2563eb", fontWeight: "600" }}
+                      >
+                        {copied ? "Tersalin!" : "Salin"}
+                      </button>
+                      {!isCashbackCampaign && !readOnly && (
+                        <button
+                          className="vd-link-btn"
+                          type="button"
+                          onClick={handleAddMembersToggle}
+                          disabled={loading}
+                        >
+                          {showAddMembers ? "Batal" : "+ Tambah"}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <div className="vd-settings-grid">
-                <div className="vd-field">
-                  <label>
-                    {isCashbackCampaign ? "Nama Kampanye" : "Nama Voucher"}
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editData.voucherName}
-                      onChange={(e) =>
-                        handleEditDataChange("voucherName", e.target.value)
-                      }
-                    />
-                  ) : (
-                    <span>{voucherGroup.voucherName}</span>
-                  )}
-                </div>
-                <div className="vd-field">
-                  <label>
-                    {isCashbackCampaign ? "Nilai Hadiah" : "Nilai"}
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editData.value}
-                      onChange={(e) =>
-                        handleEditDataChange("value", e.target.value)
-                      }
-                    />
-                  ) : (
-                    <span>
-                      {voucherService.formatCurrency(voucherGroup.value)}
-                    </span>
-                  )}
-                </div>
-                {isCashbackCampaign && (
-                  <div className="vd-field">
-                    <label>Target Belanja</label>
-                    {isEditing ? (
+                  {showAddMembers && !isCashbackCampaign && (
+                    <div className="vd-add-members">
                       <input
                         type="text"
-                        value={editData.threshold}
-                        onChange={(e) =>
-                          handleEditDataChange("threshold", e.target.value)
-                        }
+                        className="vd-search"
+                        placeholder="Cari nama anggota..."
+                        value={memberSearch}
+                        onChange={(e) => setMemberSearch(e.target.value)}
                       />
-                    ) : (
-                      <span>
-                        {voucherService.formatCurrency(
-                          voucherGroup.threshold || 0
+                      <div className="vd-member-list">
+                        {filteredAvailableMembers.length === 0 ? (
+                          <div className="vd-empty">Tidak ada anggota tersedia</div>
+                        ) : (
+                          filteredAvailableMembers.map((member) => (
+                            <label key={member.id} className="vd-member-item">
+                              <input
+                                type="checkbox"
+                                checked={selectedNewMembers.some(
+                                  (m) => m.id === member.id
+                                )}
+                                onChange={() => handleMemberSelect(member)}
+                              />
+                              <div className="vd-member-info">
+                                <span className="vd-member-name">
+                                  {member.nama}
+                                </span>
+                                <span className="vd-member-detail">
+                                  {member.satuanKerja || member.kantor || "-"}
+                                </span>
+                              </div>
+                            </label>
+                          ))
                         )}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <div className="vd-field">
-                  <label>Tanggal Mulai</label>
-                  {isEditing ? (
-                    <input
-                      type="datetime-local"
-                      value={editData.activeDate}
-                      onChange={(e) =>
-                        handleEditDataChange("activeDate", e.target.value)
-                      }
-                    />
-                  ) : (
-                    <span>{formatDate(voucherGroup.activeDate)}</span>
+                      </div>
+                      {selectedNewMembers.length > 0 && (
+                        <button
+                          className="vd-add-btn"
+                          onClick={handleAddSelectedMembers}
+                          disabled={loading}
+                        >
+                          Tambah {selectedNewMembers.length} Anggota
+                        </button>
+                      )}
+                    </div>
                   )}
-                </div>
-                <div className="vd-field">
-                  <label>Tanggal Berakhir</label>
-                  {isEditing ? (
-                    <input
-                      type="datetime-local"
-                      value={editData.expireDate}
-                      onChange={(e) =>
-                        handleEditDataChange("expireDate", e.target.value)
-                      }
-                    />
-                  ) : (
-                    <span>{formatDate(voucherGroup.expireDate)}</span>
-                  )}
-                </div>
-                <div className="vd-field">
-                  <label>Status</label>
-                  {isEditing ? (
-                    <select
-                      value={editData.isActive}
-                      onChange={(e) =>
-                        handleEditDataChange(
-                          "isActive",
-                          e.target.value === "true"
-                        )
-                      }
-                    >
-                      <option value="true">Aktif</option>
-                      <option value="false">Nonaktif</option>
-                    </select>
-                  ) : (
-                    <span>
-                      {voucherGroup.isActive ? "Aktif" : "Nonaktif"}
-                    </span>
-                  )}
-                </div>
-              </div>
 
-              {/* Danger Zone */}
-              <div className="vd-danger">
-                <button
-                  className="vd-danger-btn"
-                  type="button"
-                  onClick={() => setShowDeleteConfirmation(true)}
-                  disabled={loading || deleting || isEditing}
-                >
-                  Hapus Grup Voucher
-                </button>
-                <button
-                  className="vd-report-btn"
-                  type="button"
-                  onClick={generateReportPdf}
-                  disabled={loading || generatingReport || vouchers.length === 0}
-                >
-                  {generatingReport ? "Membuat PDF..." : "Cetak Laporan"}
-                </button>
-              </div>
+                  {(!showAddMembers || isCashbackCampaign) && (
+                    <div className="vd-voucher-list">
+                      {loading ? (
+                        <div className="vd-loading">Memuat...</div>
+                      ) : vouchers.length === 0 ? (
+                        <div className="vd-empty">
+                          {isCashbackCampaign
+                            ? "Belum ada peserta"
+                            : "Belum ada voucher"}
+                        </div>
+                      ) : (
+                        vouchers.map((voucher) => (
+                          <div key={voucher.id} className="vd-voucher-item">
+                            <div className="vd-voucher-info">
+                              <span className="vd-voucher-name">
+                                {voucher.nama || "-"}
+                              </span>
+                              <span className="vd-voucher-detail">
+                                {voucher.satuanKerja || voucher.kantor || "-"}
+                                {isCashbackCampaign &&
+                                  voucher.userPoints !== undefined && (
+                                    <>
+                                      {" "}
+                                      •{" "}
+                                      {voucherService.formatCurrency(
+                                        voucher.userPoints
+                                      )}{" "}
+                                      poin
+                                    </>
+                                  )}
+                              </span>
+                            </div>
+                            <div className="vd-voucher-right">
+                              <div className="vd-voucher-status">
+                                {isCashbackCampaign ? (
+                                  voucher.status === "REDEEMED" ? (
+                                    <span className="vd-badge vd-badge--redeemed">
+                                      Terpakai
+                                    </span>
+                                  ) : voucher.status === "CLAIMED" ? (
+                                    <span className="vd-badge vd-badge--ready">
+                                      Siap Pakai
+                                    </span>
+                                  ) : (
+                                    <span className="vd-badge vd-badge--progress">
+                                      Mengumpulkan
+                                    </span>
+                                  )
+                                ) : voucher.isOneTimeUse === false ? (
+                                  (() => {
+                                    const spent = voucher.amountSpent || 0;
+                                    const remaining = voucher.value - spent;
+                                    if (remaining <= 0) {
+                                      return (
+                                        <span className="vd-badge vd-badge--redeemed">
+                                          Saldo Habis
+                                        </span>
+                                      );
+                                    }
+                                    return (
+                                      <span className="vd-badge vd-badge--multiuse">
+                                        Sisa{" "}
+                                        {voucherService.formatNumber(remaining)}
+                                      </span>
+                                    );
+                                  })()
+                                ) : voucher.isClaimed ? (
+                                  <span className="vd-badge vd-badge--redeemed">
+                                    Terpakai
+                                  </span>
+                                ) : (
+                                  <span className="vd-badge vd-badge--available">
+                                    Tersedia
+                                  </span>
+                                )}
+                              </div>
+                              {canRemoveEarners && (
+                                <button
+                                  className="vd-delete-member-btn"
+                                  type="button"
+                                  onClick={() => handleDeleteVoucher(voucher.id)}
+                                  title="Hapus Penerima"
+                                  disabled={loading}
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    <line x1="10" y1="11" x2="10" y2="17" />
+                                    <line x1="14" y1="11" x2="14" y2="17" />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Settings Section (Right column when no member list) */
+                !readOnly && (
+                  <div className="vd-section vd-section--settings">
+                    <div className="vd-section-header">
+                      <h3>Pengaturan</h3>
+                      {!isEditing ? (
+                        <button
+                          className="vd-link-btn"
+                          onClick={() => setIsEditing(true)}
+                          disabled={loading}
+                        >
+                          Edit
+                        </button>
+                      ) : (
+                        <div className="vd-edit-actions">
+                          <button
+                            className="vd-link-btn"
+                            onClick={() => setIsEditing(false)}
+                          >
+                            Batal
+                          </button>
+                          <button
+                            className="vd-save-btn"
+                            onClick={handleSaveEdit}
+                            disabled={loading}
+                          >
+                            Simpan
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="vd-settings-grid">
+                      <div className="vd-field">
+                        <label>Nama Voucher</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editData.voucherName}
+                            onChange={(e) =>
+                              handleEditDataChange("voucherName", e.target.value)
+                            }
+                          />
+                        ) : (
+                          <span>{voucherGroup.voucherName}</span>
+                        )}
+                      </div>
+                      <div className="vd-field">
+                        <label>Nilai</label>
+                        {isEditing ? (
+                          <input
+                            type="text"
+                            value={editData.value}
+                            onChange={(e) =>
+                              handleEditDataChange("value", e.target.value)
+                            }
+                          />
+                        ) : (
+                          <span>
+                            {voucherService.formatCurrency(voucherGroup.value)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="vd-field">
+                        <label>Tanggal Mulai</label>
+                        {isEditing ? (
+                          <input
+                            type="datetime-local"
+                            value={editData.activeDate}
+                            onChange={(e) =>
+                              handleEditDataChange("activeDate", e.target.value)
+                            }
+                          />
+                        ) : (
+                          <span>{formatDate(voucherGroup.activeDate)}</span>
+                        )}
+                      </div>
+                      <div className="vd-field">
+                        <label>Tanggal Berakhir</label>
+                        {isEditing ? (
+                          <input
+                            type="datetime-local"
+                            value={editData.expireDate}
+                            onChange={(e) =>
+                              handleEditDataChange("expireDate", e.target.value)
+                            }
+                          />
+                        ) : (
+                          <span>{formatDate(voucherGroup.expireDate)}</span>
+                        )}
+                      </div>
+                      <div className="vd-field">
+                        <label>Status</label>
+                        {isEditing ? (
+                          <select
+                            value={editData.isActive}
+                            onChange={(e) =>
+                              handleEditDataChange(
+                                "isActive",
+                                e.target.value === "true"
+                              )
+                            }
+                          >
+                            <option value="true">Aktif</option>
+                            <option value="false">Nonaktif</option>
+                          </select>
+                        ) : (
+                          <span>
+                            {voucherGroup.isActive ? "Aktif" : "Nonaktif"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Danger Zone */}
+                    <div className="vd-danger">
+                      <button
+                        className="vd-danger-btn"
+                        type="button"
+                        onClick={() => setShowCloseConfirmation(true)}
+                        disabled={loading || closing || isEditing || status.type === "expired"}
+                      >
+                        {status.type === "expired"
+                          ? "Program Sudah Ditutup"
+                          : "Tutup Program Voucher"}
+                      </button>
+                      <button
+                        className="vd-report-btn"
+                        type="button"
+                        onClick={generateReportPdf}
+                        disabled={loading || generatingReport || vouchers.length === 0}
+                      >
+                        {generatingReport ? "Membuat PDF..." : "Cetak Laporan"}
+                      </button>
+                    </div>
+                  </div>
+                )
+              )}
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirmation && (
+        {/* Close Confirmation Modal */}
+        {showCloseConfirmation && (
           <div className="vd-confirm-overlay">
             <div className="vd-confirm">
-              <h4>Hapus Voucher?</h4>
+              <h4>Tutup Program Voucher?</h4>
               <p>
-                Grup voucher <strong>{voucherGroup.voucherName}</strong> dan
-                semua voucher di dalamnya akan dihapus permanen.
+                Program voucher <strong>{voucherGroup.voucherName}</strong> akan
+                ditutup dan statusnya akan menjadi kedaluwarsa.
               </p>
               <div className="vd-confirm-actions">
                 <button
                   className="vd-confirm-cancel"
-                  onClick={() => setShowDeleteConfirmation(false)}
-                  disabled={deleting}
+                  onClick={() => setShowCloseConfirmation(false)}
+                  disabled={closing}
                 >
                   Batal
                 </button>
                 <button
                   className="vd-confirm-delete"
-                  onClick={handleDeleteVoucherGroup}
-                  disabled={deleting}
+                  onClick={handleCloseVoucherGroup}
+                  disabled={closing}
                 >
-                  {deleting ? "Menghapus..." : "Hapus"}
+                  {closing ? "Menutup..." : "Tutup Program"}
                 </button>
               </div>
             </div>

@@ -113,7 +113,7 @@ export const buildVoucherRecipientSummary = (
         key: recipientKey,
         name: voucher.nama || "Voucher Cetak (Non-Member)",
         nomorAnggota: voucher.nomorAnggota || "-",
-        office: voucher.kantor || voucher.satuanKerja || "-",
+        office: voucher.satuanKerja || voucher.kantor || "-",
         voucherIds: [],
         voucherValue: 0,
         transactions: [],

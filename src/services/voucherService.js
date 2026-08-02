@@ -770,6 +770,35 @@ export const voucherService = {
     }
   },
 
+  async closeVoucherGroup(voucherGroupId, isProduction = true) {
+    try {
+      const now = new Date();
+      const voucherGroupRef = getEnvironmentDoc(
+        "voucherGroups",
+        voucherGroupId,
+        isProduction
+      );
+      await updateDoc(voucherGroupRef, {
+        expireDate: now,
+      });
+
+      const vouchersRef = getEnvironmentCollection("vouchers", isProduction);
+      const q = query(
+        vouchersRef,
+        where("voucherGroupId", "==", voucherGroupId)
+      );
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((doc) => {
+        batch.update(doc.ref, { expireDate: now });
+      });
+      await batch.commit();
+    } catch (error) {
+      console.error("Error closing voucher group:", error);
+      throw error;
+    }
+  },
+
   formatCurrency(amount) {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",

@@ -333,7 +333,7 @@ export const generateVoucherProgramReportPdf = async ({
             "No.",
             "Nama Anggota",
             "No. Anggota",
-            "Unit",
+            "Satuan Kerja",
             "Status",
             "Jml. Tx",
             "Total Belanja",
@@ -421,7 +421,7 @@ export const generateVoucherProgramReportPdf = async ({
         doc.setFont(undefined, "normal");
         doc.setTextColor(75, 85, 99);
         doc.text(
-          `Unit: ${member.office} | Total Transaksi: ${
+          `Satuan Kerja: ${member.office} | Total Transaksi: ${
             member.totalTransactions
           } | Total Belanja: ${voucherService.formatCurrency(
             member.totalSalesValue

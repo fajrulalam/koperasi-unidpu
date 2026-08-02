@@ -281,181 +281,203 @@ const VoucherModalNew = ({ onClose, onVoucherCreated }) => {
     }));
   };
 
+  const formatShortDate = (dateStr) => {
+    if (!dateStr) return "-";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "-";
+    return date.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   const renderVoucherForm = () => (
-    <div className="vm-form">
-      {/* Voucher Type Selector */}
-      <div className="vm-type-selector vm-type-selector-three">
-        <button
-          type="button"
-          className={`vm-type-btn ${
-            voucherType === VOUCHER_TYPES.MEMBER ? "active" : ""
-          }`}
-          onClick={() => setVoucherType(VOUCHER_TYPES.MEMBER)}
-        >
-          <span className="vm-type-icon">👥</span>
-          <span className="vm-type-label">Untuk Anggota</span>
-          <span className="vm-type-desc">Kirim ke anggota terpilih</span>
-        </button>
-        <button
-          type="button"
-          className={`vm-type-btn ${
-            voucherType === VOUCHER_TYPES.PRINT ? "active" : ""
-          }`}
-          onClick={() => setVoucherType(VOUCHER_TYPES.PRINT)}
-        >
-          <span className="vm-type-icon">🎫</span>
-          <span className="vm-type-label">Voucher Cetak</span>
-          <span className="vm-type-desc">Untuk distribusi manual</span>
-        </button>
-        <button
-          type="button"
-          className={`vm-type-btn vm-type-btn-campaign ${
-            voucherType === VOUCHER_TYPES.CAMPAIGN ? "active" : ""
-          }`}
-          onClick={() => setVoucherType(VOUCHER_TYPES.CAMPAIGN)}
-        >
-          <span className="vm-type-icon">🎯</span>
-          <span className="vm-type-label">Kampanye Cashback</span>
-          <span className="vm-type-desc">Poin dari belanja</span>
-        </button>
+    <div className="vm-form-grid">
+      <div className="vm-col-left">
+        <label className="vm-section-label">Pilih Tipe Voucher</label>
+        {/* Voucher Type Selector */}
+        <div className="vm-type-selector vm-type-selector-three">
+          <button
+            type="button"
+            className={`vm-type-btn ${
+              voucherType === VOUCHER_TYPES.MEMBER ? "active" : ""
+            }`}
+            onClick={() => setVoucherType(VOUCHER_TYPES.MEMBER)}
+          >
+            <span className="vm-type-icon">👥</span>
+            <div className="vm-type-btn-content">
+              <span className="vm-type-label">Untuk Anggota</span>
+              <span className="vm-type-desc">Kirim ke anggota terpilih</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`vm-type-btn ${
+              voucherType === VOUCHER_TYPES.PRINT ? "active" : ""
+            }`}
+            onClick={() => setVoucherType(VOUCHER_TYPES.PRINT)}
+          >
+            <span className="vm-type-icon">🎫</span>
+            <div className="vm-type-btn-content">
+              <span className="vm-type-label">Voucher Cetak</span>
+              <span className="vm-type-desc">Untuk distribusi manual</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            className={`vm-type-btn vm-type-btn-campaign ${
+              voucherType === VOUCHER_TYPES.CAMPAIGN ? "active" : ""
+            }`}
+            onClick={() => setVoucherType(VOUCHER_TYPES.CAMPAIGN)}
+          >
+            <span className="vm-type-icon">🎯</span>
+            <div className="vm-type-btn-content">
+              <span className="vm-type-label">Kampanye Cashback</span>
+              <span className="vm-type-desc">Poin dari belanja</span>
+            </div>
+          </button>
+        </div>
+
+        {/* Campaign Info Banner */}
+        {voucherType === VOUCHER_TYPES.CAMPAIGN && (
+          <div className="vm-campaign-info">
+            <span className="vm-campaign-info-icon">💡</span>
+            <div>
+              <strong>Kampanye Cashback</strong>
+              <p>
+                Anggota mengumpulkan poin dari setiap transaksi. Setelah mencapai
+                target belanja, mereka dapat klaim voucher.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Campaign Info Banner */}
-      {voucherType === VOUCHER_TYPES.CAMPAIGN && (
-        <div className="vm-campaign-info">
-          <span className="vm-campaign-info-icon">💡</span>
-          <div>
-            <strong>Kampanye Cashback</strong>
-            <p>
-              Anggota mengumpulkan poin dari setiap transaksi. Setelah mencapai
-              target belanja, mereka dapat klaim voucher.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Form Fields */}
-      <div className="vm-fields">
-        <div className="vm-field">
-          <label>
-            {voucherType === VOUCHER_TYPES.CAMPAIGN
-              ? "Nama Kampanye"
-              : "Nama Voucher"}
-          </label>
-          <input
-            type="text"
-            value={formData.voucherName}
-            onChange={(e) => handleInputChange("voucherName", e.target.value)}
-            placeholder={
-              voucherType === VOUCHER_TYPES.CAMPAIGN
-                ? "contoh: Promo Akhir Tahun 2025"
-                : "contoh: Voucher Lebaran 2025"
-            }
-          />
-        </div>
-
-        <div className="vm-field-row">
+      <div className="vm-col-right">
+        {/* Form Fields */}
+        <div className="vm-fields">
           <div className="vm-field">
             <label>
               {voucherType === VOUCHER_TYPES.CAMPAIGN
-                ? "Nilai Voucher Hadiah (Rp)"
-                : "Nilai (Rp)"}
+                ? "Nama Kampanye"
+                : "Nama Voucher"}
             </label>
             <input
               type="text"
-              value={formData.value}
-              onChange={(e) => handleInputChange("value", e.target.value)}
-              placeholder="0"
+              value={formData.voucherName}
+              onChange={(e) => handleInputChange("voucherName", e.target.value)}
+              placeholder={
+                voucherType === VOUCHER_TYPES.CAMPAIGN
+                  ? "contoh: Promo Akhir Tahun 2025"
+                  : "contoh: Voucher Lebaran 2025"
+              }
             />
           </div>
-          {voucherType === VOUCHER_TYPES.PRINT && (
-            <div className="vm-field">
-              <label>Jumlah Voucher</label>
-              <input
-                type="number"
-                value={formData.quantity}
-                onChange={(e) => handleInputChange("quantity", e.target.value)}
-                placeholder="0"
-                min="1"
-              />
-            </div>
-          )}
-          {voucherType === VOUCHER_TYPES.CAMPAIGN && (
-            <div className="vm-field">
-              <label>Target Belanja (Rp)</label>
-              <input
-                type="text"
-                value={formData.threshold}
-                onChange={(e) => handleThresholdChange(e.target.value)}
-                placeholder="0"
-              />
-            </div>
-          )}
-        </div>
 
-        <div className="vm-field">
-          <label className="vm-checkbox">
-            <input
-              type="checkbox"
-              checked={formData.startNow}
-              onChange={(e) => handleInputChange("startNow", e.target.checked)}
-            />
-            <span>Aktifkan sekarang</span>
-          </label>
-        </div>
-
-        <div className="vm-field-row">
-          {!formData.startNow && (
+          <div className="vm-field-row">
             <div className="vm-field">
               <label>
                 {voucherType === VOUCHER_TYPES.CAMPAIGN
-                  ? "Kampanye Mulai"
-                  : "Mulai Aktif"}
+                  ? "Nilai Voucher Hadiah (Rp)"
+                  : "Nilai (Rp)"}
+              </label>
+              <input
+                type="text"
+                value={formData.value}
+                onChange={(e) => handleInputChange("value", e.target.value)}
+                placeholder="0"
+              />
+            </div>
+            {voucherType === VOUCHER_TYPES.PRINT && (
+              <div className="vm-field">
+                <label>Jumlah Voucher</label>
+                <input
+                  type="number"
+                  value={formData.quantity}
+                  onChange={(e) => handleInputChange("quantity", e.target.value)}
+                  placeholder="0"
+                  min="1"
+                />
+              </div>
+            )}
+            {voucherType === VOUCHER_TYPES.CAMPAIGN && (
+              <div className="vm-field">
+                <label>Target Belanja (Rp)</label>
+                <input
+                  type="text"
+                  value={formData.threshold}
+                  onChange={(e) => handleThresholdChange(e.target.value)}
+                  placeholder="0"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="vm-field">
+            <label className="vm-checkbox">
+              <input
+                type="checkbox"
+                checked={formData.startNow}
+                onChange={(e) => handleInputChange("startNow", e.target.checked)}
+              />
+              <span>Aktifkan sekarang</span>
+            </label>
+          </div>
+
+          <div className="vm-field-row">
+            {!formData.startNow && (
+              <div className="vm-field">
+                <label>
+                  {voucherType === VOUCHER_TYPES.CAMPAIGN
+                    ? "Kampanye Mulai"
+                    : "Mulai Aktif"}
+                </label>
+                <input
+                  type="datetime-local"
+                  value={formData.activeDate}
+                  onChange={(e) =>
+                    handleInputChange("activeDate", e.target.value)
+                  }
+                />
+              </div>
+            )}
+            <div className="vm-field">
+              <label>
+                {voucherType === VOUCHER_TYPES.CAMPAIGN
+                  ? "Kampanye Berakhir"
+                  : "Berakhir"}
               </label>
               <input
                 type="datetime-local"
-                value={formData.activeDate}
-                onChange={(e) =>
-                  handleInputChange("activeDate", e.target.value)
-                }
+                value={formData.expireDate}
+                onChange={(e) => handleInputChange("expireDate", e.target.value)}
               />
             </div>
-          )}
-          <div className="vm-field">
-            <label>
-              {voucherType === VOUCHER_TYPES.CAMPAIGN
-                ? "Kampanye Berakhir"
-                : "Berakhir"}
-            </label>
-            <input
-              type="datetime-local"
-              value={formData.expireDate}
-              onChange={(e) => handleInputChange("expireDate", e.target.value)}
-            />
           </div>
-        </div>
 
-        {/* One-time use toggle - only for member vouchers */}
-        {voucherType === VOUCHER_TYPES.MEMBER && (
-          <div className="vm-field vm-toggle-field">
-            <label className="vm-toggle">
-              <input
-                type="checkbox"
-                checked={formData.isOneTimeUse}
-                onChange={(e) =>
-                  handleInputChange("isOneTimeUse", e.target.checked)
-                }
-              />
-              <span className="vm-toggle-slider"></span>
-              <span className="vm-toggle-label">Sekali Pakai</span>
-            </label>
-            <p className="vm-toggle-desc">
-              {formData.isOneTimeUse
-                ? "Voucher hangus setelah satu kali penggunaan"
-                : "Saldo voucher berkurang setiap transaksi hingga habis"}
-            </p>
-          </div>
-        )}
+          {/* One-time use toggle - only for member vouchers */}
+          {voucherType === VOUCHER_TYPES.MEMBER && (
+            <div className="vm-field vm-toggle-field">
+              <label className="vm-toggle">
+                <input
+                  type="checkbox"
+                  checked={formData.isOneTimeUse}
+                  onChange={(e) =>
+                    handleInputChange("isOneTimeUse", e.target.checked)
+                  }
+                />
+                <span className="vm-toggle-slider"></span>
+                <span className="vm-toggle-label">Sekali Pakai</span>
+              </label>
+              <p className="vm-toggle-desc">
+                {formData.isOneTimeUse
+                  ? "Voucher hangus setelah satu kali penggunaan"
+                  : "Saldo voucher berkurang setiap transaksi hingga habis"}
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -466,99 +488,160 @@ const VoucherModalNew = ({ onClose, onVoucherCreated }) => {
       filteredMembers.every((m) => selectedMembers.some((s) => s.id === m.id));
 
     return (
-      <div className="vm-members">
-        {/* Search and Filters */}
-        <div className="vm-members-toolbar">
-          <div className="vm-search">
-            <input
-              type="text"
-              placeholder="Cari nama anggota..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+      <div className="vm-members-grid">
+        {/* Left Column: Voucher Preview & Selected Members */}
+        <div className="vm-selected-panel">
+          <div className="vm-voucher-preview-card">
+            <h4>{formData.voucherName || "Voucher Baru"}</h4>
+            <div className="vm-voucher-preview-meta">
+              <span className="vm-preview-badge">
+                {formData.value ? `Rp ${formData.value}` : "Rp 0"}
+              </span>
+              <span className="vm-preview-date">
+                {formatShortDate(formData.activeDate)} → {formatShortDate(formData.expireDate)}
+              </span>
+            </div>
           </div>
-          <div className="vm-filters">
-            <select
-              value={filters.kantor}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, kantor: e.target.value }))
-              }
-            >
-              <option value="">Semua Kantor</option>
-              {kantorOptions.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
-            <select
-              value={filters.satuanKerja}
-              onChange={(e) =>
-                setFilters((prev) => ({ ...prev, satuanKerja: e.target.value }))
-              }
-            >
-              <option value="">Semua Satuan Kerja</option>
-              {satuanKerjaOptions.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        {/* Selection Summary */}
-        <div className="vm-members-summary">
-          <button
-            type="button"
-            className="vm-select-all"
-            onClick={selectAllVisible}
-          >
-            {allVisibleSelected ? "Batal pilih semua" : "Pilih semua"}
-          </button>
-          <span className="vm-selected-count">
-            <strong>{selectedMembers.length}</strong> anggota dipilih
-          </span>
-        </div>
+          <div className="vm-selected-list-section">
+            <div className="vm-selected-header">
+              <h5>Anggota Terpilih ({selectedMembers.length})</h5>
+              {selectedMembers.length > 0 && (
+                <button
+                  type="button"
+                  className="vm-clear-all"
+                  onClick={() => setSelectedMembers([])}
+                >
+                  Batal pilih semua
+                </button>
+              )}
+            </div>
 
-        {/* Members List */}
-        {loading ? (
-          <div className="vm-loading">Memuat data anggota...</div>
-        ) : (
-          <div className="vm-members-list">
-            {filteredMembers.length === 0 ? (
-              <div className="vm-empty">Tidak ada anggota ditemukan</div>
+            {selectedMembers.length === 0 ? (
+              <div className="vm-selected-empty">
+                Belum ada anggota dipilih. Centang anggota pada daftar di sebelah kanan.
+              </div>
             ) : (
-              filteredMembers.map((member) => {
-                const isSelected = selectedMembers.some(
-                  (m) => m.id === member.id
-                );
-                return (
-                  <div
-                    key={member.id}
-                    className={`vm-member-item ${isSelected ? "selected" : ""}`}
-                    onClick={() => toggleMemberSelection(member)}
-                  >
-                    <div className="vm-member-check">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => {}}
-                      />
-                    </div>
-                    <div className="vm-member-info">
-                      <span className="vm-member-name">{member.nama}</span>
-                      <span className="vm-member-detail">
-                        {member.kantor}
-                        {member.satuanKerja && ` • ${member.satuanKerja}`}
+              <div className="vm-selected-list">
+                {selectedMembers.map((m) => (
+                  <div key={m.id} className="vm-selected-item">
+                    <div className="vm-selected-info">
+                      <span className="vm-selected-name">{m.nama}</span>
+                      <span className="vm-selected-detail">
+                        {m.satuanKerja || m.kantor || "-"}
                       </span>
                     </div>
+                    <button
+                      type="button"
+                      className="vm-remove-selected-btn"
+                      onClick={() => toggleMemberSelection(m)}
+                      title="Hapus"
+                    >
+                      ×
+                    </button>
                   </div>
-                );
-              })
+                ))}
+              </div>
             )}
           </div>
-        )}
+        </div>
+
+        {/* Right Column: Member Database Search & Selection */}
+        <div className="vm-members">
+          {/* Search and Filters */}
+          <div className="vm-members-toolbar">
+            <div className="vm-search">
+              <input
+                type="text"
+                placeholder="Cari nama anggota..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="vm-filters">
+              <select
+                value={filters.kantor}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, kantor: e.target.value }))
+                }
+              >
+                <option value="">Semua Kantor</option>
+                {kantorOptions.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filters.satuanKerja}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, satuanKerja: e.target.value }))
+                }
+              >
+                <option value="">Semua Satuan Kerja</option>
+                {satuanKerjaOptions.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Selection Summary */}
+          <div className="vm-members-summary">
+            <button
+              type="button"
+              className="vm-select-all"
+              onClick={selectAllVisible}
+            >
+              {allVisibleSelected
+                ? "Batal pilih hasil pencarian"
+                : "Pilih semua hasil pencarian"}
+            </button>
+            <span className="vm-selected-count">
+              <strong>{filteredMembers.length}</strong> anggota ditampilkan
+            </span>
+          </div>
+
+          {/* Members List */}
+          {loading ? (
+            <div className="vm-loading">Memuat data anggota...</div>
+          ) : (
+            <div className="vm-members-list">
+              {filteredMembers.length === 0 ? (
+                <div className="vm-empty">Tidak ada anggota ditemukan</div>
+              ) : (
+                filteredMembers.map((member) => {
+                  const isSelected = selectedMembers.some(
+                    (m) => m.id === member.id
+                  );
+                  return (
+                    <div
+                      key={member.id}
+                      className={`vm-member-item ${isSelected ? "selected" : ""}`}
+                      onClick={() => toggleMemberSelection(member)}
+                    >
+                      <div className="vm-member-check">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                        />
+                      </div>
+                      <div className="vm-member-info">
+                        <span className="vm-member-name">{member.nama}</span>
+                        <span className="vm-member-detail">
+                          {member.satuanKerja || member.kantor || "-"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   };
