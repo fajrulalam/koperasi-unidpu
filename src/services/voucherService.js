@@ -885,6 +885,122 @@ export const voucherService = {
     }
   },
 
+  // In-memory member cache
+  _membersCache: null,
+  _membersCacheTimestamp: 0,
+
+  /**
+   * Fetch approved members and cache in memory for instant searching
+   */
+  async getAllApprovedMembers(isProduction = true, forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && this._membersCache && now - this._membersCacheTimestamp < 300000) {
+      return this._membersCache;
+    }
+
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("membershipStatus", "==", "approved"));
+      const snapshot = await getDocs(q);
+      const members = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      this._membersCache = members;
+      this._membersCacheTimestamp = now;
+      return members;
+    } catch (error) {
+      console.error("Error fetching approved members cache:", error);
+      return this._membersCache || [];
+    }
+  },
+
+  /**
+   * Smart search for approved members by name, nomor anggota, NIK, NIY, unit kerja, email, or phone
+   */
+  async searchMembersByNameOrNumber(searchTerm, isProduction = true) {
+    if (!searchTerm || !searchTerm.trim()) {
+      return [];
+    }
+
+    try {
+      const members = await this.getAllApprovedMembers(isProduction);
+      const queryRaw = searchTerm.trim().toLowerCase();
+      const tokens = queryRaw.split(/\s+/).filter(Boolean);
+
+      const scoredResults = [];
+
+      for (const member of members) {
+        const nama = (member.nama || "").toLowerCase();
+        const nomor = (member.nomorAnggota || "").toLowerCase();
+        const nik = (member.nik || "").toLowerCase();
+        const niy = (member.employee_id_niy || "").toLowerCase();
+        const email = (member.email || "").toLowerCase();
+        const unit = (member.unitKerja || member.instansi || "").toLowerCase();
+        const phone = (member.noHp || member.phone || "").toLowerCase();
+
+        let score = 0;
+
+        // 1. Exact matches on numbers/IDs
+        if (nomor === queryRaw) score += 1000;
+        else if (nomor.includes(queryRaw)) score += 600;
+
+        if (nik === queryRaw || niy === queryRaw) score += 900;
+        else if (nik.includes(queryRaw) || niy.includes(queryRaw)) score += 550;
+
+        // 2. Full string name match or starts-with
+        if (nama === queryRaw) score += 800;
+        else if (nama.startsWith(queryRaw)) score += 500;
+
+        // 3. Multi-word token matching
+        let matchedTokensCount = 0;
+
+        for (const token of tokens) {
+          let tokenMatched = false;
+
+          if (nama.includes(token)) {
+            tokenMatched = true;
+            score += 200;
+            if (nama.startsWith(token)) score += 100;
+          }
+
+          if (nomor.includes(token) || nik.includes(token) || niy.includes(token)) {
+            tokenMatched = true;
+            score += 150;
+          }
+
+          if (unit.includes(token) || email.includes(token) || phone.includes(token)) {
+            tokenMatched = true;
+            score += 80;
+          }
+
+          if (tokenMatched) {
+            matchedTokensCount++;
+          }
+        }
+
+        // Bonus if ALL tokens match
+        if (tokens.length > 1 && matchedTokensCount === tokens.length) {
+          score += 300;
+        }
+
+        if (score > 0) {
+          scoredResults.push({
+            member,
+            score,
+          });
+        }
+      }
+
+      scoredResults.sort((a, b) => b.score - a.score);
+      return scoredResults.slice(0, 10).map((item) => item.member);
+    } catch (error) {
+      console.error("Error searching members:", error);
+      return [];
+    }
+  },
+
   /**
    * Get all transactions that used a voucher from a specific voucher group
    */

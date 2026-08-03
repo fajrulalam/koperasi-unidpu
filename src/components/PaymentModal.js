@@ -1,5 +1,5 @@
 // src/components/PaymentModal.js
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { formatCurrency, validateVoucher } from "../utils/transaksiUtils";
 import { voucherService } from "../services/voucherService";
 import "../styles/PaymentModal.css";
@@ -19,6 +19,8 @@ const PaymentModal = ({
   const [change, setChange] = useState(0);
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(null);
+  const [qrisAmount, setQrisAmount] = useState("");
+  const [cashAmountPaid, setCashAmountPaid] = useState("");
   const [voucherId, setVoucherId] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [voucherError, setVoucherError] = useState("");
@@ -27,13 +29,26 @@ const PaymentModal = ({
   const voucherIdRef = useRef(null);
   const checkVoucherRef = useRef(null);
 
-  // Member lookup states
+  // Member lookup & live search states
   const [nomorAnggota, setNomorAnggota] = useState("");
   const [memberData, setMemberData] = useState(null);
   const [memberError, setMemberError] = useState("");
-  const [isCheckingMember, setIsCheckingMember] = useState(false);
   const [memberRequiredError, setMemberRequiredError] = useState("");
-  const memberLookupTimeoutRef = useRef(null);
+  const [memberSearchText, setMemberSearchText] = useState("");
+  const [memberSearchResults, setMemberSearchResults] = useState([]);
+  const [isSearchingMembers, setIsSearchingMembers] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const memberSearchTimeoutRef = useRef(null);
+
+  // Pre-fetch approved members cache on modal open for 0ms instant searching
+  useEffect(() => {
+    if (isOpen) {
+      voucherService.getAllApprovedMembers(isProduction).catch((err) => {
+        console.error("Error prefetching members cache:", err);
+      });
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen, isProduction]);
 
   useEffect(() => {
     if (isOpen) {
@@ -41,6 +56,8 @@ const PaymentModal = ({
       setAmountPaid("");
       setChange(0);
       setError("");
+      setQrisAmount("");
+      setCashAmountPaid("");
       setVoucherId("");
       setAppliedVoucher(null);
       setVoucherError("");
@@ -48,8 +65,11 @@ const PaymentModal = ({
       setNomorAnggota("");
       setMemberData(null);
       setMemberError("");
-      setIsCheckingMember(false);
       setMemberRequiredError("");
+      setMemberSearchText("");
+      setMemberSearchResults([]);
+      setIsSearchingMembers(false);
+      setHighlightedIndex(-1);
       setPaymentMethod(null);
 
       // Focus on the payment input after a short delay
@@ -61,80 +81,96 @@ const PaymentModal = ({
     }
   }, [isOpen]);
 
-  // Debounced member lookup
-  const lookupMember = useCallback(
-    async (nomorAnggotaValue) => {
-      if (!nomorAnggotaValue || nomorAnggotaValue.length < 5) {
-        setMemberData(null);
-        setMemberError("");
-        return;
-      }
-
-      setIsCheckingMember(true);
-      setMemberError("");
-
-      try {
-        const member = await voucherService.getMemberByNomorAnggota(
-          nomorAnggotaValue,
-          isProduction
-        );
-
-        if (member) {
-          setMemberData(member);
-          setMemberError("");
-        } else {
-          setMemberData(null);
-          setMemberError("Nomor anggota ini tidak ditemukan");
-        }
-      } catch (error) {
-        console.error("Error looking up member:", error);
-        setMemberData(null);
-        setMemberError("Gagal memeriksa nomor anggota");
-      } finally {
-        setIsCheckingMember(false);
-      }
-    },
-    [isProduction]
-  );
-
-  // Handle nomor anggota input change with debounce
-  const handleNomorAnggotaChange = (e) => {
-    const value = e.target.value.replace(/\D/g, "").slice(0, 5); // Only digits, max 5
-    setNomorAnggota(value);
-    setMemberData(null);
-    setMemberError("");
+  // Handle member search by name, nomor anggota, NIK, NIY, unit kerja
+  const handleMemberSearchChange = (e) => {
+    const value = e.target.value;
+    setMemberSearchText(value);
     setMemberRequiredError("");
+    setMemberError("");
+    setHighlightedIndex(-1);
 
-    // Clear previous timeout
-    if (memberLookupTimeoutRef.current) {
-      clearTimeout(memberLookupTimeoutRef.current);
+    if (memberSearchTimeoutRef.current) {
+      clearTimeout(memberSearchTimeoutRef.current);
     }
 
-    // Debounce lookup - trigger when 5 digits or after 500ms of no typing
-    if (value.length === 5) {
-      lookupMember(value);
-    } else if (value.length > 0) {
-      memberLookupTimeoutRef.current = setTimeout(() => {
-        if (value.length >= 3) {
-          lookupMember(value);
+    if (!value || !value.trim()) {
+      setMemberSearchResults([]);
+      setIsSearchingMembers(false);
+      return;
+    }
+
+    setIsSearchingMembers(true);
+
+    memberSearchTimeoutRef.current = setTimeout(async () => {
+      try {
+        const results = await voucherService.searchMembersByNameOrNumber(
+          value,
+          isProduction
+        );
+        setMemberSearchResults(results || []);
+        if (results && results.length > 0) {
+          setHighlightedIndex(0); // Auto-highlight top match
         }
-      }, 500);
+      } catch (err) {
+        console.error("Error searching members:", err);
+        setMemberSearchResults([]);
+      } finally {
+        setIsSearchingMembers(false);
+      }
+    }, 150); // Fast 150ms debounce with instant in-memory cache
+  };
+
+  const handleMemberSearchKeyDown = (e) => {
+    if (memberSearchResults.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((prev) =>
+        prev < memberSearchResults.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) =>
+        prev > 0 ? prev - 1 : memberSearchResults.length - 1
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const indexToSelect = highlightedIndex >= 0 ? highlightedIndex : 0;
+      if (memberSearchResults[indexToSelect]) {
+        selectMember(memberSearchResults[indexToSelect]);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setMemberSearchResults([]);
+      setHighlightedIndex(-1);
     }
   };
 
-  // Clear member data
+  const selectMember = (member) => {
+    setMemberData(member);
+    setNomorAnggota(member.nomorAnggota || "");
+    setMemberSearchText("");
+    setMemberSearchResults([]);
+    setHighlightedIndex(-1);
+    setMemberError("");
+    setMemberRequiredError("");
+  };
+
   const clearMemberData = () => {
     setNomorAnggota("");
     setMemberData(null);
     setMemberError("");
     setMemberRequiredError("");
+    setMemberSearchText("");
+    setMemberSearchResults([]);
+    setHighlightedIndex(-1);
   };
 
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (memberLookupTimeoutRef.current) {
-        clearTimeout(memberLookupTimeoutRef.current);
+      if (memberSearchTimeoutRef.current) {
+        clearTimeout(memberSearchTimeoutRef.current);
       }
     };
   }, []);
@@ -149,6 +185,7 @@ const PaymentModal = ({
 
   const handlePaymentMethodChange = (method) => {
     setPaymentMethod(method);
+    setError("");
     if (method === "qris") {
       const discountedTotal = calculateDiscountedTotal();
       const totalNumeric =
@@ -157,39 +194,96 @@ const PaymentModal = ({
           : discountedTotal;
       setAmountPaid(totalNumeric.toLocaleString("id-ID"));
       setChange(0);
-      setError("");
+      setQrisAmount("");
+      setCashAmountPaid("");
     } else {
       setAmountPaid("");
       setChange(0);
-      setError("");
+      setQrisAmount("");
+      setCashAmountPaid("");
     }
   };
 
   const handleAmountPaidChange = (e) => {
-    // Remove all non-digit characters including existing thousand separators
     const raw = e.target.value.replace(/\D/g, "");
-
-    // Parse to number
     const numeric = parseInt(raw, 10) || 0;
-
-    // Format with dots for display
     const formatted = numeric.toLocaleString("id-ID");
     setAmountPaid(formatted);
 
-    // Calculate with discount if voucher is applied
     const discountedTotal = calculateDiscountedTotal();
     const totalNumeric =
       typeof discountedTotal === "string"
         ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
         : discountedTotal;
 
-    // Compare the numeric values
     if (numeric >= totalNumeric) {
       setChange(numeric - totalNumeric);
       setError("");
     } else {
       setChange(0);
       setError("Uang yang diterima kurang dari harga pembelian");
+    }
+  };
+
+  const handleQrisAmountChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, "");
+    const numeric = parseInt(raw, 10) || 0;
+    const formatted = raw ? numeric.toLocaleString("id-ID") : "";
+    setQrisAmount(formatted);
+
+    const discountedTotal = calculateDiscountedTotal();
+    const totalNumeric =
+      typeof discountedTotal === "string"
+        ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
+        : discountedTotal;
+
+    const numericCashPaid = parseInt(cashAmountPaid.replace(/\D/g, ""), 10) || 0;
+
+    if (numeric > totalNumeric) {
+      setError("Nominal QRIS tidak boleh melebihi total bayar");
+      setChange(0);
+    } else if (numeric <= 0 && raw !== "") {
+      setError("Nominal QRIS harus lebih dari 0");
+      setChange(0);
+    } else {
+      const cashNeeded = Math.max(0, totalNumeric - numeric);
+      if (numericCashPaid < cashNeeded && cashAmountPaid !== "") {
+        setError(`Jumlah cash kurang ${formatCurrency(cashNeeded - numericCashPaid)}`);
+        setChange(0);
+      } else if (numericCashPaid >= cashNeeded && cashAmountPaid !== "") {
+        setError("");
+        setChange(numericCashPaid - cashNeeded);
+      } else {
+        setError("");
+        setChange(0);
+      }
+    }
+  };
+
+  const handleCashAmountPaidChange = (e) => {
+    const raw = e.target.value.replace(/\D/g, "");
+    const numeric = parseInt(raw, 10) || 0;
+    const formatted = raw ? numeric.toLocaleString("id-ID") : "";
+    setCashAmountPaid(formatted);
+
+    const discountedTotal = calculateDiscountedTotal();
+    const totalNumeric =
+      typeof discountedTotal === "string"
+        ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
+        : discountedTotal;
+
+    const numericQris = parseInt(qrisAmount.replace(/\D/g, ""), 10) || 0;
+    const cashNeeded = Math.max(0, totalNumeric - numericQris);
+
+    if (numericQris <= 0) {
+      setError("Masukkan nominal QRIS terlebih dahulu");
+      setChange(0);
+    } else if (numeric < cashNeeded) {
+      setError(`Jumlah cash kurang ${formatCurrency(cashNeeded - numeric)}`);
+      setChange(0);
+    } else {
+      setError("");
+      setChange(numeric - cashNeeded);
     }
   };
 
@@ -215,7 +309,6 @@ const PaymentModal = ({
     setVoucherError("");
 
     try {
-      // Query voucher by document ID
       const voucherDoc = await firestore.readDoc("vouchers", voucherId.trim());
       if (!voucherDoc) {
         setVoucherError("Voucher tidak ditemukan");
@@ -223,70 +316,92 @@ const PaymentModal = ({
         return;
       }
 
-      // Validate voucher using utility function
-      const validation = validateVoucher(voucherDoc);
-
-      if (!validation.isValid) {
-        setVoucherError(validation.message);
+      // Check if voucher has been used (for single use vouchers)
+      if (voucherDoc.isClaimed && voucherDoc.isOneTimeUse !== false) {
+        setVoucherError("Voucher ini sudah pernah digunakan");
         setIsCheckingVoucher(false);
         return;
       }
 
-      // Determine effective discount value for multi-use vouchers
-      const isMultiUse = voucherDoc.isOneTimeUse === false;
-      const remainingValue = isMultiUse
-        ? voucherDoc.value - (voucherDoc.amountSpent || 0)
-        : voucherDoc.value;
-
-      // Apply voucher - include type info for proper redemption handling
-      const voucherData = {
-        id: voucherId.trim(),
-        name: voucherDoc.voucherName,
-        value: remainingValue,
-        originalValue: voucherDoc.value,
-        memberName: voucherDoc.nama,
-        isCampaignVoucher: validation.isCampaignVoucher || false,
-        type: voucherDoc.type,
-        isOneTimeUse: voucherDoc.isOneTimeUse !== false,
-        amountSpent: voucherDoc.amountSpent || 0,
-      };
-
-      // For member-only vouchers, extract member data for the transaction
-      if (
-        voucherDoc.isVoucherForMemberOnly === true &&
-        voucherDoc.type === "memberVoucher"
-      ) {
-        voucherData.voucherMemberData = {
-          id: voucherDoc.userId || null,
-          nama: voucherDoc.nama || null,
-          nomorAnggota: voucherDoc.nomorAnggota || null,
-        };
+      // Validate voucher format & properties
+      const validationResult = validateVoucher(voucherDoc);
+      if (!validationResult.valid) {
+        setVoucherError(validationResult.reason);
+        setIsCheckingVoucher(false);
+        return;
       }
 
-      setAppliedVoucher(voucherData);
+      // Validate member data requirements
+      let memberInfo = null;
 
-      const discountedTotal = Math.max(0, total - remainingValue);
+      if (voucherDoc.type === "cashbackCampaign") {
+        if (!nomorAnggota || !memberData) {
+          setVoucherError(
+            "Wajib memasukkan nomor anggota yang valid untuk redeem voucher cashback ini"
+          );
+          setIsCheckingVoucher(false);
+          return;
+        }
+        memberInfo = memberData;
+      } else if (voucherDoc.nomorAnggota) {
+        if (nomorAnggota && nomorAnggota !== voucherDoc.nomorAnggota) {
+          setVoucherError(
+            `Voucher ini khusus untuk anggota dengan nomor ${voucherDoc.nomorAnggota}`
+          );
+          setIsCheckingVoucher(false);
+          return;
+        }
 
-      if (paymentMethod === "qris") {
-        setAmountPaid(discountedTotal.toLocaleString("id-ID"));
-        setChange(0);
-        setError("");
-      } else {
-        const currentPaidNumeric =
-          parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
-        if (currentPaidNumeric >= discountedTotal) {
-          setChange(currentPaidNumeric - discountedTotal);
-          setError("");
-        } else if (currentPaidNumeric > 0) {
-          setChange(0);
-          setError("Uang yang diterima kurang dari harga pembelian");
+        if (!memberData) {
+          try {
+            const fetchedMember = await voucherService.getMemberByNomorAnggota(
+              voucherDoc.nomorAnggota,
+              isProduction
+            );
+            if (fetchedMember) {
+              setMemberData(fetchedMember);
+              setNomorAnggota(voucherDoc.nomorAnggota);
+              memberInfo = fetchedMember;
+            }
+          } catch (err) {
+            console.error("Error auto-fetching voucher member:", err);
+          }
+        } else {
+          memberInfo = memberData;
         }
       }
 
-      setIsCheckingVoucher(false);
-    } catch (error) {
-      console.error("Error checking voucher:", error);
-      setVoucherError("Terjadi kesalahan saat memeriksa voucher");
+      let voucherValue = voucherDoc.nominal || 0;
+      if (voucherDoc.isOneTimeUse === false) {
+        voucherValue = voucherDoc.sisaSaldo ?? voucherDoc.nominal ?? 0;
+      }
+
+      if (voucherValue <= 0) {
+        setVoucherError("Saldo voucher ini sudah habis");
+        setIsCheckingVoucher(false);
+        return;
+      }
+
+      setAppliedVoucher({
+        id: voucherId.trim(),
+        name: voucherDoc.namaVoucher || "Voucher Diskon",
+        value: voucherValue,
+        originalValue: voucherDoc.nominal || voucherValue,
+        memberName:
+          memberInfo?.nama ||
+          voucherDoc.namaAnggota ||
+          "Anggota Koperasi",
+        isOneTimeUse: voucherDoc.isOneTimeUse !== false,
+        type: voucherDoc.type || "regular",
+        voucherGroupId: voucherDoc.voucherGroupId || null,
+        voucherMemberData: memberInfo,
+      });
+
+      setVoucherError("");
+    } catch (err) {
+      console.error("Error checking voucher:", err);
+      setVoucherError("Gagal memeriksa voucher. Coba lagi.");
+    } finally {
       setIsCheckingVoucher(false);
     }
   };
@@ -445,8 +560,34 @@ const PaymentModal = ({
     }
   };
 
+  const discountedTotal = calculateDiscountedTotal();
+  const totalNumeric =
+    typeof discountedTotal === "string"
+      ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
+      : discountedTotal;
+
+  let isPaymentInvalid = false;
+  if (paymentMethod === "qris") {
+    isPaymentInvalid = false;
+  } else if (paymentMethod === "cash") {
+    const numericPaid = parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
+    isPaymentInvalid = numericPaid < totalNumeric;
+  } else if (paymentMethod === "split") {
+    const numericQris = parseInt(qrisAmount.replace(/\D/g, ""), 10) || 0;
+    const numericCashPaid = parseInt(cashAmountPaid.replace(/\D/g, ""), 10) || 0;
+    const cashNeeded = totalNumeric - numericQris;
+    isPaymentInvalid =
+      numericQris <= 0 ||
+      numericQris > totalNumeric ||
+      numericCashPaid < cashNeeded;
+  }
+
   const isCompleteDisabled =
-    isProcessing || error || !paymentMethod || (memberError && nomorAnggota);
+    isProcessing ||
+    error ||
+    !paymentMethod ||
+    isPaymentInvalid ||
+    (memberError && nomorAnggota);
 
   if (!isOpen) return null;
 
@@ -467,40 +608,120 @@ const PaymentModal = ({
 
         {/* Body */}
         <div className="pm-body">
-          {/* Total Section */}
-          <div className="pm-total-section">
-            <div className="pm-total-label">Total Belanja</div>
-            <div className="pm-total-value">{formatCurrency(total)}</div>
-          </div>
-
-          {/* Member Points Section */}
-          {(activeCampaigns && activeCampaigns.length > 0) ||
-          (appliedVoucher && appliedVoucher.type === "cashbackCampaign") ? (
-            <div className="pm-section pm-member-section">
-              <div className="pm-section-header">
-                <span className="pm-section-icon">🎯</span>
-                <span className="pm-section-title">
-                  {appliedVoucher && appliedVoucher.type === "cashbackCampaign"
-                    ? "Data Anggota (Wajib untuk Voucher Cashback)"
-                    : "Kumpulkan Poin Kampanye"}
-                </span>
+          <div className="pm-grid">
+            {/* Left Column */}
+            <div className="pm-col pm-col-left">
+              {/* Total Section */}
+              <div className="pm-total-section">
+                <div className="pm-total-label">Total Belanja</div>
+                <div className="pm-total-value">{formatCurrency(total)}</div>
               </div>
 
-              <div className="pm-field">
-                <label>Nomor Anggota</label>
-                <div className="pm-input-group">
-                  <input
-                    type="text"
-                    className={`pm-input pm-input-member ${
-                      memberError || memberRequiredError ? "pm-input-error" : ""
-                    } ${memberData ? "pm-input-success" : ""}`}
-                    value={nomorAnggota}
-                    onChange={handleNomorAnggotaChange}
-                    disabled={isProcessing}
-                    placeholder="5 digit"
-                    maxLength={5}
-                  />
-                  {(nomorAnggota || memberData || memberError) && (
+              {/* Member Identification Section */}
+              <div className="pm-section pm-member-section">
+                <div className="pm-section-header">
+                  <span className="pm-section-icon">👤</span>
+                  <span className="pm-section-title">
+                    {appliedVoucher && appliedVoucher.type === "cashbackCampaign"
+                      ? "Data Anggota (Wajib untuk Voucher Cashback)"
+                      : "Cari Anggota (Pembeli)"}
+                  </span>
+                  <span className="pm-section-badge">Opsional</span>
+                </div>
+
+                {!memberData ? (
+                  <div className="pm-member-search-wrap">
+                    <div className="pm-field">
+                      <label>Nama atau Nomor Anggota</label>
+                      <div className="pm-input-group">
+                        <input
+                          type="text"
+                          className={`pm-input ${
+                            memberError || memberRequiredError ? "pm-input-error" : ""
+                          }`}
+                          value={memberSearchText}
+                          onChange={handleMemberSearchChange}
+                          onKeyDown={handleMemberSearchKeyDown}
+                          disabled={isProcessing}
+                          placeholder="Ketik Nama, No. Anggota, NIK, atau Unit..."
+                        />
+                        {(memberSearchText || memberError) && (
+                          <button
+                            type="button"
+                            className="pm-clear-btn"
+                            onClick={clearMemberData}
+                            disabled={isProcessing}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {isSearchingMembers && (
+                      <div className="pm-member-status pm-member-checking">
+                        <span className="pm-status-icon">⏳</span>
+                        Mencari anggota...
+                      </div>
+                    )}
+
+                    {!isSearchingMembers && memberSearchResults.length > 0 && (
+                      <div className="pm-member-dropdown">
+                        {memberSearchResults.map((m, index) => {
+                          const subInfo =
+                            m.satuanKerja ||
+                            m.kantor ||
+                            m.unitKerja ||
+                            m.instansi ||
+                            m.nomorAnggota ||
+                            "";
+
+                          return (
+                            <div
+                              key={m.id}
+                              className={`pm-member-dropdown-item ${
+                                index === highlightedIndex ? "pm-dropdown-active" : ""
+                              }`}
+                              onClick={() => selectMember(m)}
+                              onMouseEnter={() => setHighlightedIndex(index)}
+                            >
+                              <div className="pm-dropdown-main">
+                                <span className="pm-dropdown-name">{m.nama}</span>
+                              </div>
+                              {subInfo && <span className="pm-dropdown-sub">{subInfo}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {memberError && !isSearchingMembers && (
+                      <div className="pm-member-status pm-member-error">
+                        <span className="pm-status-icon">⚠️</span>
+                        {memberError}
+                      </div>
+                    )}
+
+                    {memberRequiredError && !isSearchingMembers && !memberError && (
+                      <div className="pm-member-status pm-member-error">
+                        <span className="pm-status-icon">⚠️</span>
+                        {memberRequiredError}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="pm-member-status pm-member-success">
+                    <div className="pm-member-info">
+                      <span className="pm-member-check">✓</span>
+                      <div className="pm-member-details-text">
+                        <span className="pm-member-name">{memberData.nama}</span>
+                        {(memberData.satuanKerja || memberData.kantor || memberData.unitKerja || memberData.instansi || memberData.nomorAnggota) && (
+                          <span className="pm-member-no-sub">
+                            {memberData.satuanKerja || memberData.kantor || memberData.unitKerja || memberData.instansi || memberData.nomorAnggota}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     <button
                       type="button"
                       className="pm-clear-btn"
@@ -509,198 +730,207 @@ const PaymentModal = ({
                     >
                       ×
                     </button>
-                  )}
-                </div>
-              </div>
-
-              {isCheckingMember && (
-                <div className="pm-member-status pm-member-checking">
-                  <span className="pm-status-icon">⏳</span>
-                  Memeriksa nomor anggota...
-                </div>
-              )}
-
-              {memberError && !isCheckingMember && (
-                <div className="pm-member-status pm-member-error">
-                  <span className="pm-status-icon">⚠️</span>
-                  {memberError}
-                </div>
-              )}
-
-              {memberRequiredError && !isCheckingMember && !memberError && (
-                <div className="pm-member-status pm-member-error">
-                  <span className="pm-status-icon">⚠️</span>
-                  {memberRequiredError}
-                </div>
-              )}
-
-              {memberData && !isCheckingMember && (
-                <div className="pm-member-status pm-member-success">
-                  <div className="pm-member-info">
-                    <span className="pm-member-check">✓</span>
-                    <span className="pm-member-name">{memberData.nama}</span>
-                  </div>
-                  <span className="pm-points-badge">
-                    +{formatCurrency(calculateDiscountedTotal())} poin
-                  </span>
-                </div>
-              )}
-
-              {!nomorAnggota &&
-                !memberData &&
-                !memberError &&
-                !memberRequiredError && (
-                  <div className="pm-member-hint">
-                    {appliedVoucher &&
-                    appliedVoucher.type === "cashbackCampaign"
-                      ? "Wajib memasukkan nomor anggota untuk redeem voucher cashback"
-                      : "Masukkan nomor anggota untuk mengumpulkan poin kampanye"}
                   </div>
                 )}
-            </div>
-          ) : null}
+              </div>
 
-          {/* Voucher Section */}
-          <div className="pm-section pm-voucher-section">
-            <div className="pm-section-header">
-              <span className="pm-section-icon">🎫</span>
-              <span className="pm-section-title">Gunakan Voucher</span>
-              <span className="pm-section-badge">Opsional</span>
-            </div>
+              {/* Voucher Section */}
+              <div className="pm-section pm-voucher-section">
+                <div className="pm-section-header">
+                  <span className="pm-section-icon">🎫</span>
+                  <span className="pm-section-title">Gunakan Voucher</span>
+                  <span className="pm-section-badge">Opsional</span>
+                </div>
 
-            {!appliedVoucher ? (
-              <>
-                <div className="pm-field">
-                  <label>ID Voucher</label>
-                  <div className="pm-voucher-input-row">
-                    <input
-                      ref={voucherIdRef}
-                      type="text"
-                      className="pm-input pm-input-voucher"
-                      value={voucherId}
-                      onChange={handleVoucherIdChange}
-                      onKeyDown={handleVoucherKeyDown}
-                      disabled={isProcessing || appliedVoucher}
-                      placeholder="Scan atau ketik ID voucher"
-                    />
+                {!appliedVoucher ? (
+                  <>
+                    <div className="pm-field">
+                      <label>ID Voucher</label>
+                      <div className="pm-voucher-input-row">
+                        <input
+                          ref={voucherIdRef}
+                          type="text"
+                          className="pm-input pm-input-voucher"
+                          value={voucherId}
+                          onChange={handleVoucherIdChange}
+                          onKeyDown={handleVoucherKeyDown}
+                          disabled={isProcessing || appliedVoucher}
+                          placeholder="Scan atau ketik ID voucher"
+                        />
+                        <button
+                          ref={checkVoucherRef}
+                          type="button"
+                          className="pm-check-btn"
+                          onClick={handleCheckVoucher}
+                          disabled={
+                            isProcessing ||
+                            isCheckingVoucher ||
+                            appliedVoucher ||
+                            !voucherId.trim()
+                          }
+                        >
+                          {isCheckingVoucher ? "..." : "Cek"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {voucherError && (
+                      <div className="pm-voucher-error">{voucherError}</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="pm-applied-voucher">
+                    <div className="pm-voucher-details">
+                      <div className="pm-voucher-name">{appliedVoucher.name}</div>
+                      <div className="pm-voucher-member">
+                        {appliedVoucher.memberName}
+                      </div>
+                      {!appliedVoucher.isOneTimeUse && (
+                        <div className="pm-voucher-balance">
+                          Sisa saldo: {formatCurrency(appliedVoucher.value)} /{" "}
+                          {formatCurrency(appliedVoucher.originalValue)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="pm-voucher-value">
+                      -{formatCurrency(Math.min(appliedVoucher.value, total))}
+                    </div>
                     <button
-                      ref={checkVoucherRef}
                       type="button"
-                      className="pm-check-btn"
-                      onClick={handleCheckVoucher}
-                      disabled={
-                        isProcessing ||
-                        isCheckingVoucher ||
-                        appliedVoucher ||
-                        !voucherId.trim()
-                      }
+                      className="pm-remove-voucher"
+                      onClick={removeVoucher}
+                      disabled={isProcessing}
                     >
-                      {isCheckingVoucher ? "..." : "Cek"}
+                      ×
                     </button>
                   </div>
-                </div>
-
-                {voucherError && (
-                  <div className="pm-voucher-error">{voucherError}</div>
                 )}
-              </>
-            ) : (
-              <div className="pm-applied-voucher">
-                <div className="pm-voucher-details">
-                  <div className="pm-voucher-name">{appliedVoucher.name}</div>
-                  <div className="pm-voucher-member">
-                    {appliedVoucher.memberName}
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div className="pm-col pm-col-right">
+              {/* Payment Section */}
+              <div className="pm-section pm-payment-section">
+                {appliedVoucher && (
+                  <div className="pm-summary-row pm-summary-discount">
+                    <span>Diskon Voucher</span>
+                    <span>
+                      -{formatCurrency(Math.min(appliedVoucher.value, total))}
+                    </span>
                   </div>
-                  {!appliedVoucher.isOneTimeUse && (
-                    <div className="pm-voucher-balance">
-                      Sisa saldo: {formatCurrency(appliedVoucher.value)} /{" "}
-                      {formatCurrency(appliedVoucher.originalValue)}
+                )}
+
+                <div className="pm-summary-row pm-summary-final">
+                  <span>Total Bayar</span>
+                  <span className="pm-final-total">
+                    {formatCurrency(calculateDiscountedTotal())}
+                  </span>
+                </div>
+
+                <div className="pm-payment-method">
+                  <label className={`pm-radio${paymentMethod === "qris" ? " pm-radio-active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={paymentMethod === "qris"}
+                      onChange={() => handlePaymentMethodChange("qris")}
+                      disabled={isProcessing}
+                    />
+                    QRIS
+                  </label>
+                  <label className={`pm-radio${paymentMethod === "cash" ? " pm-radio-active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={paymentMethod === "cash"}
+                      onChange={() => handlePaymentMethodChange("cash")}
+                      disabled={isProcessing}
+                    />
+                    Cash
+                  </label>
+                  <label className={`pm-radio${paymentMethod === "split" ? " pm-radio-active" : ""}`}>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      checked={paymentMethod === "split"}
+                      onChange={() => handlePaymentMethodChange("split")}
+                      disabled={isProcessing}
+                    />
+                    Split (Cash + QRIS)
+                  </label>
+                </div>
+
+                {paymentMethod === "split" ? (
+                  <div className="pm-split-container">
+                    <div className="pm-field">
+                      <label>1. Nominal QRIS</label>
+                      <input
+                        type="text"
+                        className="pm-input pm-input-payment"
+                        value={qrisAmount}
+                        onChange={handleQrisAmountChange}
+                        disabled={isProcessing}
+                        placeholder="Scan / Ketik Nominal QRIS"
+                      />
                     </div>
-                  )}
+
+                    <div className="pm-split-info">
+                      <span>Sisa Harus Cash:</span>
+                      <strong>
+                        {formatCurrency(
+                          Math.max(
+                            0,
+                            totalNumeric - (parseInt(qrisAmount.replace(/\D/g, ""), 10) || 0)
+                          )
+                        )}
+                      </strong>
+                    </div>
+
+                    <div className="pm-field">
+                      <label>2. Cash Diterima</label>
+                      <input
+                        ref={amountPaidRef}
+                        type="text"
+                        className="pm-input pm-input-payment"
+                        value={cashAmountPaid}
+                        onChange={handleCashAmountPaidChange}
+                        disabled={isProcessing}
+                        placeholder="Masukkan Uang Cash"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pm-field">
+                    <label>Jumlah Diterima</label>
+                    <input
+                      ref={amountPaidRef}
+                      type="text"
+                      className="pm-input pm-input-payment"
+                      value={amountPaid}
+                      onChange={handleAmountPaidChange}
+                      disabled={isProcessing || paymentMethod !== "cash"}
+                      placeholder="0"
+                    />
+                  </div>
+                )}
+
+                {error && <div className="pm-payment-error">{error}</div>}
+
+                <div className="pm-change-display">
+                  <span className="pm-change-label">Kembalian Cash</span>
+                  <span className="pm-change-value">{formatCurrency(change)}</span>
                 </div>
-                <div className="pm-voucher-value">
-                  -{formatCurrency(Math.min(appliedVoucher.value, total))}
+              </div>
+
+              {isProcessing && (
+                <div className="pm-processing">
+                  <span className="pm-spinner"></span>
+                  Transaksi sedang diproses...
                 </div>
-                <button
-                  type="button"
-                  className="pm-remove-voucher"
-                  onClick={removeVoucher}
-                  disabled={isProcessing}
-                >
-                  ×
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Payment Section */}
-          <div className="pm-section pm-payment-section">
-            {appliedVoucher && (
-              <div className="pm-summary-row pm-summary-discount">
-                <span>Diskon Voucher</span>
-                <span>
-                  -{formatCurrency(Math.min(appliedVoucher.value, total))}
-                </span>
-              </div>
-            )}
-
-            <div className="pm-summary-row pm-summary-final">
-              <span>Total Bayar</span>
-              <span className="pm-final-total">
-                {formatCurrency(calculateDiscountedTotal())}
-              </span>
-            </div>
-
-            <div className="pm-payment-method">
-              <label className={`pm-radio${paymentMethod === "qris" ? " pm-radio-active" : ""}`}>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  checked={paymentMethod === "qris"}
-                  onChange={() => handlePaymentMethodChange("qris")}
-                  disabled={isProcessing}
-                />
-                QRIS
-              </label>
-              <label className={`pm-radio${paymentMethod === "cash" ? " pm-radio-active" : ""}`}>
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  checked={paymentMethod === "cash"}
-                  onChange={() => handlePaymentMethodChange("cash")}
-                  disabled={isProcessing}
-                />
-                Cash
-              </label>
-            </div>
-
-            <div className="pm-field">
-              <label>Jumlah Diterima</label>
-              <input
-                ref={amountPaidRef}
-                type="text"
-                className="pm-input pm-input-payment"
-                value={amountPaid}
-                onChange={handleAmountPaidChange}
-                disabled={isProcessing || paymentMethod !== "cash"}
-                placeholder="0"
-              />
-            </div>
-
-            {error && <div className="pm-payment-error">{error}</div>}
-
-            <div className="pm-change-display">
-              <span className="pm-change-label">Kembalian</span>
-              <span className="pm-change-value">{formatCurrency(change)}</span>
+              )}
             </div>
           </div>
-
-          {isProcessing && (
-            <div className="pm-processing">
-              <span className="pm-spinner"></span>
-              Transaksi sedang diproses...
-            </div>
-          )}
         </div>
 
         {/* Footer */}

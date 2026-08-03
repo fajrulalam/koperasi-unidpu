@@ -304,7 +304,13 @@ const SejarahTransaksi = () => {
         total: tx.total || 0,
         amountPaid: tx.amountPaid || tx.tunai || tx.total || 0,
         change: tx.change || tx.kembali || 0,
+        paymentMethod: tx.paymentMethod || (tx.isPaidViaQris ? "qris" : "cash"),
+        qrisAmount: tx.qrisAmount !== undefined ? tx.qrisAmount : (tx.isPaidViaQris ? (tx.discountedTotal ?? tx.total) : 0),
+        cashAmount: tx.cashAmount !== undefined ? tx.cashAmount : (!tx.isPaidViaQris ? (tx.discountedTotal ?? tx.total) : 0),
       },
+      paymentMethod: tx.paymentMethod || (tx.isPaidViaQris ? "qris" : "cash"),
+      qrisAmount: tx.qrisAmount !== undefined ? tx.qrisAmount : (tx.isPaidViaQris ? (tx.discountedTotal ?? tx.total) : 0),
+      cashAmount: tx.cashAmount !== undefined ? tx.cashAmount : (!tx.isPaidViaQris ? (tx.discountedTotal ?? tx.total) : 0),
       appliedVoucher: tx.voucherId
         ? {
             name: tx.voucherName || tx.voucherId,
@@ -859,7 +865,7 @@ const SejarahTransaksi = () => {
                                 onClick={() => toggleTransaction(txId)}
                               >
                                 <div className="st-tx-left">
-                                  <span className="st-tx-time">{timeStr}</span>
+                              <span className="st-tx-time">{timeStr}</span>
                                   <div className="st-tx-buyer-info">
                                     <span className="st-tx-buyer-name">
                                       {tx.memberName || "Non-Anggota"}
@@ -867,6 +873,19 @@ const SejarahTransaksi = () => {
                                     {tx.isMember && (
                                       <span className="st-tx-badge st-tx-badge-member">
                                         Anggota ({tx.nomorAnggota})
+                                      </span>
+                                    )}
+                                    {tx.paymentMethod === "split" ? (
+                                      <span className="st-tx-badge st-tx-badge-voucher" title={`QRIS: ${formatCurrency(tx.qrisAmount || 0)} | Cash: ${formatCurrency(tx.cashAmount || 0)}`}>
+                                        💳 Split
+                                      </span>
+                                    ) : (tx.isPaidViaQris || tx.paymentMethod === "qris") ? (
+                                      <span className="st-tx-badge st-tx-badge-voucher">
+                                        📱 QRIS
+                                      </span>
+                                    ) : (
+                                      <span className="st-tx-badge st-tx-badge-member">
+                                        💵 Cash
                                       </span>
                                     )}
                                     {tx.voucherId && (

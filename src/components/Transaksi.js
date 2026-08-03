@@ -693,7 +693,12 @@ const Transaksi = () => {
         memberName: memberData?.nama || null,
         // Points tracking - amount paid excluding voucher discount
         userPoints: userPoints || totalNumeric,
-        isPaidViaQris: isPaidViaQris || false,
+        paymentMethod: paymentData.paymentMethod || (isPaidViaQris ? "qris" : "cash"),
+        isPaidViaQris: paymentData.paymentMethod ? paymentData.paymentMethod === "qris" : (isPaidViaQris || false),
+        qrisAmount: paymentData.qrisAmount !== undefined ? paymentData.qrisAmount : (isPaidViaQris ? totalNumeric : 0),
+        cashAmount: paymentData.cashAmount !== undefined ? paymentData.cashAmount : (!isPaidViaQris ? totalNumeric : 0),
+        amountPaid: amountPaid || 0,
+        change: change || 0,
       };
 
       // Add voucher information if applied
@@ -742,9 +747,6 @@ const Transaksi = () => {
           stockData
         );
 
-        // No additional mass unit conversion needed - our updated convertToSmallestUnit function
-        // (Assuming that stockData.smallestUnit is “gram” for mass items.)
-
         // Stock has already been verified in the first step, so we can proceed
 
         const stockWorthPerUnit = stockValue / currentStock;
@@ -780,7 +782,14 @@ const Transaksi = () => {
             : transactionStockWorth,
           isStockDiscrepant: isDiscrepant,
           createdBy: currentUser ? currentUser.email : "unknown",
-          isPaidViaQris: isPaidViaQris || false,
+          userId: memberData?.id || null,
+          nomorAnggota: memberData?.nomorAnggota || null,
+          memberName: memberData?.nama || null,
+          isMember: !!memberData,
+          paymentMethod: paymentData.paymentMethod || (isPaidViaQris ? "qris" : "cash"),
+          isPaidViaQris: paymentData.paymentMethod ? paymentData.paymentMethod === "qris" : (isPaidViaQris || false),
+          qrisAmount: paymentData.qrisAmount !== undefined ? paymentData.qrisAmount : (isPaidViaQris ? totalNumeric : 0),
+          cashAmount: paymentData.cashAmount !== undefined ? paymentData.cashAmount : (!isPaidViaQris ? totalNumeric : 0),
         });
 
         // Update stock, ensuring it doesn't go negative
@@ -826,6 +835,9 @@ const Transaksi = () => {
         amountPaid,
         change,
         appliedVoucher,
+        paymentMethod: paymentData.paymentMethod || (isPaidViaQris ? "qris" : "cash"),
+        qrisAmount: paymentData.qrisAmount !== undefined ? paymentData.qrisAmount : (isPaidViaQris ? totalNumeric : 0),
+        cashAmount: paymentData.cashAmount !== undefined ? paymentData.cashAmount : (!isPaidViaQris ? totalNumeric : 0),
       };
 
       await printReceiptWithVoucher(receiptData, (snackbarInfo) => {

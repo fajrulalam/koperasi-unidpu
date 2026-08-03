@@ -222,14 +222,44 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
           <span>TOTAL:</span>
           <span>Rp ${formatNumber(summary.total)}</span>
         </div>
-        <div class="total-row">
-          <span>TUNAI:</span>
-          <span>Rp ${formatNumber(summary.amountPaid)}</span>
-        </div>
-        <div class="total-row" style="border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px;">
-          <span>KEMBALI:</span>
-          <span>Rp ${formatNumber(summary.change)}</span>
-        </div>
+        ${
+          (receiptData.paymentMethod === "split" || summary.paymentMethod === "split")
+            ? `
+              <div class="total-row">
+                <span>METODE:</span>
+                <span>SPLIT (CASH+QRIS)</span>
+              </div>
+              <div class="total-row">
+                <span>BAYAR QRIS:</span>
+                <span>Rp ${formatNumber(receiptData.qrisAmount ?? summary.qrisAmount ?? 0)}</span>
+              </div>
+              <div class="total-row">
+                <span>CASH DITERIMA:</span>
+                <span>Rp ${formatNumber(summary.amountPaid)}</span>
+              </div>
+              <div class="total-row" style="border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px;">
+                <span>KEMBALIAN:</span>
+                <span>Rp ${formatNumber(summary.change)}</span>
+              </div>
+            `
+            : (receiptData.paymentMethod === "qris" || summary.paymentMethod === "qris" || receiptData.isPaidViaQris)
+            ? `
+              <div class="total-row" style="border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px;">
+                <span>METODE:</span>
+                <span>QRIS</span>
+              </div>
+            `
+            : `
+              <div class="total-row">
+                <span>TUNAI:</span>
+                <span>Rp ${formatNumber(summary.amountPaid)}</span>
+              </div>
+              <div class="total-row" style="border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px;">
+                <span>KEMBALI:</span>
+                <span>Rp ${formatNumber(summary.change)}</span>
+              </div>
+            `
+        }
       </div>
 
       <!-- Voucher Info -->

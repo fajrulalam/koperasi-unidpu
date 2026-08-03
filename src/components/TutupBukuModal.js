@@ -157,7 +157,9 @@ const TutupBukuModal = ({ isOpen, onClose, onSaved, editData, forRecord }) => {
       for (const tx of transactions) {
         gross += tx.total || 0;
         voucher += tx.voucherDiscount || 0;
-        if (tx.isPaidViaQris) {
+        if (tx.qrisAmount !== undefined && tx.qrisAmount !== null) {
+          qris += tx.qrisAmount;
+        } else if (tx.isPaidViaQris) {
           qris +=
             tx.discountedTotal != null ? tx.discountedTotal : tx.total || 0;
         }
