@@ -288,11 +288,18 @@ const SejarahTransaksi = () => {
       hour12: false,
     });
 
+    const mName = tx.memberName || tx.namaAnggota || tx.nama || null;
+    const mNo = tx.nomorAnggota || null;
+
     const receiptData = {
       info: {
         transactionId: tx.id || "-",
         dateTime: dateTimeStr,
+        memberName: mName,
+        nomorAnggota: mNo,
       },
+      memberName: mName,
+      nomorAnggota: mNo,
       items: (tx.items || []).map((item) => ({
         name: item.itemName || item.name || "-",
         quantity: item.quantity || 0,

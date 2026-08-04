@@ -197,6 +197,22 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
           <span>Waktu    :</span>
           <span>${info.dateTime}</span>
         </div>
+        ${
+          (info.memberName || receiptData.memberName || info.member?.name || receiptData.member?.name || appliedVoucher?.memberName)
+            ? `
+              <div class="info-row">
+                <span>Anggota  :</span>
+                <span style="font-weight: bold;">${
+                  info.memberName || receiptData.memberName || info.member?.name || receiptData.member?.name || appliedVoucher?.memberName
+                }${
+                  (info.nomorAnggota || receiptData.nomorAnggota || info.member?.nomorAnggota || receiptData.member?.nomorAnggota || appliedVoucher?.nomorAnggota)
+                    ? ` (${info.nomorAnggota || receiptData.nomorAnggota || info.member?.nomorAnggota || receiptData.member?.nomorAnggota || appliedVoucher?.nomorAnggota})`
+                    : ''
+                }</span>
+              </div>
+            `
+            : ''
+        }
       </div>
       
       <div class="divider"></div>

@@ -37,8 +37,25 @@ export const setLocalPrintServer = (url = "http://localhost:9001") => {
 // Enhanced receipt printing function with voucher support
 const printReceiptWithVoucher = async (receiptData, setSnackbarFn) => {
   try {
-    const { transactionId, items, total, amountPaid, change, appliedVoucher } =
-      receiptData;
+    const {
+      transactionId,
+      items,
+      total,
+      amountPaid,
+      change,
+      appliedVoucher,
+      memberData,
+      memberName,
+      nomorAnggota,
+    } = receiptData;
+
+    const effectiveMemberName =
+      memberName || memberData?.nama || appliedVoucher?.memberName || null;
+    const effectiveNomorAnggota =
+      nomorAnggota ||
+      memberData?.nomorAnggota ||
+      appliedVoucher?.nomorAnggota ||
+      null;
 
     // Get current date and time
     const now = new Date();
@@ -75,6 +92,14 @@ const printReceiptWithVoucher = async (receiptData, setSnackbarFn) => {
       info: {
         transactionId: transactionId,
         dateTime: dateTimeStr,
+        memberName: effectiveMemberName,
+        nomorAnggota: effectiveNomorAnggota,
+      },
+      memberName: effectiveMemberName,
+      nomorAnggota: effectiveNomorAnggota,
+      member: {
+        name: effectiveMemberName,
+        nomorAnggota: effectiveNomorAnggota,
       },
       items: receiptItems,
       summary: {
@@ -85,6 +110,9 @@ const printReceiptWithVoucher = async (receiptData, setSnackbarFn) => {
         change: change,
       },
       appliedVoucher: appliedVoucher,
+      paymentMethod: receiptData.paymentMethod,
+      qrisAmount: receiptData.qrisAmount,
+      cashAmount: receiptData.cashAmount,
     };
 
     // Use the PrinterService to handle printing logic
@@ -828,6 +856,11 @@ const Transaksi = () => {
 
       // Print receipt with voucher information
       const receiptTotal = originalTotal || total;
+      const effectiveMemberName =
+        memberData?.nama || appliedVoucher?.memberName || null;
+      const effectiveNomorAnggota =
+        memberData?.nomorAnggota || appliedVoucher?.nomorAnggota || null;
+
       const receiptData = {
         transactionId,
         items: products,
@@ -835,6 +868,9 @@ const Transaksi = () => {
         amountPaid,
         change,
         appliedVoucher,
+        memberData,
+        memberName: effectiveMemberName,
+        nomorAnggota: effectiveNomorAnggota,
         paymentMethod: paymentData.paymentMethod || (isPaidViaQris ? "qris" : "cash"),
         qrisAmount: paymentData.qrisAmount !== undefined ? paymentData.qrisAmount : (isPaidViaQris ? totalNumeric : 0),
         cashAmount: paymentData.cashAmount !== undefined ? paymentData.cashAmount : (!isPaidViaQris ? totalNumeric : 0),

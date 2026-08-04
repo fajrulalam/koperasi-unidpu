@@ -147,7 +147,17 @@ exports.printReceipt = functions.https.onRequest((req, res) => {
                 .align('lt')
                 .text(`No: ${receiptData.info.transactionId}`)
                 .align('rt')
-                .text(`${receiptData.info.dateTime}`)
+                .text(`${receiptData.info.dateTime}`);
+
+              const mName = receiptData.info?.memberName || receiptData.memberName || receiptData.member?.name;
+              const mNo = receiptData.info?.nomorAnggota || receiptData.nomorAnggota || receiptData.member?.nomorAnggota;
+              if (mName) {
+                printer
+                  .align('lt')
+                  .text(`Anggota: ${mName}${mNo ? ` (${mNo})` : ''}`);
+              }
+
+              printer
                 .drawLine()
                 .text('');
               
