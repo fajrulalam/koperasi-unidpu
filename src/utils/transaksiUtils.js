@@ -1,5 +1,11 @@
 // src/utils/transaksiUtils.js
 
+import {
+  getVoucherAmountSpent,
+  getVoucherFaceValue,
+  getVoucherRemainingBalance,
+} from "./voucherBalance";
+
 const CONVERSION_TABLE = {
   kwintal: 100000,
   ton: 1000000,
@@ -182,6 +188,9 @@ export const validateVoucher = (voucher) => {
     if (voucher.status === "REDEEMED") {
       return makeResult(false, "Voucher sudah pernah digunakan");
     }
+    if (voucher.isClaimed === true) {
+      return makeResult(false, "Voucher sudah pernah digunakan");
+    }
     // Status "CLAIMED" means it's ready to use
     if (voucher.status !== "CLAIMED") {
       return makeResult(false, "Voucher tidak valid");
@@ -200,13 +209,17 @@ export const validateVoucher = (voucher) => {
 
   // Multi-use vouchers: check remaining balance instead of isClaimed
   if (voucher.isOneTimeUse === false) {
-    const amountSpent = voucher.amountSpent || 0;
-    const totalVal = voucher.nominal || voucher.value || 0;
-    if (amountSpent >= totalVal) {
+    const amountSpent = getVoucherAmountSpent(voucher);
+    const totalVal = getVoucherFaceValue(voucher);
+    const remaining = getVoucherRemainingBalance(voucher);
+    if (remaining <= 0 || amountSpent >= totalVal) {
       return makeResult(false, "Saldo voucher sudah habis");
     }
-    const remaining = totalVal - amountSpent;
-    return makeResult(true, "", { isCampaignVoucher: false, remaining });
+    return makeResult(true, "", {
+      isCampaignVoucher: false,
+      amountSpent,
+      remaining,
+    });
   }
 
   // One-time use vouchers

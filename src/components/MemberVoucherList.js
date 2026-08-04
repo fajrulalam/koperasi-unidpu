@@ -11,6 +11,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import MemberVoucherTile from "./MemberVoucherTile";
+import { getVoucherRemainingBalance } from "../utils/voucherBalance";
 import "../styles/MemberVoucherList.css";
 
 const MemberVoucherList = ({ onVoucherClick, refreshTrigger }) => {
@@ -97,7 +98,7 @@ const MemberVoucherList = ({ onVoucherClick, refreshTrigger }) => {
 
         // Multi-use vouchers: show as long as they have remaining balance
         if (voucher.isOneTimeUse === false) {
-          const remaining = voucher.value - (voucher.amountSpent || 0);
+          const remaining = getVoucherRemainingBalance(voucher);
           return remaining > 0;
         }
 

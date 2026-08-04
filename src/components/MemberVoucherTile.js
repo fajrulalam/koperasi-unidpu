@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import JsBarcode from 'jsbarcode';
+import { getVoucherRemainingBalance } from '../utils/voucherBalance';
 import '../styles/MemberVoucherTile.css';
 
 const MemberVoucherTile = ({ voucher, onClick }) => {
@@ -46,7 +47,9 @@ const MemberVoucherTile = ({ voucher, onClick }) => {
   };
 
   const isMultiUse = voucher.isOneTimeUse === false;
-  const remaining = isMultiUse ? voucher.value - (voucher.amountSpent || 0) : voucher.value;
+  const remaining = isMultiUse
+    ? getVoucherRemainingBalance(voucher)
+    : voucher.value;
 
   const getStatusText = () => {
     const now = new Date();

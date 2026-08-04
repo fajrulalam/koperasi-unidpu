@@ -1,8 +1,22 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import React from "react";
+import { render, screen } from "@testing-library/react";
+import App from "./App";
 
-test('renders learn react link', () => {
+jest.mock("./pages/MainPage", () => () => <main>Koperasi Unipdu</main>);
+jest.mock("./context/AuthContext", () => ({
+  AuthProvider: ({ children }) => children,
+}));
+jest.mock("./context/EnvironmentContext", () => ({
+  EnvironmentProvider: ({ children }) => children,
+}));
+jest.mock("./context/FirestoreContext", () => ({
+  FirestoreProvider: ({ children }) => children,
+}));
+jest.mock("./context/DatabaseContext", () => ({
+  DatabaseProvider: ({ children }) => children,
+}));
+
+test("renders the application shell", () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(screen.getByText("Koperasi Unipdu")).toBeInTheDocument();
 });

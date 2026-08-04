@@ -172,6 +172,7 @@ const Transaksi = () => {
   // Modal state
   const [modalIsOpen, setModalIsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const processingRef = useRef(false);
 
   // Active cashback campaigns
   const [activeCampaigns, setActiveCampaigns] = useState([]);
@@ -617,10 +618,11 @@ const Transaksi = () => {
 
   const handlePaymentComplete = async (paymentData) => {
     // Prevent double submission
-    if (isProcessing) {
+    if (processingRef.current) {
       return;
     }
 
+    processingRef.current = true;
     setIsProcessing(true);
 
     const {
@@ -730,29 +732,30 @@ const Transaksi = () => {
       };
 
       // Add voucher information if applied
+      let voucherDiscount = 0;
       if (appliedVoucher) {
-        const actualDiscount = Math.min(
+        voucherDiscount = Math.min(
           appliedVoucher.value,
           originalTotal || total
         );
         transactionData.voucherId = appliedVoucher.id;
         transactionData.voucherName = appliedVoucher.name;
-        transactionData.voucherDiscount = actualDiscount;
+        transactionData.voucherDiscount = voucherDiscount;
         transactionData.discountedTotal = totalNumeric;
       }
 
-      await createDoc("transactionDetail", transactionData, transactionId);
-
-      // Claim voucher if applied (skip for multi-use — already handled in PaymentModal)
-      if (appliedVoucher && appliedVoucher.isOneTimeUse !== false) {
-        try {
-          await updateDoc("vouchers", appliedVoucher.id, {
-            isClaimed: true,
-            claimDate: serverTimestamp(),
-          });
-        } catch (voucherError) {
-          console.error("Error claiming voucher:", voucherError);
-        }
+      if (appliedVoucher) {
+        await voucherService.commitTransactionWithVoucher(
+          {
+            voucherId: appliedVoucher.id,
+            voucherDiscount,
+            transactionId,
+            transactionData,
+          },
+          isProduction
+        );
+      } else {
+        await createDoc("transactionDetail", transactionData, transactionId);
       }
 
       // --- 2. Process stock updates and stockTransactions ---
@@ -834,6 +837,30 @@ const Transaksi = () => {
         });
       }
 
+      // Campaign points are a post-sale side effect. Running this here avoids
+      // granting points when payment or transaction persistence fails.
+      if (memberData && activeCampaigns.length > 0) {
+        for (const campaign of activeCampaigns) {
+          try {
+            const result = await voucherService.updateUserCampaignPoints(
+              campaign.voucherGroupId,
+              memberData.id,
+              memberData,
+              campaign,
+              userPoints || totalNumeric,
+              isProduction
+            );
+
+            if (result.created || result.updated) break;
+          } catch (campaignError) {
+            console.error(
+              `Error updating campaign ${campaign.voucherName}:`,
+              campaignError
+            );
+          }
+        }
+      }
+
       // Create detailed message if there are stock discrepancies
       let message = "";
       if (hasStockDiscrepancy) {
@@ -910,6 +937,8 @@ const Transaksi = () => {
         },
       ]);
       setIsProcessing(false);
+    } finally {
+      processingRef.current = false;
     }
   };
 
@@ -1292,7 +1321,6 @@ const Transaksi = () => {
         total={total}
         onPaymentComplete={handlePaymentComplete}
         isProcessing={isProcessing}
-        firestore={{ readDoc, updateDoc, serverTimestamp }}
         activeCampaigns={activeCampaigns}
         isProduction={isProduction}
       />

@@ -47,4 +47,20 @@ describe("validateVoucher", () => {
     expect(res.isValid).toBe(false);
     expect(res.reason).toBe("Voucher sudah pernah digunakan");
   });
+
+  test("rejects a campaign voucher left CLAIMED but already marked used", () => {
+    const voucher = {
+      type: "cashbackCampaign",
+      status: "CLAIMED",
+      isClaimed: true,
+      isActive: true,
+      activeDate: new Date(Date.now() - 60_000),
+      expireDate: new Date(Date.now() + 60_000),
+    };
+
+    const res = validateVoucher(voucher);
+
+    expect(res.isValid).toBe(false);
+    expect(res.message).toBe("Voucher sudah pernah digunakan");
+  });
 });

@@ -12,8 +12,67 @@ import {
   orderBy,
   startAfter,
   writeBatch,
+  runTransaction,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db, getEnvironmentCollection, getEnvironmentDoc } from "../firebase";
+import { validateVoucher } from "../utils/transaksiUtils";
+import {
+  buildVoucherRedemption,
+  hasValidVoucherAmountSpent,
+  hydrateVoucherBalance,
+} from "../utils/voucherBalance";
+
+const getVoucherUsageByIds = async (voucherIds, isProduction) => {
+  const uniqueIds = [...new Set(voucherIds.filter(Boolean))];
+  const usageByVoucherId = new Map(uniqueIds.map((id) => [id, 0]));
+  if (uniqueIds.length === 0) return usageByVoucherId;
+
+  const transactionsRef = getEnvironmentCollection(
+    "transactionDetail",
+    isProduction
+  );
+  const chunkSize = 30;
+
+  for (let index = 0; index < uniqueIds.length; index += chunkSize) {
+    const ids = uniqueIds.slice(index, index + chunkSize);
+    const snapshot = await getDocs(
+      query(transactionsRef, where("voucherId", "in", ids))
+    );
+
+    snapshot.docs.forEach((transactionDoc) => {
+      const transactionData = transactionDoc.data();
+      const discount = Number(transactionData.voucherDiscount);
+      if (!Number.isFinite(discount) || discount <= 0) return;
+
+      usageByVoucherId.set(
+        transactionData.voucherId,
+        (usageByVoucherId.get(transactionData.voucherId) || 0) + discount
+      );
+    });
+  }
+
+  return usageByVoucherId;
+};
+
+const hydrateVoucherBalances = async (vouchers, isProduction) => {
+  const brokenMultiUseIds = vouchers
+    .filter(
+      (voucher) =>
+        voucher.isOneTimeUse === false &&
+        !hasValidVoucherAmountSpent(voucher)
+    )
+    .map((voucher) => voucher.id);
+
+  const usageByVoucherId = await getVoucherUsageByIds(
+    brokenMultiUseIds,
+    isProduction
+  );
+
+  return vouchers.map((voucher) =>
+    hydrateVoucherBalance(voucher, usageByVoucherId.get(voucher.id) || 0)
+  );
+};
 
 export const voucherService = {
   async getVoucherGroups(
@@ -82,12 +141,30 @@ export const voucherService = {
         where("voucherGroupId", "==", voucherGroupId)
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({
+      const vouchers = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
+      return hydrateVoucherBalances(vouchers, isProduction);
     } catch (error) {
       console.error("Error fetching vouchers:", error);
+      throw error;
+    }
+  },
+
+  async getVoucherForPayment(voucherId, isProduction = true) {
+    try {
+      const voucherRef = getEnvironmentDoc("vouchers", voucherId, isProduction);
+      const voucherSnapshot = await getDoc(voucherRef);
+      if (!voucherSnapshot.exists()) return null;
+
+      const [voucher] = await hydrateVoucherBalances(
+        [{ id: voucherSnapshot.id, ...voucherSnapshot.data() }],
+        isProduction
+      );
+      return voucher;
+    } catch (error) {
+      console.error("Error fetching voucher for payment:", error);
       throw error;
     }
   },
@@ -619,6 +696,123 @@ export const voucherService = {
     }
   },
 
+  /**
+   * Atomically records the sale and consumes its voucher. This prevents a sale
+   * from being saved without its voucher debit (or a voucher being consumed
+   * without the matching sale), and re-checks the live balance for concurrent
+   * cashier sessions.
+   */
+  async commitTransactionWithVoucher(
+    {
+      voucherId,
+      voucherDiscount,
+      transactionId,
+      transactionData,
+    },
+    isProduction = true
+  ) {
+    const voucherRef = getEnvironmentDoc(
+      "vouchers",
+      voucherId,
+      isProduction
+    );
+    const transactionRef = getEnvironmentDoc(
+      "transactionDetail",
+      transactionId,
+      isProduction
+    );
+
+    // Recover the baseline outside the Firestore transaction only for legacy
+    // documents whose amountSpent was corrupted to NaN by the old modal.
+    const initialVoucherSnapshot = await getDoc(voucherRef);
+    if (!initialVoucherSnapshot.exists()) {
+      throw new Error("Voucher tidak ditemukan");
+    }
+
+    const initialVoucher = initialVoucherSnapshot.data();
+    let recoveredAmountSpent = 0;
+    if (
+      initialVoucher.isOneTimeUse === false &&
+      !hasValidVoucherAmountSpent(initialVoucher)
+    ) {
+      const usage = await getVoucherUsageByIds([voucherId], isProduction);
+      recoveredAmountSpent = usage.get(voucherId) || 0;
+    }
+
+    return runTransaction(db, async (firestoreTransaction) => {
+      const [voucherSnapshot, existingTransactionSnapshot] = await Promise.all([
+        firestoreTransaction.get(voucherRef),
+        firestoreTransaction.get(transactionRef),
+      ]);
+
+      if (existingTransactionSnapshot.exists()) {
+        return {
+          alreadyCommitted: true,
+          transactionId,
+        };
+      }
+      if (!voucherSnapshot.exists()) {
+        throw new Error("Voucher tidak ditemukan");
+      }
+
+      const liveVoucher = {
+        id: voucherSnapshot.id,
+        ...voucherSnapshot.data(),
+      };
+      const hydratedVoucher = hydrateVoucherBalance(
+        liveVoucher,
+        recoveredAmountSpent
+      );
+      const validation = validateVoucher(hydratedVoucher);
+      if (!(validation.isValid ?? validation.valid)) {
+        throw new Error(
+          validation.message || validation.reason || "Voucher tidak valid"
+        );
+      }
+
+      const redemption = buildVoucherRedemption({
+        voucher: liveVoucher,
+        discount: voucherDiscount,
+        recoveredAmountSpent,
+      });
+      const committedAt = serverTimestamp();
+      const lifecycleTimestamp =
+        liveVoucher.type === "cashbackCampaign"
+          ? { redeemedAt: committedAt }
+          : liveVoucher.isOneTimeUse === false
+          ? { lastUsedAt: committedAt }
+          : { claimDate: committedAt };
+
+      firestoreTransaction.update(voucherRef, {
+        ...redemption.updateData,
+        ...lifecycleTimestamp,
+        lastRedemptionTransactionId: transactionId,
+        updatedAt: committedAt,
+      });
+
+      firestoreTransaction.set(transactionRef, {
+        ...transactionData,
+        id: transactionId,
+        voucherId,
+        voucherGroupId: liveVoucher.voucherGroupId || null,
+        voucherDiscount,
+        voucherBalanceBefore: redemption.balanceBefore,
+        voucherBalanceAfter: redemption.balanceAfter,
+        createdAt: committedAt,
+        timestamp: committedAt,
+        timestampInMillisEpoch: committedAt,
+        updatedAt: committedAt,
+      });
+
+      return {
+        alreadyCommitted: false,
+        transactionId,
+        balanceBefore: redemption.balanceBefore,
+        balanceAfter: redemption.balanceAfter,
+      };
+    });
+  },
+
   async updateVoucherGroup(voucherGroupId, updateData, isProduction = true) {
     try {
       const voucherGroupRef = getEnvironmentDoc(
@@ -700,6 +894,7 @@ export const voucherService = {
 
       const voucherGroupData = voucherGroupDoc.data();
       const batch = writeBatch(db);
+      const isOneTimeUse = voucherGroupData.isOneTimeUse !== false;
 
       for (const member of newMembers) {
         const voucherRef = doc(
@@ -716,8 +911,15 @@ export const voucherService = {
           nama: member.nama,
           kantor: member.kantor,
           satuanKerja: member.satuanKerja,
+          nomorAnggota: member.nomorAnggota || null,
           isClaimed: false,
           isActive: voucherGroupData.isActive,
+          isVoucherForMemberOnly: true,
+          type: voucherGroupData.type || "memberVoucher",
+          isOneTimeUse,
+          ...(isOneTimeUse
+            ? {}
+            : { amountSpent: 0, sisaSaldo: voucherGroupData.value }),
           createdAt: new Date(),
         };
 
@@ -825,10 +1027,11 @@ export const voucherService = {
         orderBy("createdAt", "desc")
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({
+      const vouchers = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
+      return hydrateVoucherBalances(vouchers, isProduction);
     } catch (error) {
       console.error("Error fetching user vouchers:", error);
       throw error;
@@ -844,10 +1047,11 @@ export const voucherService = {
         orderBy("createdAt", "desc")
       );
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => ({
+      const vouchers = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
+      return hydrateVoucherBalances(vouchers, isProduction);
     } catch (error) {
       console.error("Error fetching user vouchers by doc ID:", error);
       throw error;
@@ -1042,4 +1246,3 @@ export const voucherService = {
     }
   },
 };
-

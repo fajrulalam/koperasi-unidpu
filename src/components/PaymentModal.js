@@ -11,7 +11,6 @@ const PaymentModal = ({
   onPaymentComplete,
   isProcessing = false,
   onVoucherCheck,
-  firestore,
   activeCampaigns = [],
   isProduction = true,
 }) => {
@@ -28,6 +27,7 @@ const PaymentModal = ({
   const amountPaidRef = useRef(null);
   const voucherIdRef = useRef(null);
   const checkVoucherRef = useRef(null);
+  const submissionInFlightRef = useRef(false);
 
   // Member lookup & live search states
   const [nomorAnggota, setNomorAnggota] = useState("");
@@ -71,6 +71,7 @@ const PaymentModal = ({
       setIsSearchingMembers(false);
       setHighlightedIndex(-1);
       setPaymentMethod(null);
+      submissionInFlightRef.current = false;
 
       // Focus on the payment input after a short delay
       setTimeout(() => {
@@ -309,7 +310,10 @@ const PaymentModal = ({
     setVoucherError("");
 
     try {
-      const voucherDoc = await firestore.readDoc("vouchers", voucherId.trim());
+      const voucherDoc = await voucherService.getVoucherForPayment(
+        voucherId.trim(),
+        isProduction
+      );
       if (!voucherDoc) {
         setVoucherError("Voucher tidak ditemukan");
         setIsCheckingVoucher(false);
@@ -376,11 +380,11 @@ const PaymentModal = ({
         }
       }
 
-      let voucherValue = voucherDoc.nominal || voucherDoc.value || 0;
-      if (voucherDoc.isOneTimeUse === false) {
-        voucherValue =
-          voucherDoc.sisaSaldo ?? voucherDoc.nominal ?? voucherDoc.value ?? 0;
-      }
+      const originalValue = voucherDoc.nominal || voucherDoc.value || 0;
+      const voucherValue =
+        voucherDoc.isOneTimeUse === false
+          ? validationResult.remaining
+          : originalValue;
 
       if (voucherValue <= 0) {
         setVoucherError("Saldo voucher ini sudah habis");
@@ -395,8 +399,7 @@ const PaymentModal = ({
           voucherDoc.voucherName ||
           "Voucher Diskon",
         value: voucherValue,
-        originalValue:
-          voucherDoc.nominal || voucherDoc.value || voucherValue,
+        originalValue,
         memberName:
           memberInfo?.nama ||
           voucherDoc.nama ||
@@ -407,10 +410,36 @@ const PaymentModal = ({
           voucherDoc.nomorAnggota ||
           "",
         isOneTimeUse: voucherDoc.isOneTimeUse !== false,
+        isCampaignVoucher:
+          validationResult.isCampaignVoucher ||
+          voucherDoc.type === "cashbackCampaign",
+        amountSpent: validationResult.amountSpent || 0,
         type: voucherDoc.type || "regular",
         voucherGroupId: voucherDoc.voucherGroupId || null,
         voucherMemberData: memberInfo,
       });
+
+      const newTotal = Math.max(0, total - voucherValue);
+      if (paymentMethod === "qris") {
+        setAmountPaid(newTotal.toLocaleString("id-ID"));
+        setChange(0);
+        setError("");
+      } else if (paymentMethod === "split") {
+        // Existing split amounts were entered against a different payable
+        // total, so require an explicit fresh allocation after applying it.
+        setQrisAmount("");
+        setCashAmountPaid("");
+        setChange(0);
+        setError("");
+      } else if (paymentMethod === "cash") {
+        const currentPaid = parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
+        setChange(currentPaid >= newTotal ? currentPaid - newTotal : 0);
+        setError(
+          currentPaid > 0 && currentPaid < newTotal
+            ? "Uang yang diterima kurang dari harga pembelian"
+            : ""
+        );
+      }
 
       setVoucherError("");
     } catch (err) {
@@ -435,6 +464,11 @@ const PaymentModal = ({
       setAmountPaid(totalNumeric.toLocaleString("id-ID"));
       setChange(0);
       setError("");
+    } else if (paymentMethod === "split") {
+      setQrisAmount("");
+      setCashAmountPaid("");
+      setChange(0);
+      setError("");
     } else {
       const currentPaidNumeric = parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
       if (currentPaidNumeric >= totalNumeric) {
@@ -448,6 +482,8 @@ const PaymentModal = ({
   };
 
   const handleComplete = async () => {
+    if (submissionInFlightRef.current || isProcessing) return;
+
     // Validate member number for cashback campaign voucher
     if (
       appliedVoucher &&
@@ -460,107 +496,80 @@ const PaymentModal = ({
       return;
     }
 
-    const numericAmountPaid = parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
     const discountedTotal = calculateDiscountedTotal();
     const totalNumeric =
       typeof discountedTotal === "string"
         ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
         : discountedTotal;
 
-    if (numericAmountPaid < totalNumeric) {
+    const numericCashTender =
+      parseInt(
+        (paymentMethod === "split" ? cashAmountPaid : amountPaid).replace(
+          /\D/g,
+          ""
+        ),
+        10
+      ) || 0;
+    const numericQris =
+      paymentMethod === "qris"
+        ? totalNumeric
+        : parseInt(qrisAmount.replace(/\D/g, ""), 10) || 0;
+    const cashRequired =
+      paymentMethod === "split" ? Math.max(0, totalNumeric - numericQris) : 0;
+
+    if (
+      !paymentMethod ||
+      (paymentMethod === "cash" && numericCashTender < totalNumeric) ||
+      (paymentMethod === "split" &&
+        (numericQris <= 0 ||
+          numericQris > totalNumeric ||
+          numericCashTender < cashRequired))
+    ) {
       setError("Uang yang diterima kurang dari harga pembelian");
       return;
     }
 
-    // Mark voucher as used if one was applied
-    if (appliedVoucher) {
-      try {
-        if (appliedVoucher.isCampaignVoucher) {
-          await voucherService.redeemCampaignVoucher(
-            appliedVoucher.id,
-            isProduction
-          );
-        } else if (!appliedVoucher.isOneTimeUse) {
-          // Multi-use: increment amountSpent
-          const actualDiscount = Math.min(appliedVoucher.value, total);
-          const newAmountSpent = appliedVoucher.amountSpent + actualDiscount;
-          const isFullySpent = newAmountSpent >= appliedVoucher.originalValue;
-
-          await firestore.updateDoc("vouchers", appliedVoucher.id, {
-            amountSpent: newAmountSpent,
-            ...(isFullySpent ? { isClaimed: true } : {}),
-          });
-        } else {
-          await firestore.updateDoc("vouchers", appliedVoucher.id, {
-            isClaimed: true,
-          });
-        }
-      } catch (error) {
-        console.error("Error updating voucher claim status:", error);
-        setError("Gagal mengupdate status voucher");
-        return;
-      }
-    }
+    const numericAmountPaid =
+      paymentMethod === "qris"
+        ? totalNumeric
+        : paymentMethod === "split"
+        ? numericQris + numericCashTender
+        : numericCashTender;
 
     // Calculate userPoints - the amount that counts toward campaign points
     // This is the discounted total (excludes voucher discount amount)
     const userPoints = totalNumeric; // This is already the discounted total
 
-    // Process campaign points if member is identified and there are active campaigns
-    if (memberData && activeCampaigns && activeCampaigns.length > 0) {
-      // Use discounted total for points (excludes voucher discount)
-      const transactionAmount = userPoints;
-
-      // Process campaigns in order (sorted by expireDate, closest first)
-      for (const campaign of activeCampaigns) {
-        try {
-          const result = await voucherService.updateUserCampaignPoints(
-            campaign.voucherGroupId,
-            memberData.id,
-            memberData,
-            campaign,
-            transactionAmount,
-            isProduction
-          );
-
-          if (result.created || result.updated) {
-            console.log(
-              `Campaign points updated for ${campaign.voucherName}:`,
-              result
-            );
-            // Only update one campaign per transaction
-            break;
-          } else if (result.skipped) {
-            console.log(
-              `Campaign ${campaign.voucherName} skipped: ${result.reason}`
-            );
-            // Continue to next campaign
-          }
-        } catch (error) {
-          console.error(
-            `Error updating campaign points for ${campaign.voucherName}:`,
-            error
-          );
-          // Continue processing other campaigns
-        }
-      }
-    }
-
     // Use manually entered member data, or fall back to voucher member data
     const effectiveMemberData =
       memberData || (appliedVoucher?.voucherMemberData ?? null);
 
-    onPaymentComplete({
-      amountPaid,
-      change,
-      numericAmountPaid,
-      totalNumeric,
-      appliedVoucher,
-      originalTotal: total,
-      memberData: effectiveMemberData,
-      userPoints: userPoints,
-      isPaidViaQris: paymentMethod === "qris",
-    });
+    submissionInFlightRef.current = true;
+    try {
+      await onPaymentComplete({
+        amountPaid: numericAmountPaid.toLocaleString("id-ID"),
+        change,
+        numericAmountPaid,
+        totalNumeric,
+        appliedVoucher,
+        originalTotal: total,
+        memberData: effectiveMemberData,
+        userPoints,
+        paymentMethod,
+        qrisAmount: numericQris,
+        cashAmount:
+          paymentMethod === "cash"
+            ? totalNumeric
+            : paymentMethod === "split"
+            ? cashRequired
+            : 0,
+        cashTender: numericCashTender,
+        isPaidViaQris: paymentMethod === "qris",
+        activeCampaigns,
+      });
+    } finally {
+      submissionInFlightRef.current = false;
+    }
   };
 
   const handleClose = () => {

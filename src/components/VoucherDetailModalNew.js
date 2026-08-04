@@ -5,6 +5,7 @@ import { voucherService } from "../services/voucherService";
 import { generateVoucherProgramReportPdf } from "../services/voucherReportPdfService";
 import { jsPDF } from "jspdf";
 import JsBarcode from "jsbarcode";
+import { getVoucherRemainingBalance } from "../utils/voucherBalance";
 import "../styles/VoucherDetailModalNew.css";
 
 const loadImage = (src) =>
@@ -430,8 +431,7 @@ const VoucherDetailModalNew = ({
     : vouchers.filter(
         (v) =>
           v.isClaimed ||
-          (v.isOneTimeUse === false &&
-            (v.amountSpent || 0) >= v.value)
+          (v.isOneTimeUse === false && getVoucherRemainingBalance(v) <= 0)
       ).length;
   const redeemedCount = isCashbackCampaign
     ? vouchers.filter((v) => v.status === "REDEEMED").length
@@ -858,8 +858,8 @@ const VoucherDetailModalNew = ({
                                   )
                                 ) : voucher.isOneTimeUse === false ? (
                                   (() => {
-                                    const spent = voucher.amountSpent || 0;
-                                    const remaining = voucher.value - spent;
+                                    const remaining =
+                                      getVoucherRemainingBalance(voucher);
                                     if (remaining <= 0) {
                                       return (
                                         <span className="vd-badge vd-badge--redeemed">

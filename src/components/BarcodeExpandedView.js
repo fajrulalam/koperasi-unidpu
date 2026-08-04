@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import JsBarcode from 'jsbarcode';
+import { getVoucherRemainingBalance } from '../utils/voucherBalance';
 import '../styles/BarcodeExpandedView.css';
 
 const BarcodeExpandedView = ({ isOpen, onClose, voucher }) => {
@@ -64,7 +65,7 @@ const BarcodeExpandedView = ({ isOpen, onClose, voucher }) => {
           <span className="barcode-value">{formatCurrency(voucher.value)}</span>
           {voucher.isOneTimeUse === false && (
             <span className="barcode-remaining">
-              Sisa: {formatCurrency(voucher.value - (voucher.amountSpent || 0))}
+              Sisa: {formatCurrency(getVoucherRemainingBalance(voucher))}
             </span>
           )}
           <button className="close-button" onClick={onClose}>×</button>
