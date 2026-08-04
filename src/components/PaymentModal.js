@@ -325,8 +325,13 @@ const PaymentModal = ({
 
       // Validate voucher format & properties
       const validationResult = validateVoucher(voucherDoc);
-      if (!validationResult.valid) {
-        setVoucherError(validationResult.reason);
+      const isValid = validationResult.isValid ?? validationResult.valid;
+      if (!isValid) {
+        setVoucherError(
+          validationResult.message ||
+            validationResult.reason ||
+            "Voucher tidak valid"
+        );
         setIsCheckingVoucher(false);
         return;
       }
@@ -371,9 +376,10 @@ const PaymentModal = ({
         }
       }
 
-      let voucherValue = voucherDoc.nominal || 0;
+      let voucherValue = voucherDoc.nominal || voucherDoc.value || 0;
       if (voucherDoc.isOneTimeUse === false) {
-        voucherValue = voucherDoc.sisaSaldo ?? voucherDoc.nominal ?? 0;
+        voucherValue =
+          voucherDoc.sisaSaldo ?? voucherDoc.nominal ?? voucherDoc.value ?? 0;
       }
 
       if (voucherValue <= 0) {
@@ -384,13 +390,22 @@ const PaymentModal = ({
 
       setAppliedVoucher({
         id: voucherId.trim(),
-        name: voucherDoc.namaVoucher || "Voucher Diskon",
+        name:
+          voucherDoc.namaVoucher ||
+          voucherDoc.voucherName ||
+          "Voucher Diskon",
         value: voucherValue,
-        originalValue: voucherDoc.nominal || voucherValue,
+        originalValue:
+          voucherDoc.nominal || voucherDoc.value || voucherValue,
         memberName:
           memberInfo?.nama ||
+          voucherDoc.nama ||
           voucherDoc.namaAnggota ||
           "Anggota Koperasi",
+        nomorAnggota:
+          memberInfo?.nomorAnggota ||
+          voucherDoc.nomorAnggota ||
+          "",
         isOneTimeUse: voucherDoc.isOneTimeUse !== false,
         type: voucherDoc.type || "regular",
         voucherGroupId: voucherDoc.voucherGroupId || null,
@@ -780,29 +795,42 @@ const PaymentModal = ({
                   </>
                 ) : (
                   <div className="pm-applied-voucher">
-                    <div className="pm-voucher-details">
-                      <div className="pm-voucher-name">{appliedVoucher.name}</div>
-                      <div className="pm-voucher-member">
-                        {appliedVoucher.memberName}
-                      </div>
-                      {!appliedVoucher.isOneTimeUse && (
-                        <div className="pm-voucher-balance">
-                          Sisa saldo: {formatCurrency(appliedVoucher.value)} /{" "}
-                          {formatCurrency(appliedVoucher.originalValue)}
+                    <div className="pm-voucher-success-header">
+                      <span className="pm-voucher-success-badge">
+                        ✓ Voucher Valid Terdeteksi
+                      </span>
+                    </div>
+                    <div className="pm-applied-voucher-content">
+                      <div className="pm-voucher-details">
+                        <div className="pm-voucher-name">{appliedVoucher.name}</div>
+                        <div className="pm-voucher-member">
+                          👤 Pemilik: <strong>{appliedVoucher.memberName}</strong>
+                          {appliedVoucher.nomorAnggota && (
+                            <span className="pm-voucher-member-no">
+                              {" "}(No: {appliedVoucher.nomorAnggota})
+                            </span>
+                          )}
                         </div>
-                      )}
+                        {!appliedVoucher.isOneTimeUse && (
+                          <div className="pm-voucher-balance">
+                            Sisa saldo: {formatCurrency(appliedVoucher.value)} /{" "}
+                            {formatCurrency(appliedVoucher.originalValue)}
+                          </div>
+                        )}
+                      </div>
+                      <div className="pm-voucher-value">
+                        -{formatCurrency(Math.min(appliedVoucher.value, total))}
+                      </div>
+                      <button
+                        type="button"
+                        className="pm-remove-voucher"
+                        onClick={removeVoucher}
+                        disabled={isProcessing}
+                        title="Batalkan / Ganti Voucher"
+                      >
+                        ×
+                      </button>
                     </div>
-                    <div className="pm-voucher-value">
-                      -{formatCurrency(Math.min(appliedVoucher.value, total))}
-                    </div>
-                    <button
-                      type="button"
-                      className="pm-remove-voucher"
-                      onClick={removeVoucher}
-                      disabled={isProcessing}
-                    >
-                      ×
-                    </button>
                   </div>
                 )}
               </div>
