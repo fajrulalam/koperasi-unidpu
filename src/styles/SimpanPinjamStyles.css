@@ -11,6 +11,99 @@
   color: #333;
 }
 
+.installment-period-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.installment-period-modal {
+  width: min(440px, 100%);
+  padding: 24px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
+}
+
+.installment-period-modal h3 {
+  margin: 0 0 8px;
+  color: #0f172a;
+}
+
+.installment-period-description {
+  margin: 0 0 18px;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.installment-period-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+}
+
+.installment-period-summary strong {
+  color: #0f172a;
+}
+
+.installment-period-modal label {
+  display: block;
+  margin-bottom: 6px;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.installment-period-modal input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+}
+
+.installment-period-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.installment-period-actions button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 9px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.installment-period-actions button:first-child {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.installment-period-actions button:last-child {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.installment-period-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 /* Header styling */
 .simpan-pinjam-header h1 {
   font-size: 28px;

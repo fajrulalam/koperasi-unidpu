@@ -5,6 +5,7 @@ import RejectionModal from "./RejectionModal";
 import RevisionModal from "./RevisionModal";
 import PaymentProofModal from "./PaymentProofModal";
 import RestrukturisasiReviewModal from "./RestrukturisasiReviewModal";
+import InstallmentPeriodModal from "./InstallmentPeriodModal";
 import useSimpanPinjam from "./hooks/useSimpanPinjam";
 import "../styles/SimpanPinjamStyles.css";
 
@@ -58,8 +59,7 @@ const SimpanPinjam = () => {
     handleRejectDirect,
     handleRevise,
     handleReviseDirect,
-    handleMakePayment,
-    handleMarkComplete,
+    handleProgressInstallment,
     handleUploadPaymentProof,
     handleExportToExcel,
     handleUpdateBankDetails,
@@ -84,6 +84,8 @@ const SimpanPinjam = () => {
 
   // State for payment proof modal
   const [paymentProofLoan, setPaymentProofLoan] = useState(null);
+  const [installmentLoan, setInstallmentLoan] = useState(null);
+  const [installmentSubmitting, setInstallmentSubmitting] = useState(false);
 
   // State for restructuring review modal
   const [reviewingRestruktur, setReviewingRestruktur] = useState(null);
@@ -699,17 +701,12 @@ const SimpanPinjam = () => {
                 const canUploadProof =
                   userRole === "BAK" && loan.status === "Menunggu Transfer BAK";
 
-                const isPayableStatus =
-                  loan.status === "Disetujui dan Aktif" ||
-                  loan.status === "Menunggu Persetujuan Restrukturisasi";
-
-                const canMakePayment =
-                  isPayableStatus &&
-                  loan.jumlahMenyicil + 1 < loan.tenor;
-
-                const canMarkComplete =
-                  isPayableStatus &&
-                  loan.jumlahMenyicil + 1 >= loan.tenor;
+                const canProgressInstallment =
+                  loan.status === "Disetujui dan Aktif" &&
+                  (loan.jumlahMenyicil || 0) < (loan.tenor || 0);
+                const willPayOff =
+                  canProgressInstallment &&
+                  (loan.jumlahMenyicil || 0) + 1 >= (loan.tenor || 0);
 
                 const isDirector = userRole === "Direktur" || userRole === "Director";
 
@@ -843,25 +840,17 @@ const SimpanPinjam = () => {
                           </button>
                         )}
 
-                        {/* Payment Button */}
-                        {canMakePayment && (
+                        {/* Period-aware installment button */}
+                        {canProgressInstallment && (
                           <button
                             className="payment-btn"
-                            onClick={() => handleMakePayment(loan.id)}
-                            title="Catat Cicilan"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setInstallmentLoan(loan);
+                            }}
+                            title={willPayOff ? "Catat cicilan terakhir dan lunaskan" : "Catat cicilan"}
                           >
-                            💰 Cicil
-                          </button>
-                        )}
-
-                        {/* Mark Complete Button */}
-                        {canMarkComplete && (
-                          <button
-                            className="complete-btn"
-                            onClick={() => handleMarkComplete(loan.id)}
-                            title="Tandai Lunas"
-                          >
-                            ✔ Lunas
+                            {willPayOff ? "✔ Cicil & Lunaskan" : "💰 Cicil"}
                           </button>
                         )}
                       </div>
@@ -905,8 +894,7 @@ const SimpanPinjam = () => {
         <LoanDetailModal
           loan={viewingLoan}
           onClose={() => setViewingLoan(null)}
-          onMarkComplete={handleMarkComplete}
-          onMakePayment={handleMakePayment}
+          onProgressInstallment={(loan) => setInstallmentLoan(loan)}
           onUpdateBankDetails={handleUpdateBankDetails}
           onUpdateUserData={handleUpdateUserData}
           onViewLoan={async (loanId) => {
@@ -918,6 +906,27 @@ const SimpanPinjam = () => {
             }
           }}
           userRole={userRole}
+        />
+      )}
+
+      {installmentLoan && (
+        <InstallmentPeriodModal
+          loan={installmentLoan}
+          submitting={installmentSubmitting}
+          onClose={() => {
+            if (!installmentSubmitting) setInstallmentLoan(null);
+          }}
+          onSubmit={async (payrollPeriod) => {
+            setInstallmentSubmitting(true);
+            try {
+              await handleProgressInstallment(installmentLoan.id, payrollPeriod);
+              setInstallmentLoan(null);
+            } catch (installmentError) {
+              console.error("Period-aware installment failed:", installmentError);
+            } finally {
+              setInstallmentSubmitting(false);
+            }
+          }}
         />
       )}
 

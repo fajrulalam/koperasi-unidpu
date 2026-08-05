@@ -17,6 +17,18 @@ A modern Point of Sale (POS) and Inventory/Stock management application designed
 * **Row-Level Highlights (Tandai)**: Highlight problematic or low-stock items with a soft yellow warning background directly from the stock action menu.
 * **Pro-rated bulk pricing calculator**: Instantly calculates and displays unit prices when creating or modifying bulk conversions (e.g. showing `PACK (Rp 100/pcs)` dynamically).
 
+### 💳 Payroll-linked Simpan Pinjam
+* Internal-BAK previews every eligible active loan while a payroll draft is
+  saved. The sealed loan plan must equal the employee's Koperasi loan deduction.
+* **Verifikasi & Kunci** advances all loans in that employee's sealed plan in
+  one Firestore transaction. Deterministic period/loan markers make retries and
+  concurrent manual actions safe from duplicate installments.
+* A final installment records both `Pembayaran Cicilan` and `Lunas`, sets the
+  balance to zero, and records the completion time automatically.
+* Manual **Cicil** uses the same secured transition and requires an explicit
+  payroll month. Its default is the previous month through Jakarta day 5 and
+  the current month from day 6.
+
 ---
 
 ## 🛠️ Tech Stack
@@ -39,6 +51,23 @@ Builds the app for production in the `build/` directory, optimizing files for pe
 
 ### `./deploy.sh`
 Deploys the production build to Firebase hosting and redeploys the receipt-printing Firebase Cloud Functions.
+
+### Payroll bridge deployment
+
+The server bridge requires Node 20 and a shared HMAC secret of at least 32
+characters. Store the same value in Internal-BAK's server-only App Hosting
+secret; never place it in a `REACT_APP_*` variable.
+
+```bash
+firebase functions:secrets:set INTERNAL_PAYROLL_HMAC_SECRET
+firebase deploy --only functions:payrollLoanBridge,functions:recordManualLoanInstallment
+npm run build
+firebase deploy --only hosting
+```
+
+Deploy the bridge functions before Internal-BAK. During rollout, preview and
+resave all open-period payroll drafts and resolve ambiguous borrower matches or
+deduction mismatches before closing the period.
 
 ---
 

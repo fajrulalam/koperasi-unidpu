@@ -11,6 +11,7 @@ import {
 } from "firebase/auth";
 import { getNextMemberNumber } from "./utils/memberNumberUtils";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -33,6 +34,7 @@ void getAnalytics(app);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
 
 // List of collections that should never have testing versions
 const PRODUCTION_ONLY_COLLECTIONS = ["users", "settings", "stockSnapshots"];

@@ -131,8 +131,7 @@ const LoanDetailModal = ({
   onRevise,
   onReject,
   onUploadProof,
-  onMarkComplete,
-  onMakePayment,
+  onProgressInstallment,
   onUpdateBankDetails,
   onUpdateUserData,
   onViewLoan,
@@ -272,9 +271,8 @@ const LoanDetailModal = ({
     (userRole === "bak" || userRole === "direktur") &&
     loan.status === "Menunggu Transfer BAK";
 
-  const canMakePayment = isPayableStatus && currentPayment < totalPayments;
-  const canMarkComplete =
-    isPayableStatus && currentPayment >= totalPayments && totalPayments > 0;
+  const canProgressInstallment = isActive && currentPayment < totalPayments;
+  const willPayOff = canProgressInstallment && currentPayment + 1 >= totalPayments;
 
   const historyGroups = groupHistory(loan.history);
 
@@ -752,22 +750,13 @@ const LoanDetailModal = ({
                 Upload Bukti
               </button>
             )}
-            {canMakePayment && (
+            {canProgressInstallment && (
               <button
                 className="rrm-btn rrm-btn-approve"
-                onClick={() => onMakePayment(loan.id)}
+                onClick={() => onProgressInstallment(loan)}
                 disabled={actionLoading}
               >
-                Bayar Cicilan
-              </button>
-            )}
-            {canMarkComplete && (
-              <button
-                className="rrm-btn rrm-btn-approve"
-                onClick={() => onMarkComplete(loan.id)}
-                disabled={actionLoading}
-              >
-                Tandai Lunas
+                {willPayOff ? "Cicil & Lunaskan" : "Bayar Cicilan"}
               </button>
             )}
             {(loan.status === "Disetujui dan Aktif" ||

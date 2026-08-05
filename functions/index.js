@@ -23,6 +23,10 @@ const {
   initializeNominalTabungan,
   rollbackTabunganLog
 } = require('./incrementNominalTabungan');
+const {
+  payrollLoanBridge,
+  recordManualLoanInstallment,
+} = require('./payrollLoanFunctions');
 
 // Function that runs every day at 23:50 Jakarta time (UTC+7)
 exports.createDailyStockSnapshot = functions.pubsub
@@ -238,3 +242,5 @@ exports.incrementNominalTabungan = incrementNominalTabungan;
 exports.manualIncrementNominalTabungan = manualIncrementNominalTabungan;
 exports.initializeNominalTabungan = initializeNominalTabungan;
 exports.rollbackTabunganLog = rollbackTabunganLog;
+exports.payrollLoanBridge = payrollLoanBridge;
+exports.recordManualLoanInstallment = recordManualLoanInstallment;

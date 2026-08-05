@@ -12,8 +12,9 @@ import {
   orderBy,
   onSnapshot,
 } from "firebase/firestore";
-import { db, auth, storage, uploadFile, getEnvironmentCollectionPath } from "../../firebase";
+import { db, auth, storage, functions, getEnvironmentCollectionPath } from "../../firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { httpsCallable } from "firebase/functions";
 import { exportLoansToExcel } from "../../utils/exportUtils";
 import { useEnvironment } from "../../context/EnvironmentContext";
 
@@ -678,103 +679,29 @@ const useSimpanPinjam = () => {
     }
   };
 
-  // Handle making a payment
-  const handleMakePayment = async (loanId) => {
-    if (
-      !window.confirm("Apakah Anda yakin mencatat cicilan untuk pinjaman ini?")
-    ) {
-      return;
-    }
-
+  // The Cloud Function owns both the installment transition and its
+  // employee-period idempotency marker.
+  const handleProgressInstallment = async (loanId, payrollPeriod) => {
     try {
-      // Get the current loan document
-      const loanRef = doc(db, spPath, loanId);
-      const loanSnap = await getDoc(loanRef);
-
-      if (!loanSnap.exists()) {
-        throw new Error("Pinjaman tidak ditemukan");
-      }
-
-      // Get existing loan data
-      const loanData = loanSnap.data();
-      const currentHistory = loanData.history || [];
-      const currentPayments = loanData.jumlahMenyicil || 0;
-      const tenor = loanData.tenor || 0;
-
-      // Increment payment count
-      const newPaymentCount = currentPayments + 1;
-
-      // Create history entry with client-side timestamp
-      const newHistoryEntry = {
-        status: "Pembayaran Cicilan", // Use "Pembayaran Cicilan" as the status
-        timestamp: new Date(),
-        updatedBy: currentUser.uid,
-        notes: `${newPaymentCount}/${tenor}`,
-      };
-
-      const jumlahPinjaman = loanData.jumlahPinjaman || 0;
-      const newSisaHutang = calculateSisaHutang(jumlahPinjaman, newPaymentCount, tenor);
-
-      // Update the document with new payment count and history
-      await updateDoc(loanRef, {
-        jumlahMenyicil: newPaymentCount,
-        sisaHutang: newSisaHutang,
-        updatedAt: serverTimestamp(),
-        history: [...currentHistory, newHistoryEntry],
+      const recordInstallment = httpsCallable(functions, "recordManualLoanInstallment");
+      const response = await recordInstallment({
+        loanId,
+        payrollPeriod,
+        isProduction,
       });
-
-      setSuccess(`Cicilan ${newPaymentCount} dari ${tenor} berhasil dicatat`);
+      const result = response.data || {};
+      const message = result.outcome === "paid_off"
+        ? `Cicilan ${result.paidAfter}/${result.tenor} dicatat dan pinjaman dinyatakan lunas`
+        : result.outcome === "already_applied"
+          ? `Cicilan periode ${payrollPeriod} sudah pernah dicatat`
+          : `Cicilan ${result.paidAfter}/${result.tenor} berhasil dicatat`;
+      setSuccess(message);
+      setViewingLoan(null);
+      return result;
     } catch (error) {
       console.error("Error recording payment:", error);
-      setError("Gagal mencatat pembayaran cicilan");
-    }
-  };
-
-  // Handle marking a loan as complete
-  const handleMarkComplete = async (loanId) => {
-    if (
-      !window.confirm("Apakah Anda yakin menandai pinjaman ini sebagai Lunas?")
-    ) {
-      return;
-    }
-
-    try {
-      // Get the current loan document
-      const loanRef = doc(db, spPath, loanId);
-      const loanSnap = await getDoc(loanRef);
-
-      if (!loanSnap.exists()) {
-        throw new Error("Pinjaman tidak ditemukan");
-      }
-
-      // Get existing history
-      const loanData = loanSnap.data();
-      const currentHistory = loanData.history || [];
-      const tenor = loanData.tenor || 0;
-
-      // Create history entry with client-side timestamp
-      const newHistoryEntry = {
-        status: "Lunas",
-        timestamp: new Date(),
-        updatedBy: currentUser.uid,
-        notes: "Pinjaman telah dilunasi",
-      };
-
-      // Update the document with combined history
-      await updateDoc(loanRef, {
-        status: "Lunas",
-        jumlahMenyicil: tenor,
-        sisaHutang: 0,
-        tanggalPelunasan: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        history: [...currentHistory, newHistoryEntry],
-      });
-
-      setSuccess("Pinjaman berhasil ditandai sebagai lunas");
-      setViewingLoan(null);
-    } catch (error) {
-      console.error("Error marking loan as complete:", error);
-      setError("Gagal menandai pinjaman sebagai lunas");
+      setError(error?.message || "Gagal mencatat pembayaran cicilan");
+      throw error;
     }
   };
 
@@ -1206,8 +1133,7 @@ const useSimpanPinjam = () => {
     handleRejectDirect,
     handleRevise,
     handleReviseDirect,
-    handleMakePayment,
-    handleMarkComplete,
+    handleProgressInstallment,
     handleUploadPaymentProof,
     handleExportToExcel,
     handleUpdateBankDetails,
