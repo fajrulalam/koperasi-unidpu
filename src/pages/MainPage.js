@@ -26,9 +26,17 @@ import {
 import TailwindTest from "../components/TailwindTest";
 import TabunganLogs from "../components/TabunganLogs";
 import VoucherKoperasiPageNew from "./VoucherKoperasiPageNew";
+import MemberPreviewBanner from "../components/MemberPreviewBanner";
 
 const MainPage = () => {
-  const { currentUser, userRole, hasAccess } = useAuth();
+  const {
+    currentUser,
+    userRole,
+    hasAccess,
+    isMemberPreviewing,
+    previewMember,
+    stopMemberPreview,
+  } = useAuth();
   const { isProduction } = useEnvironment();
   const [activeComponent, setActiveComponent] = useState("Transaksi");
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -130,9 +138,30 @@ const MainPage = () => {
     setIsCollapsed((prev) => !prev);
   };
 
+  const handleExitMemberPreview = () => {
+    setActiveComponent("DaftarAnggotaBaru");
+    stopMemberPreview();
+  };
+
   // If not logged in, show login page
   if (!currentUser) {
     return <Login />;
+  }
+
+  if (isMemberPreviewing && previewMember) {
+    return (
+      <div className="member-preview-shell">
+        <MemberPreviewBanner
+          member={previewMember}
+          onExit={handleExitMemberPreview}
+        />
+        <MemberPage
+          previewMember={previewMember}
+          readOnly
+          onExitPreview={handleExitMemberPreview}
+        />
+      </div>
+    );
   }
 
   // If user is a Member, show the dedicated Member Page without sidebar

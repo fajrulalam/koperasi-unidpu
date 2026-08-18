@@ -63,7 +63,10 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 15px 20px;
+  gap: 12px;
+  min-height: 70px;
+  box-sizing: border-box;
+  padding: 12px 20px;
   background-color: var(--card-bg-color);
   border-bottom: 3px solid var(--border-color);
   box-shadow: 0 4px 0 0 rgba(0, 0, 0, 0.1);
@@ -79,6 +82,43 @@ body {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 1px;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 10px;
+}
+
+.nav-brand-logo {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  object-fit: cover;
+  border: 2px solid var(--border-color);
+  border-radius: 50%;
+}
+
+.nav-member-name {
+  min-width: 0;
+  max-width: min(52vw, 520px);
+  overflow: hidden;
+  color: var(--text-color);
+  font-size: clamp(15px, 2.5vw, 20px);
+  font-weight: 900;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-brand--testing .nav-member-name {
+  color: #fff;
+}
+
+.nav-brand--testing .nav-brand-logo {
+  border-color: #fff;
 }
 
 .nav-menu-button {
@@ -279,15 +319,20 @@ body {
 .member-page-container {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   min-height: 100vh;
-  padding-top: 70px; /* Height of the top nav */
+  width: 100%;
+  box-sizing: border-box;
+  padding: 70px 0 0; /* Height of the top nav */
+  background-color: var(--bg-color);
 }
 
 .member-content {
-  padding: 20px;
-  max-width: 800px;
-  margin: 0 auto;
   width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 24px;
   box-sizing: border-box;
 }
 
@@ -1490,6 +1535,21 @@ textarea.form-input {
     width: 250px;
   }
 
+  .nav-brand {
+    gap: 8px;
+  }
+
+  .nav-brand-logo {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+  }
+
+  .nav-member-name {
+    max-width: calc(100vw - 116px);
+    font-size: 16px;
+  }
+
   .voucher-item {
     flex-direction: column;
     align-items: flex-start;
@@ -1523,6 +1583,10 @@ textarea.form-input {
   .action-icon {
     margin-right: 15px;
     margin-bottom: 0;
+  }
+
+  .member-content {
+    padding: 16px 12px 24px;
   }
 }
 

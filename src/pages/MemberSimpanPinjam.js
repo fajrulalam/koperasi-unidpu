@@ -7,7 +7,11 @@ import RegistrationModal from "../components/RegistrationModal";
 import "../styles/Member.css";
 import "../styles/MemberLoanStyles.css";
 
-const MemberSimpanPinjam = ({ setActivePage }) => {
+const MemberSimpanPinjam = ({
+  setActivePage,
+  memberIdentity,
+  readOnly = false,
+}) => {
   const {
     // State
     userData,
@@ -55,7 +59,11 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
     getStatusBadgeClass,
     canApplyForLoan,
     hasPendingRestrukturisasi,
-  } = useMemberSimpanPinjam();
+  } = useMemberSimpanPinjam({ memberIdentity, readOnly });
+
+  const readOnlyTitle = readOnly
+    ? "Tindakan dinonaktifkan selama mode pratinjau"
+    : undefined;
 
   if (loading) {
     return (
@@ -80,6 +88,8 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
           <button
             className="brutal-button primary-button mt-4"
             onClick={() => setShowRegistrationModal(true)}
+            disabled={readOnly}
+            title={readOnlyTitle}
           >
             Aktifkan Keanggotaan
           </button>
@@ -145,7 +155,7 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
                   const canRestruktur = loan.status === "Disetujui dan Aktif" && !isPendingRestruktur;
 
                   return (
-                  <div key={loan.id} className="loan-card">
+                  <div key={loan.id} className="loan-card member-loan-card">
                     <div className="loan-header">
                       <h4>
                         Pinjaman #{loan.id.substring(0, 8)}
@@ -153,7 +163,11 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
                           <span className="restruktur-badge">Restrukturisasi</span>
                         )}
                       </h4>
-                      <span className={getStatusBadgeClass(loan.status)}>
+                      <span
+                        className={`member-loan-status ${getStatusBadgeClass(
+                          loan.status,
+                        )}`}
+                      >
                         {loan.status}
                       </span>
                     </div>
@@ -291,12 +305,16 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
                           <button
                             className="brutal-button primary-button"
                             onClick={() => handleTerimaRevisi(loan.id)}
+                            disabled={readOnly}
+                            title={readOnlyTitle}
                           >
                             Terima Revisi
                           </button>
                           <button
                             className="brutal-button error-button"
                             onClick={() => handleTolakRevisi(loan.id)}
+                            disabled={readOnly}
+                            title={readOnlyTitle}
                           >
                             Tolak Revisi
                           </button>
@@ -306,6 +324,8 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
                         <button
                           className="brutal-button secondary-button"
                           onClick={() => handleCancelLoan(loan.id)}
+                          disabled={readOnly}
+                          title={readOnlyTitle}
                         >
                           Batalkan
                         </button>
@@ -317,6 +337,8 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
                             setSelectedLoanForRestruktur(loan);
                             setShowRestrukturisasiModal(true);
                           }}
+                          disabled={readOnly}
+                          title={readOnlyTitle}
                         >
                           Restrukturisasi
                         </button>
@@ -344,6 +366,8 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
                   <button
                     className="brutal-button primary-button"
                     onClick={() => setShowPinjamanModal(true)}
+                    disabled={readOnly}
+                    title={readOnlyTitle}
                   >
                     Ajukan Pinjaman Baru
                   </button>
@@ -514,6 +538,7 @@ const MemberSimpanPinjam = ({ setActivePage }) => {
                 className="brutal-button primary-button"
                 onClick={() => setShowPinjamanModal(true)}
                 disabled={!canApplyForLoan()}
+                title={readOnlyTitle}
               >
                 Ajukan Pinjaman Baru
               </button>

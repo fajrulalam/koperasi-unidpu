@@ -472,3 +472,52 @@
     width: 100%;
   }
 }
+
+/* Keep long loan statuses readable without crowding the amount on mobile. */
+@media (max-width: 600px) {
+  .loan-item .loan-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+  }
+
+  .loan-item .loan-amount {
+    min-width: 0;
+    line-height: 1.15;
+  }
+
+  .loan-item .member-loan-status,
+  .member-loan-card .member-loan-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    justify-self: end;
+    width: fit-content;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0.35px;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: normal;
+    overflow-wrap: break-word;
+    border: 2px solid var(--border-color);
+    border-radius: 999px;
+  }
+
+  .member-loan-card .loan-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .member-loan-card .loan-header h4 {
+    min-width: 0;
+  }
+}

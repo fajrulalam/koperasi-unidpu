@@ -408,6 +408,7 @@
 
 .review-button,
 .edit-button,
+.preview-member-button,
 .approve-button,
 .reject-button,
 .save-button,
@@ -426,6 +427,25 @@
   align-items: center; /* Center content vertically */
   justify-content: center; /* Center content horizontally */
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* Subtle shadow for depth */
+}
+
+.preview-member-button {
+  gap: 6px;
+  color: #3730a3;
+  background-color: #eef2ff;
+  border-color: #a5b4fc;
+}
+
+.preview-member-button:hover:not(:disabled) {
+  color: #fff;
+  background-color: #4338ca;
+  border-color: #3730a3;
+  box-shadow: 0 2px 5px rgba(67, 56, 202, 0.25);
+}
+
+.preview-member-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .edit-button {
@@ -821,6 +841,7 @@
   .add-button,
   .review-button,
   .edit-button,
+  .preview-member-button,
   .approve-button,
   .reject-button,
   .save-button,

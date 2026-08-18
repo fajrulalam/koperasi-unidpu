@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { auth, getEnvironmentCollection } from "../firebase";
+import { getEnvironmentCollection } from "../firebase";
 import { query, where, orderBy, onSnapshot } from "firebase/firestore";
 import LoanDetailModalMember from "../components/LoanDetailModalMember";
 import MemberVoucherList from "../components/MemberVoucherList";
@@ -17,7 +17,6 @@ import {
   generateTransactionHistory,
   // getCurrentDate,
   getMembershipStatus,
-  getBalanceDisplay,
   getLoanButtonText,
   getStatusBadgeClass,
 } from "../utils/memberBerandaUtils";
@@ -25,8 +24,14 @@ import "../styles/Member.css";
 import "../styles/MemberLoanStyles.css";
 import "../styles/CampaignCards.css";
 
-const MemberBeranda = ({ setActivePage }) => {
+const MemberBeranda = ({
+  setActivePage,
+  memberIdentity,
+  readOnly = false,
+}) => {
   const { isProduction } = useEnvironment();
+  const memberDocId = memberIdentity?.docId || memberIdentity?.id || null;
+  const memberUid = memberIdentity?.uid || null;
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAllTransactions, setShowAllTransactions] = useState(false);
@@ -53,30 +58,30 @@ const MemberBeranda = ({ setActivePage }) => {
     const unsubscribe = setupUserDataListener(
       setUserData,
       setUserDocRef,
-      setLoading
+      setLoading,
+      { docId: memberDocId, uid: memberUid }
     );
     return () => {
       if (unsubscribe && typeof unsubscribe === "function") {
         unsubscribe();
       }
     };
-  }, []);
+  }, [memberDocId, memberUid]);
 
   // Setup active loans listener
   useEffect(() => {
-    if (!auth.currentUser) return;
-
     const unsubscribe = setupActiveLoansListener(
       setActiveLoans,
       setLoadingLoans,
-      isProduction
+      isProduction,
+      { docId: memberDocId, uid: memberUid }
     );
     return () => {
       if (unsubscribe && typeof unsubscribe === "function") {
         unsubscribe();
       }
     };
-  }, [isProduction]);
+  }, [isProduction, memberDocId, memberUid]);
 
   // Setup active campaigns listener
   useEffect(() => {
@@ -166,6 +171,8 @@ const MemberBeranda = ({ setActivePage }) => {
 
   // Handle claiming a campaign voucher
   const handleClaimCampaignVoucher = async (campaignId) => {
+    if (readOnly) return;
+
     const progress = campaignProgress[campaignId];
     if (!progress || !progress.id) return;
 
@@ -185,6 +192,8 @@ const MemberBeranda = ({ setActivePage }) => {
 
   // Handle membership status update
   const handleMembershipUpdate = () => {
+    if (readOnly) return;
+
     handleUpdateToActiveStatus(
       termsAgreed,
       userDocRef,
@@ -220,7 +229,6 @@ const MemberBeranda = ({ setActivePage }) => {
   if (loading) {
     return (
       <div className="member-content">
-        <h2 className="page-title">Beranda</h2>
         <div className="loading-message">Memuat data...</div>
       </div>
     );
@@ -228,56 +236,10 @@ const MemberBeranda = ({ setActivePage }) => {
 
   const { isInactive, isApproved } = getMembershipStatus(userData);
   const transactions = generateTransactionHistory();
-  const balanceDisplay = getBalanceDisplay(isInactive, userData);
   const loanButtonText = getLoanButtonText(activeLoans);
 
   return (
     <div className="member-content">
-      <h2 className="page-title">Beranda</h2>
-
-      <div className={`welcome-banner ${isInactive ? "inactive" : ""}`}>
-        <div className="welcome-message">
-          <span>Selamat datang,</span>
-          <h3>{userData?.nama || "Anggota"}</h3>
-          {isInactive ? (
-            <>
-              <p>Nomor Anggota: -</p>
-              <button
-                className="brutal-button primary-button activate-button"
-                style={{ backgroundColor: "#ffd166" }}
-                onClick={() => setShowRegistrationModal(true)}
-              >
-                Daftar Anggota Aktif
-              </button>
-            </>
-          ) : (
-            <p>Nomor Anggota: {userData?.nomorAnggota || "-"}</p>
-          )}
-        </div>
-
-        <div className="right-section">
-          {isInactive && <div className="inactive-stamp">NON AKTIF</div>}
-
-          <div className="balance-card">
-            <span className="balance-label">Saldo Simpanan</span>
-            <span className="balance-amount">
-              {balanceDisplay.currentBalance}
-            </span>
-            {balanceDisplay.nextPayment && (
-              <div className="next-payment-info">
-                <span className="next-payment-text">
-                  <span className="next-payment-amount">
-                    +{balanceDisplay.nextPayment.amount}
-                  </span>{" "}
-                  pada tanggal {balanceDisplay.nextPayment.date}{" "}
-                  {balanceDisplay.nextPayment.description}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
       {/* Campaign Points Section */}
       {isApproved && !loadingCampaigns && activeCampaigns.length > 0 && (
         <div className="campaign-section">
@@ -302,6 +264,7 @@ const MemberBeranda = ({ setActivePage }) => {
                 progress={campaignProgress[campaign.voucherGroupId]}
                 claimingVoucher={claimingVoucher}
                 onClaim={handleClaimCampaignVoucher}
+                readOnly={readOnly}
               />
             ))}
           </div>
@@ -335,6 +298,7 @@ const MemberBeranda = ({ setActivePage }) => {
         <MemberVoucherList
           onVoucherClick={handleVoucherClick}
           refreshTrigger={voucherRefreshTrigger}
+          memberIdentity={memberIdentity}
         />
       )}
 
@@ -395,6 +359,22 @@ const MemberBeranda = ({ setActivePage }) => {
             </div>
           </div>
         )}
+
+        {isInactive && (
+          <button
+            className="brutal-button primary-button activate-button member-activate-button"
+            style={{ backgroundColor: "#ffd166" }}
+            onClick={() => setShowRegistrationModal(true)}
+            disabled={readOnly}
+            title={
+              readOnly
+                ? "Tindakan dinonaktifkan selama mode pratinjau"
+                : undefined
+            }
+          >
+            Daftar Anggota Aktif
+          </button>
+        )}
       </div>
 
       {isApproved && (
@@ -422,7 +402,11 @@ const MemberBeranda = ({ setActivePage }) => {
                       <div className="loan-amount">
                         {formatCurrency(loan.jumlahPinjaman)}
                       </div>
-                      <div className={getStatusBadgeClass(loan.status)}>
+                      <div
+                        className={`member-loan-status ${getStatusBadgeClass(
+                          loan.status,
+                        )}`}
+                      >
                         {loan.status}
                       </div>
                     </div>
@@ -569,6 +553,7 @@ const MemberBeranda = ({ setActivePage }) => {
                     checked={termsAgreed}
                     onChange={() => setTermsAgreed(!termsAgreed)}
                     className="brutal-checkbox"
+                    disabled={readOnly}
                   />
                   <label htmlFor="termsAgreement" className="checkbox-label">
                     Saya bersedia menjadi anggota Koperasi dan menyetujui
@@ -594,7 +579,7 @@ const MemberBeranda = ({ setActivePage }) => {
                   !termsAgreed ? "button-disabled" : ""
                 }`}
                 onClick={handleMembershipUpdate}
-                disabled={!termsAgreed}
+                disabled={!termsAgreed || readOnly}
               >
                 Daftar
               </button>

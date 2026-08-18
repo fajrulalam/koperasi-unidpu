@@ -1,7 +1,13 @@
 import React from "react";
 import { formatCurrency } from "../utils/memberBerandaUtils";
 
-const CampaignCard = ({ campaign, progress, claimingVoucher, onClaim }) => {
+const CampaignCard = ({
+  campaign,
+  progress,
+  claimingVoucher,
+  onClaim,
+  readOnly = false,
+}) => {
   const userPoints = progress?.userPoints || 0;
   const threshold = campaign.threshold || 0;
   const progressPercent =
@@ -12,6 +18,7 @@ const CampaignCard = ({ campaign, progress, claimingVoucher, onClaim }) => {
   const isClaimed =
     progress?.status === "CLAIMED" || progress?.status === "REDEEMED";
   const isRedeemed = progress?.status === "REDEEMED";
+  const canClaimInteractively = canClaim && !readOnly;
 
   // Format expiry date
   const expireDate = campaign.expireDate?.toDate
@@ -20,7 +27,7 @@ const CampaignCard = ({ campaign, progress, claimingVoucher, onClaim }) => {
   const daysLeft = Math.ceil((expireDate - new Date()) / (1000 * 60 * 60 * 24));
 
   const handleClaimClick = () => {
-    if (canClaim && onClaim) {
+    if (canClaimInteractively && onClaim) {
       onClaim(campaign.voucherGroupId);
     }
   };
@@ -28,7 +35,7 @@ const CampaignCard = ({ campaign, progress, claimingVoucher, onClaim }) => {
   return (
     <div
       className={`campaign-card ${isClaimed ? "claimed" : ""} ${
-        canClaim ? "can-claim" : ""
+        canClaimInteractively ? "can-claim" : ""
       }`}
     >
       <div className="campaign-card-header">
@@ -79,12 +86,22 @@ const CampaignCard = ({ campaign, progress, claimingVoucher, onClaim }) => {
 
       {!isClaimed && (
         <button
-          className={`campaign-claim-btn ${canClaim ? "active" : "disabled"}`}
-          disabled={!canClaim || claimingVoucher === campaign.voucherGroupId}
+          className={`campaign-claim-btn ${canClaimInteractively ? "active" : "disabled"}`}
+          disabled={
+            !canClaimInteractively ||
+            claimingVoucher === campaign.voucherGroupId
+          }
           onClick={handleClaimClick}
+          title={
+            readOnly
+              ? "Klaim dinonaktifkan selama mode pratinjau"
+              : undefined
+          }
         >
           {claimingVoucher === campaign.voucherGroupId
             ? "Mengklaim..."
+            : readOnly && canClaim
+            ? "Mode Pratinjau — Klaim Dinonaktifkan"
             : canClaim
             ? "🎁 Klaim Voucher"
             : "Belum Memenuhi Target"}

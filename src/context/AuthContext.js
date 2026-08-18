@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -9,6 +15,13 @@ import {
   where,
   getDocs,
 } from "firebase/firestore";
+import {
+  MEMBER_PREVIEW_STORAGE_KEY,
+  buildMemberPreview,
+  canStartMemberPreview,
+  isMemberPreviewActor,
+  parseMemberPreviewSession,
+} from "../utils/memberPreview";
 
 const AuthContext = createContext();
 
@@ -17,7 +30,29 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [memberPreviewSession, setMemberPreviewSession] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return parseMemberPreviewSession(
+        window.sessionStorage.getItem(MEMBER_PREVIEW_STORAGE_KEY)
+      );
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(true);
+  const canPreviewMembers = isMemberPreviewActor(userRole);
+
+  const clearMemberPreview = useCallback(() => {
+    setMemberPreviewSession(null);
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem(MEMBER_PREVIEW_STORAGE_KEY);
+      } catch (error) {
+        console.warn("Unable to clear member preview session storage:", error);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -51,13 +86,83 @@ export const AuthProvider = ({ children }) => {
         }
       } else {
         setUserRole(null);
+        clearMemberPreview();
       }
 
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [clearMemberPreview]);
+
+  useEffect(() => {
+    if (
+      !loading &&
+      memberPreviewSession &&
+      (!currentUser ||
+        !canPreviewMembers ||
+        memberPreviewSession.actorUid !== currentUser.uid)
+    ) {
+      clearMemberPreview();
+    }
+  }, [
+    canPreviewMembers,
+    clearMemberPreview,
+    currentUser,
+    loading,
+    memberPreviewSession,
+  ]);
+
+  const startMemberPreview = async (member) => {
+    if (!currentUser || !canStartMemberPreview(userRole, member)) {
+      throw new Error(
+        "Hanya Wakil Rektor 2 yang dapat menggunakan pratinjau akun anggota."
+      );
+    }
+
+    const selectedDocId = member.docId || member.id;
+    const latestSnapshot = await getDoc(doc(db, "users", selectedDocId));
+
+    if (!latestSnapshot.exists()) {
+      throw new Error("Data anggota tidak ditemukan.");
+    }
+
+    const latestMember = buildMemberPreview({
+      id: latestSnapshot.id,
+      ...latestSnapshot.data(),
+    });
+
+    if (!latestMember) {
+      throw new Error("Akun yang dipilih bukan akun anggota yang valid.");
+    }
+
+    const session = {
+      actorUid: currentUser.uid,
+      member: latestMember,
+    };
+
+    setMemberPreviewSession(session);
+    try {
+      window.sessionStorage.setItem(
+        MEMBER_PREVIEW_STORAGE_KEY,
+        JSON.stringify(session)
+      );
+    } catch (error) {
+      console.warn("Unable to persist member preview session:", error);
+    }
+
+    return latestMember;
+  };
+
+  const stopMemberPreview = () => {
+    clearMemberPreview();
+  };
+
+  const previewMember = memberPreviewSession?.member || null;
+  const isMemberPreviewing =
+    canPreviewMembers &&
+    memberPreviewSession?.actorUid === currentUser?.uid &&
+    previewMember !== null;
 
   // Define access permissions based on role
   const hasAccess = (component) => {
@@ -166,6 +271,11 @@ export const AuthProvider = ({ children }) => {
     userRole,
     loading,
     hasAccess,
+    previewMember,
+    isMemberPreviewing,
+    canPreviewMembers,
+    startMemberPreview,
+    stopMemberPreview,
   };
 
   return (

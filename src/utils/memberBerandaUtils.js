@@ -1,13 +1,12 @@
-import { auth, db, getEnvironmentCollectionPath } from "../firebase";
+import { db, getEnvironmentCollectionPath } from "../firebase";
 import {
-  doc,
   query,
   collection,
   where,
-  getDocs,
   updateDoc,
   onSnapshot,
 } from "firebase/firestore";
+import { resolveMemberDocument } from "./memberIdentity";
 
 // Format currency to IDR
 export const formatCurrency = (amount) => {
@@ -138,114 +137,119 @@ export const getCurrentDate = () => {
 export const setupUserDataListener = (
   setUserData,
   setUserDocRef,
-  setLoading
+  setLoading,
+  memberIdentity
 ) => {
+  let unsubscribe = null;
+  let cancelled = false;
+
   const fetchUserData = async () => {
     try {
-      const user = auth.currentUser;
-      if (!user) return;
+      const resolvedMember = await resolveMemberDocument(db, memberIdentity);
+      if (cancelled) return;
 
-      // Try direct document match first
-      const docRef = doc(db, "users", user.uid);
+      if (!resolvedMember) {
+        setUserData(null);
+        setUserDocRef(null);
+        setLoading(false);
+        return;
+      }
 
-      // Set up real-time listener for user data
-      const unsubscribe = onSnapshot(
-        docRef,
-        (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            console.log("User data updated:", data);
-            console.log("Payment Status:", data.paymentStatus);
-            setUserData(data);
-            setUserDocRef(docRef);
-          } else {
-            // Try to find by uid field
-            const findByUid = async () => {
-              const q = query(
-                collection(db, "users"),
-                where("uid", "==", user.uid)
-              );
-              const querySnapshot = await getDocs(q);
+      const applySnapshot = (snapshot) => {
+        if (cancelled) return;
 
-              if (!querySnapshot.empty) {
-                const data = querySnapshot.docs[0].data();
-                console.log("User data found by uid:", data);
-                console.log("Payment Status (by uid):", data.paymentStatus);
-                setUserData(data);
-                setUserDocRef(doc(db, "users", querySnapshot.docs[0].id));
-              }
-            };
-            findByUid();
-          }
-          setLoading(false);
-        },
+        if (snapshot.exists()) {
+          setUserData({ ...snapshot.data(), docId: snapshot.id });
+          setUserDocRef(resolvedMember.ref);
+        } else {
+          setUserData(null);
+          setUserDocRef(null);
+        }
+        setLoading(false);
+      };
+
+      applySnapshot(resolvedMember.snapshot);
+      unsubscribe = onSnapshot(
+        resolvedMember.ref,
+        applySnapshot,
         (error) => {
+          if (cancelled) return;
           console.error("Error in user data listener:", error);
           setLoading(false);
         }
       );
-
-      return unsubscribe;
     } catch (error) {
+      if (cancelled) return;
       console.error("Error setting up user data listener:", error);
       setLoading(false);
     }
   };
 
-  return fetchUserData();
+  fetchUserData();
+
+  return () => {
+    cancelled = true;
+    if (unsubscribe) unsubscribe();
+  };
 };
 
 // Active loans fetching logic
-export const setupActiveLoansListener = (setActiveLoans, setLoadingLoans, isProduction = true) => {
-  const fetchActiveLoans = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return;
+export const setupActiveLoansListener = (
+  setActiveLoans,
+  setLoadingLoans,
+  isProduction = true,
+  memberIdentity
+) => {
+  const memberUid = memberIdentity?.uid;
+  if (!memberUid) {
+    setActiveLoans([]);
+    setLoadingLoans(false);
+    return () => {};
+  }
 
-      const spPath = getEnvironmentCollectionPath("simpanPinjam", isProduction);
-      const loansQuery = query(
-        collection(db, spPath),
-        where("userId", "==", user.uid)
-      );
+  try {
+    const spPath = getEnvironmentCollectionPath("simpanPinjam", isProduction);
+    const loansQuery = query(
+      collection(db, spPath),
+      where("userId", "==", memberUid)
+    );
 
-      // Use onSnapshot for real-time updates
-      const unsubscribe = onSnapshot(
-        loansQuery,
-        (snapshot) => {
-          // Filter loans to show only active ones (not rejected or finished)
-          const excludedStatuses = [
-            "Ditolak",
-            "Ditolak BAK",
-            "Ditolak Wakil Rektor 2",
-            "Lunas",
-            "Revisi Ditolak Anggota",
-            "Direstrukturisasi",
-            "Dibatalkan",
-          ];
-          const loansData = snapshot.docs
-            .map((doc) => ({
-              id: doc.id,
-              ...doc.data(),
-            }))
-            .filter((loan) => !excludedStatuses.includes(loan.status));
+    // Use onSnapshot for real-time updates
+    const unsubscribe = onSnapshot(
+      loansQuery,
+      (snapshot) => {
+        // Filter loans to show only active ones (not rejected or finished)
+        const excludedStatuses = [
+          "Ditolak",
+          "Ditolak BAK",
+          "Ditolak Wakil Rektor 2",
+          "Lunas",
+          "Revisi Ditolak Anggota",
+          "Direstrukturisasi",
+          "Dibatalkan",
+        ];
+        const loansData = snapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+          .filter((loan) => !excludedStatuses.includes(loan.status));
 
-          setActiveLoans(loansData);
-          setLoadingLoans(false);
-        },
-        (error) => {
-          console.error("Error fetching loans:", error);
-          setLoadingLoans(false);
-        }
-      );
+        setActiveLoans(loansData);
+        setLoadingLoans(false);
+      },
+      (error) => {
+        console.error("Error fetching loans:", error);
+        setLoadingLoans(false);
+      }
+    );
 
-      return unsubscribe;
-    } catch (error) {
-      console.error("Error setting up loans listener:", error);
-      setLoadingLoans(false);
-    }
-  };
-
-  return fetchActiveLoans();
+    return unsubscribe;
+  } catch (error) {
+    console.error("Error setting up loans listener:", error);
+    setLoadingLoans(false);
+    return () => {};
+  }
 };
 
 // Handle membership status update

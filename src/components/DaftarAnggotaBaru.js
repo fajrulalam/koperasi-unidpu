@@ -17,6 +17,7 @@ import {
 } from "../utils/memberBerandaUtils";
 import { exportMembersToExcel } from "../utils/exportUtils";
 import { useAuth } from "../context/AuthContext";
+import { FaEye } from "react-icons/fa";
 
 const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
   const [tooltipState, setTooltipState] = useState({
@@ -29,7 +30,24 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
     member: null,
   });
   const [successMessage, setSuccessMessage] = useState("");
-  const { hasAccess, userRole } = useAuth();
+  const [previewingMemberId, setPreviewingMemberId] = useState(null);
+  const {
+    hasAccess,
+    userRole,
+    canPreviewMembers,
+    startMemberPreview,
+  } = useAuth();
+
+  const handlePreviewMember = async (member) => {
+    setPreviewingMemberId(member.id);
+    try {
+      await startMemberPreview(member);
+    } catch (error) {
+      console.error("Error starting member preview:", error);
+      alert(error.message || "Gagal membuka pratinjau akun anggota.");
+      setPreviewingMemberId(null);
+    }
+  };
 
   // Handle tooltip visibility
   const handleMouseEnter = (event, member) => {
@@ -341,6 +359,20 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
                   </td>
                   <td>
                     <div className="action-buttons">
+                      {canPreviewMembers && (
+                        <button
+                          type="button"
+                          className="preview-member-button"
+                          onClick={() => handlePreviewMember(member)}
+                          disabled={previewingMemberId === member.id}
+                          title={`Lihat aplikasi sebagai ${member.nama || "anggota"}`}
+                        >
+                          <FaEye aria-hidden="true" />
+                          {previewingMemberId === member.id
+                            ? "Membuka..."
+                            : "Lihat sebagai"}
+                        </button>
+                      )}
                       {member.membershipStatus === "Pending" ? (
                         <button
                           className="review-button"

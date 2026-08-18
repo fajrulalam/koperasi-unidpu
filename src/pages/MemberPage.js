@@ -1,107 +1,104 @@
 import React, { useState, useEffect } from "react";
-import {
-  doc,
-  getDoc,
-  onSnapshot,
-  collection,
-  query,
-  where,
-  getDocs,
-} from "firebase/firestore";
+import { onSnapshot } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import MemberBeranda from "./MemberBeranda";
 import MemberVoucher from "./MemberVoucher";
 import MemberSimpanPinjam from "./MemberSimpanPinjam";
 import MemberSejarahBelanja from "./MemberSejarahBelanja";
 import { useEnvironment, isMemberWhitelisted } from "../context/EnvironmentContext";
+import { useAuth } from "../context/AuthContext";
+import { resolveMemberDocument } from "../utils/memberIdentity";
 import "../styles/Member.css";
 
-const MemberPage = () => {
+const MemberPage = ({
+  previewMember = null,
+  readOnly = false,
+  onExitPreview,
+}) => {
   const { isProduction, toggleEnvironment } = useEnvironment();
+  const { currentUser } = useAuth();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activePage, setActivePage] = useState("beranda");
+  const targetDocId = previewMember?.docId || previewMember?.id || null;
+  const targetUid = previewMember
+    ? previewMember.uid || null
+    : currentUser?.uid || null;
 
   useEffect(() => {
-    // Check for current user
-    const user = auth.currentUser;
-    if (!user) return;
+    let unsubscribe = null;
+    let cancelled = false;
 
-    // Try to find user document that contains the UID field
+    setLoading(true);
+    setUserData(null);
+
     const checkUserData = async () => {
       try {
-        // First check if user document exists with the user's UID as the document ID
-        const userDocRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(userDocRef);
+        const resolvedMember = await resolveMemberDocument(db, {
+          docId: targetDocId,
+          uid: targetUid,
+        });
 
-        if (docSnap.exists()) {
-          // User document found with direct ID match
-          setUserData({ ...docSnap.data(), docId: docSnap.id });
+        if (cancelled) return;
+
+        if (!resolvedMember) {
+          console.error("No user document found");
           setLoading(false);
           setRefreshing(false);
+          return;
+        }
 
-          // Set up real-time listener for future updates
-          const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
-            if (snapshot.exists()) {
-              setUserData({ ...snapshot.data(), docId: snapshot.id });
+        const applySnapshot = (snapshot) => {
+          if (cancelled) return;
+
+          if (snapshot.exists()) {
+            const memberData = snapshot.data();
+            if (
+              readOnly &&
+              memberData.role?.toString().trim() !== "Member"
+            ) {
+              setUserData(null);
+            } else {
+              setUserData({ ...memberData, docId: snapshot.id });
             }
-            setRefreshing(false);
-          });
+          }
+          setLoading(false);
+          setRefreshing(false);
+        };
 
-          return unsubscribe;
-        } else {
-          // If direct match not found, try to query by uid field
-          const q = query(
-            collection(db, "users"),
-            where("uid", "==", user.uid)
-          );
-          const querySnapshot = await getDocs(q);
-
-          if (!querySnapshot.empty) {
-            // Found a document with matching uid field
-            const userDoc = querySnapshot.docs[0];
-            setUserData({ ...userDoc.data(), docId: userDoc.id });
-
-            // Set up real-time listener for future updates
-            const userDocRef = doc(db, "users", userDoc.id);
-            const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
-              if (snapshot.exists()) {
-                setUserData({ ...snapshot.data(), docId: snapshot.id });
-              }
-              setRefreshing(false);
-            });
-
-            setLoading(false);
-            setRefreshing(false);
-            return unsubscribe;
-          } else {
-            // No document found at all
-            console.error("No user document found");
-            setUserData(null);
+        applySnapshot(resolvedMember.snapshot);
+        unsubscribe = onSnapshot(
+          resolvedMember.ref,
+          applySnapshot,
+          (error) => {
+            if (cancelled) return;
+            console.error("Error listening for user data:", error);
             setLoading(false);
             setRefreshing(false);
           }
-        }
+        );
       } catch (error) {
+        if (cancelled) return;
         console.error("Error fetching user data:", error);
         setUserData(null);
         setLoading(false);
         setRefreshing(false);
       }
-
-      // Return empty function if no unsubscribe was set
-      return () => {};
     };
 
-    const unsubscribe = checkUserData();
+    if (targetDocId || targetUid) {
+      checkUserData();
+    } else {
+      setLoading(false);
+    }
+
     return () => {
-      if (unsubscribe && typeof unsubscribe === "function") {
-        unsubscribe();
-      }
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
     };
-  }, []);
+  }, [readOnly, targetDocId, targetUid]);
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
@@ -121,6 +118,11 @@ const MemberPage = () => {
   };
 
   const handleLogout = async () => {
+    if (readOnly && onExitPreview) {
+      onExitPreview();
+      return;
+    }
+
     try {
       await auth.signOut();
       // The AuthContext will redirect to login
@@ -130,7 +132,7 @@ const MemberPage = () => {
   };
 
   const handleWhatsAppClick = () => {
-    if (!userData) return;
+    if (readOnly || !userData) return;
 
     // Format the WhatsApp number properly
     const nomorBuAna = "+6285604795346"; // Admin number
@@ -142,8 +144,26 @@ const MemberPage = () => {
     window.open(`https://wa.me/${nomorBuAna}?text=${message}`, "_blank");
   };
 
+  const renderNavBrand = () => (
+    <div className={`nav-brand ${!isProduction ? "nav-brand--testing" : ""}`}>
+      <img
+        src="/Kop%20URG%20Logo%20(Latest).png"
+        alt="Logo Koperasi Unipdu"
+        className="nav-brand-logo"
+      />
+      <span className="nav-member-name">
+        {userData?.nama || "Koperasi Unipdu"}
+      </span>
+    </div>
+  );
+
   const renderPage = () => {
     if (!userData) return null;
+
+    const memberIdentity = {
+      docId: userData.docId,
+      uid: userData.uid || targetUid,
+    };
 
     // For approved members, show the requested page
     if (
@@ -154,12 +174,24 @@ const MemberPage = () => {
         case "voucher":
           return <MemberVoucher />;
         case "simpanpinjam":
-          return <MemberSimpanPinjam setActivePage={setActivePage} />;
+          return (
+            <MemberSimpanPinjam
+              setActivePage={setActivePage}
+              memberIdentity={memberIdentity}
+              readOnly={readOnly}
+            />
+          );
         case "sejarahbelanja":
           return <MemberSejarahBelanja userData={userData} setActivePage={setActivePage} />;
         case "beranda":
         default:
-          return <MemberBeranda setActivePage={setActivePage} />;
+          return (
+            <MemberBeranda
+              setActivePage={setActivePage}
+              memberIdentity={memberIdentity}
+              readOnly={readOnly}
+            />
+          );
       }
     } else {
       // For pending members, always show the pending status page
@@ -190,6 +222,12 @@ const MemberPage = () => {
               <button
                 onClick={handleWhatsAppClick}
                 className="brutal-button primary-button"
+                disabled={readOnly}
+                title={
+                  readOnly
+                    ? "Tindakan dinonaktifkan selama mode pratinjau"
+                    : undefined
+                }
               >
                 Hubungi Admin via WhatsApp
               </button>
@@ -213,7 +251,7 @@ const MemberPage = () => {
     return (
       <div className="member-page-container">
         <div className="member-nav-container">
-          <div className="nav-logo">Koperasi Unipdu</div>
+          {renderNavBrand()}
           <button className="nav-menu-button">
             <span>☰</span>
           </button>
@@ -227,7 +265,7 @@ const MemberPage = () => {
     return (
       <div className="member-page-container">
         <div className="member-nav-container">
-          <div className="nav-logo">Koperasi Unipdu</div>
+          {renderNavBrand()}
           <button className="nav-menu-button">
             <span>☰</span>
           </button>
@@ -248,7 +286,9 @@ const MemberPage = () => {
                 onClick={handleLogout}
                 className="brutal-button primary-button"
               >
-                Keluar dan Kembali ke Login
+                {readOnly
+                  ? "Kembali ke Daftar Anggota"
+                  : "Keluar dan Kembali ke Login"}
               </button>
             </div>
           </div>
@@ -271,9 +311,7 @@ const MemberPage = () => {
             : undefined
         }
       >
-        <div className="nav-logo" style={!isProduction ? { color: "#fff" } : undefined}>
-          Koperasi Unipdu
-        </div>
+        {renderNavBrand()}
         {!isProduction && (
           <span className="nav-testing-badge">TESTING</span>
         )}
@@ -352,7 +390,9 @@ const MemberPage = () => {
             </>
           )}
 
-          {userData?.docId && isMemberWhitelisted(userData.docId) && (
+          {!readOnly &&
+            userData?.docId &&
+            isMemberWhitelisted(userData.docId) && (
             <div className="menu-env-toggle">
               <span className="menu-env-label">
                 {isProduction ? "Production" : "Testing"}
@@ -366,7 +406,7 @@ const MemberPage = () => {
             </div>
           )}
           <div className="menu-logout" onClick={handleLogout}>
-            Keluar
+            {readOnly ? "Kembali ke Daftar Anggota" : "Keluar"}
           </div>
         </div>
       </div>

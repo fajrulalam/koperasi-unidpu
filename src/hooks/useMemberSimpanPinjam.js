@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
-import { auth, db, getEnvironmentCollectionPath } from "../firebase";
+import { db, getEnvironmentCollectionPath } from "../firebase";
 import {
   doc,
   getDoc,
   query,
   collection,
   where,
-  getDocs,
   updateDoc,
   addDoc,
   serverTimestamp,
   onSnapshot,
 } from "firebase/firestore";
 import { useEnvironment } from "../context/EnvironmentContext";
+import { resolveMemberDocument } from "../utils/memberIdentity";
 
 const calculateFee = (jumlahPinjaman) => {
   if (jumlahPinjaman > 8000000) return 500000;
@@ -23,9 +23,14 @@ const calculateFee = (jumlahPinjaman) => {
   return 0;
 };
 
-export const useMemberSimpanPinjam = () => {
+export const useMemberSimpanPinjam = ({
+  memberIdentity,
+  readOnly = false,
+} = {}) => {
   const { isProduction } = useEnvironment();
   const spPath = getEnvironmentCollectionPath("simpanPinjam", isProduction);
+  const memberDocId = memberIdentity?.docId || memberIdentity?.id || null;
+  const memberUid = memberIdentity?.uid || null;
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userDocRef, setUserDocRef] = useState(null);
@@ -52,6 +57,8 @@ export const useMemberSimpanPinjam = () => {
   const handleTogglePinjamanModal = (isOpen) => {
     // If isOpen is undefined or true, open the modal
     if (isOpen === undefined || isOpen === true) {
+      if (readOnly) return;
+
       // Prefill bank details from user data if available
       if (userData?.bankDetails) {
         setPinjamanForm((prev) => ({
@@ -74,6 +81,22 @@ export const useMemberSimpanPinjam = () => {
   const [selectedLoanForHistory, setSelectedLoanForHistory] = useState(null);
   const [showRestrukturisasiModal, setShowRestrukturisasiModal] = useState(false);
   const [selectedLoanForRestruktur, setSelectedLoanForRestruktur] = useState(null);
+
+  const blockReadOnlyAction = () => {
+    if (!readOnly) return false;
+    alert("Tindakan ini dinonaktifkan selama mode pratinjau anggota.");
+    return true;
+  };
+
+  const handleSetRegistrationModal = (isOpen) => {
+    if (isOpen && readOnly) return;
+    setShowRegistrationModal(isOpen);
+  };
+
+  const handleSetRestrukturisasiModal = (isOpen) => {
+    if (isOpen && readOnly) return;
+    setShowRestrukturisasiModal(isOpen);
+  };
 
   // Define loan status categories
   const activeLoanStatuses = [
@@ -113,38 +136,46 @@ export const useMemberSimpanPinjam = () => {
 
   // Fetch user data
   useEffect(() => {
+    let cancelled = false;
+
     const fetchUserData = async () => {
       try {
-        const user = auth.currentUser;
-        if (!user) return;
+        setLoading(true);
+        const resolvedMember = await resolveMemberDocument(db, {
+          docId: memberDocId,
+          uid: memberUid,
+        });
 
-        const docRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(docRef);
+        if (cancelled) return;
 
-        if (docSnap.exists()) {
-          setUserData(docSnap.data());
-          setUserDocRef(docRef);
+        if (resolvedMember) {
+          setUserData({
+            ...resolvedMember.snapshot.data(),
+            docId: resolvedMember.snapshot.id,
+          });
+          setUserDocRef(resolvedMember.ref);
         } else {
-          const q = query(
-            collection(db, "users"),
-            where("uid", "==", user.uid)
-          );
-          const querySnapshot = await getDocs(q);
-
-          if (!querySnapshot.empty) {
-            setUserData(querySnapshot.docs[0].data());
-            setUserDocRef(doc(db, "users", querySnapshot.docs[0].id));
-          }
+          setUserData(null);
+          setUserDocRef(null);
         }
       } catch (error) {
+        if (cancelled) return;
         console.error("Error fetching user data:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchUserData();
-  }, []);
+    if (memberDocId || memberUid) {
+      fetchUserData();
+    } else {
+      setLoading(false);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [memberDocId, memberUid]);
 
   // Fetch user's loans
   useEffect(() => {
@@ -184,6 +215,8 @@ export const useMemberSimpanPinjam = () => {
 
   const handleSimpananSubmit = (e) => {
     e.preventDefault();
+    if (blockReadOnlyAction()) return;
+
     console.log("Simpanan form submitted:", simpananForm);
     alert("Pengajuan simpanan berhasil dikirim!");
     setSimpananForm({
@@ -194,6 +227,7 @@ export const useMemberSimpanPinjam = () => {
   };
 
   const handleUpdateToActiveStatus = async () => {
+    if (blockReadOnlyAction()) return;
     if (!termsAgreed || !userDocRef) return;
 
     try {
@@ -315,12 +349,14 @@ export const useMemberSimpanPinjam = () => {
 
   // Check if user can apply for a new loan
   const canApplyForLoan = () => {
-    return activeLoans.length === 0;
+    return !readOnly && activeLoans.length === 0;
   };
 
   // Handle loan submission
   const handlePinjamanSubmit = async (e) => {
     e.preventDefault();
+    if (blockReadOnlyAction()) return;
+
     setIsSubmitting(true);
     setError("");
 
@@ -403,6 +439,8 @@ export const useMemberSimpanPinjam = () => {
 
   // Handle accept revision
   const handleTerimaRevisi = async (loanId) => {
+    if (blockReadOnlyAction()) return;
+
     try {
       const loanRef = doc(db, spPath, loanId);
       const loanSnap = await getDoc(loanRef);
@@ -493,6 +531,8 @@ export const useMemberSimpanPinjam = () => {
 
   // Handle decline revision
   const handleTolakRevisi = async (loanId) => {
+    if (blockReadOnlyAction()) return;
+
     if (
       !window.confirm(
         "Apakah Anda yakin ingin menolak revisi dari BAK? Pengajuan pinjaman akan ditolak."
@@ -564,6 +604,8 @@ export const useMemberSimpanPinjam = () => {
 
   // Handle restructuring submission
   const handleRestrukturisasi = async (data) => {
+    if (blockReadOnlyAction()) return;
+
     setIsSubmitting(true);
     setError("");
     try {
@@ -652,6 +694,8 @@ export const useMemberSimpanPinjam = () => {
 
   // Handle cancel loan
   const handleCancelLoan = async (loanId) => {
+    if (blockReadOnlyAction()) return;
+
     if (
       !window.confirm(
         "Apakah Anda yakin ingin membatalkan pengajuan pinjaman ini?"
@@ -744,13 +788,13 @@ export const useMemberSimpanPinjam = () => {
     // Setters
     setActiveTab,
     setShowPastLoans,
-    setShowRegistrationModal,
+    setShowRegistrationModal: handleSetRegistrationModal,
     setTermsAgreed,
     setShowPinjamanModal: handleTogglePinjamanModal,
     setShowLoanHistoryModal,
     setSelectedLoanForHistory,
     setPinjamanForm,
-    setShowRestrukturisasiModal,
+    setShowRestrukturisasiModal: handleSetRestrukturisasiModal,
     setSelectedLoanForRestruktur,
 
     // Handlers

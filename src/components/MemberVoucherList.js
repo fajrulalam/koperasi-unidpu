@@ -1,71 +1,47 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { voucherService } from "../services/voucherService";
-import { auth, db } from "../firebase";
-import {
-  doc,
-  getDoc,
-  query,
-  collection,
-  where,
-  getDocs,
-} from "firebase/firestore";
+import { db } from "../firebase";
 import MemberVoucherTile from "./MemberVoucherTile";
 import { getVoucherRemainingBalance } from "../utils/voucherBalance";
+import { resolveMemberDocument } from "../utils/memberIdentity";
 import "../styles/MemberVoucherList.css";
 
-const MemberVoucherList = ({ onVoucherClick, refreshTrigger }) => {
+const MemberVoucherList = ({
+  onVoucherClick,
+  refreshTrigger,
+  memberIdentity,
+}) => {
   const { isProduction } = useEnvironment();
   const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const memberDocId = memberIdentity?.docId || memberIdentity?.id || null;
+  const memberUid = memberIdentity?.uid || null;
 
-  useEffect(() => {
-    fetchUserVouchers();
-  }, [isProduction, refreshTrigger]);
-
-  const getUserDocumentId = async (currentUser) => {
-    try {
-      // Try direct document match first
-      const docRef = doc(db, "users", currentUser.uid);
-      const snapshot = await getDoc(docRef);
-
-      if (snapshot.exists()) {
-        return currentUser.uid;
-      } else {
-        // Try to find by uid field
-        const q = query(
-          collection(db, "users"),
-          where("uid", "==", currentUser.uid)
-        );
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-          return querySnapshot.docs[0].id;
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error("Error getting user document ID:", error);
-      return null;
-    }
-  };
-
-  const fetchUserVouchers = async () => {
+  const fetchUserVouchers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        setError("User not authenticated");
+      if (!memberDocId && !memberUid) {
+        setError("Identitas anggota tidak ditemukan");
         return;
       }
 
-      // Get user's document ID
-      const userDocId = await getUserDocumentId(currentUser);
+      let userDocId = memberDocId;
+      let targetUid = memberUid;
+
       if (!userDocId) {
-        setError("User document not found");
+        const resolvedMember = await resolveMemberDocument(db, {
+          uid: memberUid,
+        });
+        userDocId = resolvedMember?.snapshot.id || null;
+        targetUid = resolvedMember?.snapshot.data()?.uid || targetUid;
+      }
+
+      if (!userDocId) {
+        setError("Data anggota tidak ditemukan");
         return;
       }
 
@@ -78,8 +54,9 @@ const MemberVoucherList = ({ onVoucherClick, refreshTrigger }) => {
         );
       } catch (error1) {
         try {
+          if (!targetUid) throw error1;
           allVouchers = await voucherService.getAllVouchersByUserId(
-            currentUser.uid,
+            targetUid,
             isProduction
           );
         } catch (error2) {
@@ -112,7 +89,11 @@ const MemberVoucherList = ({ onVoucherClick, refreshTrigger }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isProduction, memberDocId, memberUid]);
+
+  useEffect(() => {
+    fetchUserVouchers();
+  }, [fetchUserVouchers, refreshTrigger]);
 
   if (loading) {
     return (
