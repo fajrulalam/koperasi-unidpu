@@ -1,5 +1,6 @@
 // src/services/transactionService.js
 import { convertToSmallestUnit, CONVERSION_TABLE } from '../utils/transaksiUtils';
+import { getUnitCost, toFiniteNumber } from '../utils/profitUtils';
 import { printReceipt as printerServicePrint } from './PrinterService';
 
 export const processTransaction = async (
@@ -104,8 +105,8 @@ export const processTransaction = async (
         throw new Error(`Product ${product.id} not found in stock`);
       }
 
-      const currentStock = stockData.stock;
-      const stockValue = stockData.stockValue;
+      const currentStock = toFiniteNumber(stockData.stock) ?? 0;
+      const stockValue = Math.max(0, toFiniteNumber(stockData.stockValue) ?? 0);
 
       let convertedQty = convertToSmallestUnit(
         product.quantity,
@@ -116,7 +117,9 @@ export const processTransaction = async (
         }
       );
 
-      const stockWorthPerUnit = stockValue / currentStock;
+      // Use the same cost basis as the stock screen, with a safe fallback
+      // when stockValue/currentStock cannot produce a valid average.
+      const stockWorthPerUnit = getUnitCost(stockData);
       const transactionStockWorth = stockWorthPerUnit * convertedQty;
 
       // Check if this item has a stock discrepancy
@@ -128,6 +131,7 @@ export const processTransaction = async (
         
       // Create a stock transaction with environment awareness and discrepancy flag
       await createDoc("stockTransactions", {
+        transactionId,
         itemId: product.id,
         itemName: product.name,
         kategori: stockData.kategori,
@@ -141,6 +145,7 @@ export const processTransaction = async (
         timestampInMillisEpoch: serverTimestamp(),
         transactionType: "penjualan",
         transactionVia: "pointOfSales",
+        costPrice: stockWorthPerUnit,
         stockWorth: isDiscrepant ? 
           (stockWorthPerUnit * actualStockReduction) :
           transactionStockWorth,

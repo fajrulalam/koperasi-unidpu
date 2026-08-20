@@ -15,6 +15,7 @@ import {
   filterItemsBySearch,
   getInitialDateRange,
 } from "../services/transactionHistoryService";
+import { getSaleCost } from "../utils/profitUtils";
 import { printReceipt } from "../services/PrinterService";
 import DayBreakdownDialog from "./DayBreakdownDialog";
 import ItemDetailDialog from "./ItemDetailDialog";
@@ -24,6 +25,13 @@ const TABS = [
   { id: "Transactions", label: "Per Transaksi" },
   { id: "Items", label: "Per Item" },
 ];
+
+const createStockLookup = (stocks) =>
+  (stocks || []).reduce((lookup, stock) => {
+    lookup[stock.id] = stock;
+    if (stock.itemId) lookup[stock.itemId] = stock;
+    return lookup;
+  }, {});
 
 const SejarahTransaksi = () => {
   const { queryCollection, query, where, orderBy } = useFirestore();
@@ -63,6 +71,7 @@ const SejarahTransaksi = () => {
   const [itemsData, setItemsData] = useState([]);
   const [filteredItemsData, setFilteredItemsData] = useState([]);
   const [stockTransactions, setStockTransactions] = useState([]);
+  const [stockDataById, setStockDataById] = useState({});
 
   // UI states
   const [loading, setLoading] = useState(false);
@@ -81,6 +90,42 @@ const SejarahTransaksi = () => {
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
   const [itemTransactions, setItemTransactions] = useState([]);
+
+  const findMatchingStockTransaction = (tx, item) => {
+    if (!item?.itemId) return null;
+
+    const linkedTransaction = tx.id
+      ? stockTransactions.find(
+          (stockTx) =>
+            stockTx.transactionId === tx.id && stockTx.itemId === item.itemId
+        )
+      : null;
+    if (linkedTransaction) return linkedTransaction;
+
+    const txSeconds = tx.timestamp?.seconds;
+    return stockTransactions.find((stockTx) => {
+      const stockTxSeconds =
+        stockTx.timestampInMillisEpoch?.seconds || stockTx.timestamp?.seconds;
+      return (
+        stockTxSeconds &&
+        txSeconds &&
+        Math.abs(stockTxSeconds - txSeconds) <= 2 &&
+        stockTx.itemId === item.itemId
+      );
+    });
+  };
+
+  const getItemCost = (tx, item) => {
+    const matchingStockTx = findMatchingStockTransaction(tx, item);
+    const saleRecord = matchingStockTx || item;
+    const fallbackQuantity = matchingStockTx?.quantity ?? item.quantity ?? 0;
+
+    return getSaleCost(
+      saleRecord,
+      stockDataById[item.itemId] || {},
+      fallbackQuantity
+    );
+  };
 
   // Fetch daily transactions from transactionDetail collection
   const fetchDailyTransactions = useCallback(async () => {
@@ -123,18 +168,25 @@ const SejarahTransaksi = () => {
       // Fetch stockTransactions for matching cost/profit if user is admin
       if (showProfit) {
         console.log("Fetching stock transactions for profit matching...");
-        const stockTxs = await queryCollection(
-          "stockTransactions",
-          (collectionRef) =>
-            query(
-              collectionRef,
-              where("transactionType", "==", "penjualan"),
-              where("timestampInMillisEpoch", ">=", cutoff),
-              orderBy("timestampInMillisEpoch", "desc")
-            )
-        );
+        const [stockTxs, stocks] = await Promise.all([
+          queryCollection(
+            "stockTransactions",
+            (collectionRef) =>
+              query(
+                collectionRef,
+                where("transactionType", "==", "penjualan"),
+                where("timestampInMillisEpoch", ">=", cutoff),
+                orderBy("timestampInMillisEpoch", "desc")
+              )
+          ),
+          queryCollection("stocks"),
+        ]);
         console.log(`Fetched ${stockTxs.length} stock transactions for profit matching`);
         setStockTransactions(stockTxs);
+        setStockDataById(createStockLookup(stocks));
+      } else {
+        setStockTransactions([]);
+        setStockDataById({});
       }
     } catch (err) {
       console.error("Error fetching daily transactions:", err);
@@ -165,7 +217,7 @@ const SejarahTransaksi = () => {
         : "stockTransactions_testing";
       console.log(`Querying penjualan from: ${actualPath}`);
 
-      const transactions = await queryCollection(
+      const transactionsQuery = queryCollection(
         "stockTransactions",
         (collectionRef) =>
           query(
@@ -176,10 +228,30 @@ const SejarahTransaksi = () => {
             orderBy("timestampInMillisEpoch", "desc")
           )
       );
+      const [transactions, stocks] = await Promise.all([
+        transactionsQuery,
+        showProfit ? queryCollection("stocks") : Promise.resolve([]),
+      ]);
+      const stockLookup = createStockLookup(stocks);
+      setStockDataById(stockLookup);
+
+      const transactionsWithResolvedCost = showProfit
+        ? transactions.map((tx) => ({
+            ...tx,
+            stockWorth: getSaleCost(
+              tx,
+              stockLookup[tx.itemId] || {},
+              tx.quantity || 0
+            ),
+          }))
+        : transactions;
 
       console.log(`Fetched ${transactions.length} penjualan transactions`);
 
-      const grouped = groupTransactionsByItem(transactions);
+      const grouped = groupTransactionsByItem(
+        transactionsWithResolvedCost,
+        stockLookup
+      );
       const sorted = sortItems(
         grouped,
         itemSortConfig.key,
@@ -201,6 +273,7 @@ const SejarahTransaksi = () => {
     where,
     orderBy,
     itemSortConfig,
+    showProfit,
   ]);
 
   // Effects
@@ -408,19 +481,9 @@ const SejarahTransaksi = () => {
             .join(", ");
 
           let txTotalCost = 0;
-          if (showProfit && stockTransactions.length > 0) {
+          if (showProfit) {
             tx.items?.forEach((item) => {
-              const txSeconds = tx.timestamp?.seconds;
-              const matchingStockTx = stockTransactions.find((st) => {
-                const stSeconds = st.timestampInMillisEpoch?.seconds || st.timestamp?.seconds;
-                return (
-                  stSeconds &&
-                  txSeconds &&
-                  Math.abs(stSeconds - txSeconds) <= 2 &&
-                  st.itemId === item.itemId
-                );
-              });
-              txTotalCost += matchingStockTx ? (matchingStockTx.stockWorth || 0) : 0;
+              txTotalCost += getItemCost(tx, item);
             });
           }
           const txTotalProfit = tx.total - txTotalCost;
@@ -781,20 +844,7 @@ const SejarahTransaksi = () => {
                   dayGroup.transactions.forEach((tx) => {
                     let txProfit = 0;
                     tx.items?.forEach((item) => {
-                      let cost = 0;
-                      if (stockTransactions.length > 0) {
-                        const txSeconds = tx.timestamp?.seconds;
-                        const matchingStockTx = stockTransactions.find((st) => {
-                          const stSeconds = st.timestampInMillisEpoch?.seconds || st.timestamp?.seconds;
-                          return (
-                            stSeconds &&
-                            txSeconds &&
-                            Math.abs(stSeconds - txSeconds) <= 2 &&
-                            st.itemId === item.itemId
-                          );
-                        });
-                        cost = matchingStockTx ? (matchingStockTx.stockWorth || 0) : 0;
-                      }
+                      const cost = getItemCost(tx, item);
                       txProfit += (item.subtotal - cost);
                     });
                     dayTotalProfit += txProfit;
@@ -842,25 +892,10 @@ const SejarahTransaksi = () => {
                           });
 
                           // Calculate profit if admin
-                          let txTotalCost = 0;
                           let txTotalProfit = 0;
                           const txItemsWithProfit = tx.items?.map((item) => {
-                            let cost = 0;
-                            if (showProfit && stockTransactions.length > 0) {
-                              const txSeconds = tx.timestamp?.seconds;
-                              const matchingStockTx = stockTransactions.find((st) => {
-                                const stSeconds = st.timestampInMillisEpoch?.seconds || st.timestamp?.seconds;
-                                return (
-                                  stSeconds &&
-                                  txSeconds &&
-                                  Math.abs(stSeconds - txSeconds) <= 2 &&
-                                  st.itemId === item.itemId
-                                );
-                              });
-                              cost = matchingStockTx ? (matchingStockTx.stockWorth || 0) : 0;
-                            }
+                            const cost = showProfit ? getItemCost(tx, item) : 0;
                             const profit = item.subtotal - cost;
-                            txTotalCost += cost;
                             txTotalProfit += profit;
                             return { ...item, cost, profit };
                           });

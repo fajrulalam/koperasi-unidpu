@@ -17,6 +17,7 @@ import {
   getIncrement,
   CONVERSION_TABLE,
 } from "../utils/transaksiUtils";
+import { getUnitCost, toFiniteNumber } from "../utils/profitUtils";
 
 // Utility function to set local print server URL (can be called from settings)
 export const setLocalPrintServer = (url = "http://localhost:9001") => {
@@ -767,8 +768,8 @@ const Transaksi = () => {
           throw new Error(`Product ${product.id} not found in stock`);
         }
 
-        const currentStock = stockData.stock;
-        const stockValue = stockData.stockValue;
+        const currentStock = toFiniteNumber(stockData.stock) ?? 0;
+        const stockValue = Math.max(0, toFiniteNumber(stockData.stockValue) ?? 0);
 
         // Convert transaction quantity to the smallest unit using your helper.
         // Our updated function now correctly handles all unit conversions
@@ -780,7 +781,9 @@ const Transaksi = () => {
 
         // Stock has already been verified in the first step, so we can proceed
 
-        const stockWorthPerUnit = stockValue / currentStock;
+        // Keep sale cost aligned with the stock screen. Fall back to the
+        // recorded purchase price when stockValue/currentStock is unavailable.
+        const stockWorthPerUnit = getUnitCost(stockData);
         const transactionStockWorth = stockWorthPerUnit * convertedQty;
 
         // Check if this item has a stock discrepancy
@@ -795,6 +798,7 @@ const Transaksi = () => {
 
         // Create a stock transaction with environment awareness and discrepancy flag
         await createDoc("stockTransactions", {
+          transactionId,
           itemId: product.id,
           itemName: product.name,
           kategori: stockData.kategori,
@@ -808,6 +812,7 @@ const Transaksi = () => {
           timestampInMillisEpoch: serverTimestamp(),
           transactionType: "penjualan",
           transactionVia: "pointOfSales",
+          costPrice: stockWorthPerUnit,
           stockWorth: isDiscrepant
             ? stockWorthPerUnit * actualStockReduction // Only count worth of actual stock used
             : transactionStockWorth,

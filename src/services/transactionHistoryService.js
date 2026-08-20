@@ -3,6 +3,8 @@
  * Handles all Firestore queries and data processing for transaction history views
  */
 
+import { getSaleCost } from "../utils/profitUtils";
+
 // Unit conversion constants for weight-based items
 export const UNIT_CONVERSION = {
   ton: 1000,
@@ -196,7 +198,7 @@ export function groupTransactionsByMember(transactions) {
 /**
  * Group penjualan transactions by item
  */
-export function groupTransactionsByItem(transactions) {
+export function groupTransactionsByItem(transactions, stockById = {}) {
   const groupedByItem = {};
 
   transactions.forEach((tx) => {
@@ -222,7 +224,11 @@ export function groupTransactionsByItem(transactions) {
     groupedByItem[itemKey].transactions.push(tx);
     const txQuantity = tx.quantity || 0;
     const txPrice = tx.price || 0;
-    const txStockWorth = tx.stockWorth || 0;
+    const txStockWorth = getSaleCost(
+      tx,
+      stockById[itemKey] || stockById[tx.itemId] || {},
+      txQuantity
+    );
 
     groupedByItem[itemKey].quantity += txQuantity;
     groupedByItem[itemKey].revenue += txQuantity * txPrice;
@@ -365,4 +371,3 @@ export async function generateIncrementalId(queryCollection, query, where, colle
   const nextNum = String(count + 1).padStart(3, "0");
   return `${prefix}-${dateStr}-${nextNum}`;
 }
-
