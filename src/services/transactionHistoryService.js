@@ -351,15 +351,15 @@ export async function generateIncrementalId(queryCollection, query, where, colle
         const matched = results.filter(r => r.id && r.id.startsWith(matchPrefix));
         count = matched.length;
       }
-    } else if (collectionName === "notaBelanja") {
+    } else if (collectionName === "notaBelanja" || collectionName === "notaBelanja_b2b") {
       const results = await queryCollection(collectionName);
       const matched = results.filter(nota => {
         if (!nota.createdAt) return false;
         const date = nota.createdAt.toDate ? nota.createdAt.toDate() : new Date(nota.createdAt);
         if (date < startOfDay || date > endOfDay) return false;
-        
+
         const matchPrefix = `${prefix}-${dateStr}-`;
-        const id = nota.id || nota.bulkPurchaseId || "";
+        const id = nota.bulkPurchaseId || "";
         return id.startsWith(matchPrefix);
       });
       count = matched.length;

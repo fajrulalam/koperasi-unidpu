@@ -474,6 +474,7 @@ export default function SejarahBelanja() {
 
           {/* Action buttons */}
           <div className="sb-filter-col sb-actions-col">
+            <label className="sb-label sb-label-spacer" aria-hidden="true">&nbsp;</label>
             <button className="sb-btn sb-btn-export" onClick={exportToExcel}>
               <FaFileExcel size={14} /> Export ke Excel
             </button>
