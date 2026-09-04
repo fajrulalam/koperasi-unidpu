@@ -8,9 +8,11 @@ const {
   isManualRoleAllowed,
   progressLoanData,
   resolveInstallmentPlan,
+  resolveLoanStatus,
 } = require("./loanProgression");
 
 const timestamp = (seconds) => ({ seconds, nanoseconds: 0 });
+const timestampAt = (iso) => timestamp(Math.floor(new Date(iso).getTime() / 1000));
 
 test("bridge signatures reject tampering and stale requests", () => {
   const body = JSON.stringify({ action: "preview" });
@@ -97,6 +99,77 @@ test("all active loans under the resolved borrower are included", () => {
     expectedDeduction: 425_000,
   });
   assert.deepEqual(plan.loans.map((loan) => loan.loanId), ["loan-1", "loan-2"]);
+});
+
+test("pending restructuring keeps the original monthly installment payable", () => {
+  const originalLoan = activeLoan({
+    id: "lxZoVJ1IIDfPJGembkSb",
+    userId: "8k7erklRjiaJzXIJ4RJjfn38O9k1",
+    status: "Menunggu Persetujuan Restrukturisasi",
+    jumlahPinjaman: 2_000_000,
+    tenor: 10,
+    jumlahMenyicil: 8,
+    sisaHutang: 400_000,
+    restructuredToLoanId: "F9Q2sLi7czDl2wfqGfB6",
+    userData: { namaLengkap: "Khamim Mansyur" },
+    history: [
+      { status: "Disetujui dan Aktif", timestamp: timestampAt("2025-11-10T00:00:00+07:00") },
+      { status: "Pembayaran Cicilan", timestamp: timestampAt("2026-07-07T00:00:00+07:00") },
+      { status: "Menunggu Persetujuan Restrukturisasi", timestamp: timestampAt("2026-08-03T00:00:00+07:00") },
+    ],
+  });
+  const pendingReplacement = activeLoan({
+    id: "F9Q2sLi7czDl2wfqGfB6",
+    userId: "8k7erklRjiaJzXIJ4RJjfn38O9k1",
+    status: "Menunggu Persetujuan Wakil Rektor 2",
+    jumlahPinjaman: 4_800_000,
+    tenor: 12,
+    jumlahMenyicil: 0,
+    sisaHutang: 4_800_000,
+    restructuredFromLoanId: "lxZoVJ1IIDfPJGembkSb",
+    userData: { namaLengkap: "Khamim Mansyur" },
+    history: [
+      { status: "Menunggu Persetujuan Wakil Rektor 2", timestamp: timestampAt("2026-08-03T00:00:00+07:00") },
+    ],
+  });
+  const employee = {
+    id: "Loyalis_070",
+    name: "Khamim Mansyur,S.AB",
+    koperasiAuthUid: "8k7erklRjiaJzXIJ4RJjfn38O9k1",
+  };
+
+  const augustPlan = resolveInstallmentPlan({
+    loans: [originalLoan, pendingReplacement],
+    employee,
+    payrollPeriod: "2026-08",
+    expectedDeduction: 200_000,
+  });
+  assert.deepEqual(augustPlan.loans.map((loan) => loan.loanId), ["lxZoVJ1IIDfPJGembkSb"]);
+  assert.equal(augustPlan.loans[0].paidAfter, 9);
+  assert.equal(augustPlan.loans[0].balanceAfter, 200_000);
+
+  const progression = progressLoanData({
+    loan: originalLoan,
+    planItem: augustPlan.loans[0],
+    payrollPeriod: "2026-08",
+    operationId: "2026_08_Loyalis_070",
+    actor: { uid: "finance-1", name: "Finance", source: "internal_bak_payroll" },
+    timestamp: timestampAt("2026-08-31T00:00:00+07:00"),
+  });
+  assert.equal(progression.update.status, "Menunggu Persetujuan Restrukturisasi");
+  assert.equal(progression.update.jumlahMenyicil, 9);
+  assert.equal(progression.update.sisaHutang, 200_000);
+
+  const progressedLoan = { ...originalLoan, ...progression.update };
+  assert.equal(resolveLoanStatus(progressedLoan), "Menunggu Persetujuan Restrukturisasi");
+  const septemberPlan = resolveInstallmentPlan({
+    loans: [progressedLoan, pendingReplacement],
+    employee,
+    payrollPeriod: "2026-09",
+    expectedDeduction: 200_000,
+  });
+  assert.equal(septemberPlan.loans[0].paidBefore, 9);
+  assert.equal(septemberPlan.loans[0].willPayOff, true);
 });
 
 test("ambiguous fallback borrowers block the plan", () => {

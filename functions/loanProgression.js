@@ -3,6 +3,7 @@ const crypto = require("node:crypto");
 const ACTIVE_STATUS = "Disetujui dan Aktif";
 const PAYMENT_STATUS = "Pembayaran Cicilan";
 const PAID_STATUS = "Lunas";
+const PENDING_RESTRUCTURING_STATUS = "Menunggu Persetujuan Restrukturisasi";
 const MANUAL_ROLES = new Set(["BAK", "Director", "Direktur", "Wakil Rektor 2"]);
 
 const TITLE_PATTERN = /^(KH\.?|Hj\.?|HJ\.?|H\.?|Ust\.?|Ustadz|Ustadzah|Gus|Nyai|Ning|Lora|Prof\.?|Dr\.?|DR\.?|Drs\.?|DRS\.?|Dra\.?|DRA\.?|Ir\.?|IR\.?)$/i;
@@ -114,8 +115,19 @@ function latestHistoryEntry(loan) {
 }
 
 function resolveLoanStatus(loan) {
-  const status = latestHistoryEntry(loan)?.status || loan.status || "";
-  return status === PAYMENT_STATUS ? ACTIVE_STATUS : status;
+  const latestStatus = latestHistoryEntry(loan)?.status;
+  if (latestStatus === PAYMENT_STATUS) {
+    if (loan.status === PAID_STATUS) return PAID_STATUS;
+    if (loan.status === PENDING_RESTRUCTURING_STATUS) {
+      return PENDING_RESTRUCTURING_STATUS;
+    }
+    return ACTIVE_STATUS;
+  }
+  return latestStatus || loan.status || "";
+}
+
+function isPayrollPayableStatus(status) {
+  return status === ACTIVE_STATUS || status === PENDING_RESTRUCTURING_STATUS;
 }
 
 function monthlyInstallment(loan) {
@@ -144,7 +156,7 @@ function activationPeriod(loan) {
 }
 
 function isPayrollEligibleLoan(loan, payrollPeriod) {
-  if (resolveLoanStatus(loan) !== ACTIVE_STATUS) return false;
+  if (!isPayrollPayableStatus(resolveLoanStatus(loan))) return false;
   const tenor = Math.floor(Number(loan.tenor) || 0);
   const paid = Math.max(0, Math.floor(Number(loan.jumlahMenyicil) || 0));
   const balance = Math.max(0, Math.round(Number(loan.sisaHutang) || 0));
@@ -322,7 +334,11 @@ function progressLoanData({ loan, planItem, payrollPeriod, operationId, actor, t
     update: {
       jumlahMenyicil: planItem.paidAfter,
       sisaHutang: planItem.balanceAfter,
-      status: planItem.willPayOff ? PAID_STATUS : ACTIVE_STATUS,
+      status: planItem.willPayOff
+        ? PAID_STATUS
+        : resolveLoanStatus(loan) === PENDING_RESTRUCTURING_STATUS
+          ? PENDING_RESTRUCTURING_STATUS
+          : ACTIVE_STATUS,
       history,
       ...(planItem.willPayOff ? { tanggalPelunasan: timestamp } : {}),
     },
@@ -343,12 +359,14 @@ module.exports = {
   ACTIVE_STATUS,
   PAYMENT_STATUS,
   PAID_STATUS,
+  PENDING_RESTRUCTURING_STATUS,
   LoanProgressionError,
   bridgeSignature,
   isBridgeSignatureValid,
   isManualRoleAllowed,
   normalizeName,
   resolveLoanStatus,
+  isPayrollPayableStatus,
   monthlyInstallment,
   isPayrollEligibleLoan,
   resolveMatchedEligibleLoans,

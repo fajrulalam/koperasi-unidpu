@@ -3,7 +3,6 @@ const { Timestamp } = require("firebase-admin/firestore");
 const { defineSecret } = require("firebase-functions/params");
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
 const {
-  ACTIVE_STATUS,
   LoanProgressionError,
   buildPlanItem,
   isBridgeSignatureValid,
@@ -13,7 +12,6 @@ const {
   progressLoanData,
   resolveInstallmentPlan,
   resolveMatchedEligibleLoans,
-  resolveLoanStatus,
 } = require("./loanProgression");
 
 const payrollHmacSecret = defineSecret("INTERNAL_PAYROLL_HMAC_SECRET");
@@ -281,12 +279,7 @@ const recordManualLoanInstallment = onCall({ timeoutSeconds: 30, memory: "256MiB
         throw new LoanProgressionError("LOAN_NOT_FOUND", "Pinjaman tidak ditemukan.");
       }
       const loan = loanSnapshot.data();
-      const resolvedStatus = resolveLoanStatus(loan);
-      if (
-        resolvedStatus !== ACTIVE_STATUS ||
-        (Number(loan.sisaHutang) || 0) <= 0 ||
-        (Number(loan.jumlahMenyicil) || 0) >= (Number(loan.tenor) || 0)
-      ) {
+      if (!isPayrollEligibleLoan(loan, payrollPeriod)) {
         throw new LoanProgressionError("LOAN_NOT_ACTIVE", "Pinjaman tidak dapat dicicil.");
       }
       const planItem = buildPlanItem({ id: loanId, ...loan });

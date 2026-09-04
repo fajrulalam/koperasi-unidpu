@@ -271,7 +271,7 @@ const LoanDetailModal = ({
     (userRole === "bak" || userRole === "direktur") &&
     loan.status === "Menunggu Transfer BAK";
 
-  const canProgressInstallment = isActive && currentPayment < totalPayments;
+  const canProgressInstallment = isPayableStatus && currentPayment < totalPayments;
   const willPayOff = canProgressInstallment && currentPayment + 1 >= totalPayments;
 
   const historyGroups = groupHistory(loan.history);

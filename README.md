@@ -18,8 +18,10 @@ A modern Point of Sale (POS) and Inventory/Stock management application designed
 * **Pro-rated bulk pricing calculator**: Instantly calculates and displays unit prices when creating or modifying bulk conversions (e.g. showing `PACK (Rp 100/pcs)` dynamically).
 
 ### 💳 Payroll-linked Simpan Pinjam
-* Internal-BAK previews every eligible active loan while a payroll draft is
-  saved. The sealed loan plan must equal the employee's Koperasi loan deduction.
+* Internal-BAK previews every eligible payable loan while a payroll draft is
+  saved. The original loan remains payable while its restructuring request is
+  pending; the proposed replacement stays excluded until approval. The sealed
+  loan plan must equal the employee's Koperasi loan deduction.
 * **Verifikasi & Kunci** advances all loans in that employee's sealed plan in
   one Firestore transaction. Deterministic period/loan markers make retries and
   concurrent manual actions safe from duplicate installments.

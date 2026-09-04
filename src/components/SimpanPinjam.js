@@ -702,7 +702,8 @@ const SimpanPinjam = () => {
                   userRole === "BAK" && loan.status === "Menunggu Transfer BAK";
 
                 const canProgressInstallment =
-                  loan.status === "Disetujui dan Aktif" &&
+                  (loan.status === "Disetujui dan Aktif" ||
+                    loan.status === "Menunggu Persetujuan Restrukturisasi") &&
                   (loan.jumlahMenyicil || 0) < (loan.tenor || 0);
                 const willPayOff =
                   canProgressInstallment &&

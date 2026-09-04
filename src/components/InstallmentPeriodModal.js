@@ -28,6 +28,8 @@ export default function InstallmentPeriodModal({ loan, submitting, onClose, onSu
   );
   const paidAfter = Math.min(Number(loan.tenor) || 0, (Number(loan.jumlahMenyicil) || 0) + 1);
   const willPayOff = paidAfter >= (Number(loan.tenor) || 0);
+  const keepsPendingRestructuring =
+    !willPayOff && loan.status === "Menunggu Persetujuan Restrukturisasi";
 
   return (
     <div className="installment-period-overlay" onClick={submitting ? undefined : onClose}>
@@ -48,7 +50,14 @@ export default function InstallmentPeriodModal({ loan, submitting, onClose, onSu
           <span>Pinjaman</span><strong>#{loan.id.substring(0, 8)}</strong>
           <span>Cicilan</span><strong>{paidAfter}/{loan.tenor}</strong>
           <span>Nominal</span><strong>Rp {installment.toLocaleString("id-ID")}</strong>
-          <span>Hasil</span><strong>{willPayOff ? "Lunas" : "Tetap aktif"}</strong>
+          <span>Hasil</span>
+          <strong>
+            {willPayOff
+              ? "Lunas"
+              : keepsPendingRestructuring
+                ? "Restrukturisasi tetap menunggu"
+                : "Tetap aktif"}
+          </strong>
         </div>
         <label htmlFor="installment-payroll-period">Periode payroll</label>
         <input
