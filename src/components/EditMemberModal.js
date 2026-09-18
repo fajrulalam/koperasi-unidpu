@@ -1,6 +1,16 @@
 import React from "react";
 import "../styles/EditMemberModal.css";
 
+const ROLE_OPTIONS = [
+  "Member",
+  "Director",
+  "Admin",
+  "Cashier",
+  "BAK",
+  "Wakil Rektor 2",
+  "Mitra",
+];
+
 const EditMemberModal = ({
   isOpen,
   onClose,
@@ -9,6 +19,7 @@ const EditMemberModal = ({
   onSave,
   actionLoading,
   satuanKerjaOptions,
+  canEditRole = false,
 }) => {
   if (!isOpen || !editMemberData) return null;
 
@@ -120,6 +131,19 @@ const EditMemberModal = ({
           </div>
 
           <div className="form-group-editMemberModal">
+            <label>Status Pembayaran</label>
+            <select
+              name="paymentStatus"
+              value={editMemberData.paymentStatus || "Payroll Deduction"}
+              onChange={onInputChange}
+              className="form-input-editMemberModal"
+            >
+              <option value="Payroll Deduction">Payroll Deduction</option>
+              <option value="Yayasan Subsidy">Yayasan Subsidy</option>
+            </select>
+          </div>
+
+          <div className="form-group-editMemberModal">
             <label>Status Keanggotaan</label>
             <select
               name="membershipStatus"
@@ -134,6 +158,24 @@ const EditMemberModal = ({
               <option value="removed">Removed</option>
             </select>
           </div>
+
+          {canEditRole && (
+            <div className="form-group-editMemberModal">
+              <label>Role</label>
+              <select
+                name="role"
+                value={editMemberData.role || "Member"}
+                onChange={onInputChange}
+                className="form-input-editMemberModal"
+              >
+                {ROLE_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="form-group-editMemberModal">
             <label>Bank</label>

@@ -168,6 +168,26 @@
   color: #4b5563; /* Slightly softer body text */
 }
 
+.members-table th.sortable-column {
+  cursor: pointer;
+  user-select: none;
+}
+
+.members-table th.sortable-column:hover {
+  color: #111827;
+}
+
+.sort-indicator {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.8em;
+  color: #374151;
+}
+
+.sort-indicator-inactive {
+  color: #9ca3af;
+}
+
 .members-table tr:last-child td {
   border-bottom: none; /* Remove border from last row */
 }

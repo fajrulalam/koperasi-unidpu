@@ -241,22 +241,6 @@ export const AuthProvider = ({ children }) => {
         "Finance",
         // "TailwindTest",
       ],
-      admin: [
-        "Transaksi",
-        // "SimpanPinjam",
-        "DaftarAnggotaBaru",
-        // "TabunganLogs",
-        "Stocks",
-        "WarehouseStock",
-        // "SejarahBelanja",
-        "SejarahBelanjaWarehouse",
-        "SejarahTransaksiWarehouse",
-        "SejarahTransaksi",
-        "Finance",
-        // "AdminPanel",
-        "AdminSettings",
-        // "TailwindTest",
-      ],
       Mitra: ["WarehouseExit"], // Mitra users can access WarehouseExit to upload PO
       Member: ["MemberPage"], // Members only have access to the MemberPage
     };

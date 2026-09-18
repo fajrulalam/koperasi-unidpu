@@ -19,6 +19,17 @@ import { exportMembersToExcel } from "../utils/exportUtils";
 import { useAuth } from "../context/AuthContext";
 import { FaEye } from "react-icons/fa";
 
+const renderSortIndicator = (columnKey, sortConfig) => {
+  if (sortConfig.key !== columnKey) {
+    return <span className="sort-indicator sort-indicator-inactive">↕</span>;
+  }
+  return (
+    <span className="sort-indicator">
+      {sortConfig.direction === "asc" ? "↑" : "↓"}
+    </span>
+  );
+};
+
 const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
   const [tooltipState, setTooltipState] = useState({
     isVisible: false,
@@ -116,6 +127,8 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
     editMemberData,
     newMemberData,
     filteredMembers,
+    sortedMembers,
+    sortConfig,
     statusOptions,
     satuanKerjaOptions,
     importProgress,
@@ -124,6 +137,7 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
     selectAllChecked,
 
     // Functions
+    handleSort,
     setSearchTerm,
     setStatusFilter,
     setShowAddModal,
@@ -223,7 +237,7 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
         <div className="search-box">
           <input
             type="text"
-            placeholder="Cari nama, whatsapp, kantor..."
+            placeholder="Cari nama, whatsapp, kantor, email..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -261,19 +275,62 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
                     onChange={toggleSelectAll}
                   />
                 </th>
-                <th>Nama</th>
-                <th>Kantor</th>
-                <th>Satuan Kerja</th>
-                <th>WhatsApp</th>
-                <th>Email</th>
-                <th>Nominal Tabungan</th>
-                <th>Status Pembayaran</th>
-                <th>Status Keanggotaan</th>
+                <th
+                  className="sortable-column"
+                  onClick={() => handleSort("nama")}
+                >
+                  Nama{renderSortIndicator("nama", sortConfig)}
+                </th>
+                <th
+                  className="sortable-column"
+                  onClick={() => handleSort("kantor")}
+                >
+                  Kantor{renderSortIndicator("kantor", sortConfig)}
+                </th>
+                <th
+                  className="sortable-column"
+                  onClick={() => handleSort("satuanKerja")}
+                >
+                  Satuan Kerja{renderSortIndicator("satuanKerja", sortConfig)}
+                </th>
+                <th
+                  className="sortable-column"
+                  onClick={() => handleSort("nomorWhatsapp")}
+                >
+                  WhatsApp{renderSortIndicator("nomorWhatsapp", sortConfig)}
+                </th>
+                <th
+                  className="sortable-column"
+                  onClick={() => handleSort("email")}
+                >
+                  Email{renderSortIndicator("email", sortConfig)}
+                </th>
+                <th
+                  className="sortable-column"
+                  onClick={() => handleSort("nominalTabungan")}
+                >
+                  Nominal Tabungan
+                  {renderSortIndicator("nominalTabungan", sortConfig)}
+                </th>
+                <th
+                  className="sortable-column"
+                  onClick={() => handleSort("paymentStatus")}
+                >
+                  Status Pembayaran
+                  {renderSortIndicator("paymentStatus", sortConfig)}
+                </th>
+                <th
+                  className="sortable-column"
+                  onClick={() => handleSort("membershipStatus")}
+                >
+                  Status Keanggotaan
+                  {renderSortIndicator("membershipStatus", sortConfig)}
+                </th>
                 <th>Aksi</th>
               </tr>
             </thead>
             <tbody>
-              {filteredMembers.map((member) => (
+              {sortedMembers.map((member) => (
                 <tr key={member.id}>
                   <td className="checkbox-column">
                     <input
@@ -438,6 +495,7 @@ const DaftarAnggotaBaru = ({ isProduction = true, setActivePage }) => {
         onSave={saveEditedMember}
         actionLoading={actionLoading}
         satuanKerjaOptions={satuanKerjaOptions}
+        canEditRole={userRole === "Wakil Rektor 2"}
       />
 
       <DeleteConfirmationModal

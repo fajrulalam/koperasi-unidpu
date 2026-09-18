@@ -17,6 +17,8 @@ import { db, getEnvironmentCollection, auth } from "../../firebase";
 import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
 import { getNextMemberNumber } from "../../utils/memberNumberUtils";
 
+const NUMERIC_SORT_KEYS = new Set(["nominalTabungan"]);
+
 const useDaftarAnggota = (isProduction = true) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +37,7 @@ const useDaftarAnggota = (isProduction = true) => {
   const [isImporting, setIsImporting] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [selectAllChecked, setSelectAllChecked] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [newMemberData, setNewMemberData] = useState({
     nama: "",
     email: "",
@@ -562,9 +565,17 @@ const useDaftarAnggota = (isProduction = true) => {
         satuanKerja: editMemberData.satuanKerja || "",
         nomorWhatsapp: editMemberData.nomorWhatsapp,
         membershipStatus: editMemberData.membershipStatus,
+        paymentStatus: editMemberData.paymentStatus,
         iuranPokok: Number(editMemberData.iuranPokok) || 0,
         iuranWajib: Number(editMemberData.iuranWajib) || 0,
       };
+
+      // The role select is only rendered for Wakil Rektor 2 (see
+      // EditMemberModal's canEditRole gate); for everyone else this just
+      // resends the member's existing, unchanged role.
+      if (editMemberData.role) {
+        updateData.role = editMemberData.role;
+      }
       
       // Add bankDetails if they exist
       if (editMemberData.bankDetails) {
@@ -756,7 +767,8 @@ const useDaftarAnggota = (isProduction = true) => {
         member.nama?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         member.nomorWhatsapp?.includes(searchTerm) ||
         member.kantor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        member.satuanKerja?.toLowerCase().includes(searchTerm.toLowerCase());
+        member.satuanKerja?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        member.email?.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus =
         statusFilter === "all" || member.membershipStatus === statusFilter;
@@ -764,6 +776,49 @@ const useDaftarAnggota = (isProduction = true) => {
       return matchesSearch && matchesStatus;
     });
   }, [members, searchTerm, statusFilter]);
+
+  // Toggle sort direction for a given column, or start sorting by it ascending
+  const handleSort = (key) => {
+    setSortConfig((prev) => {
+      if (prev.key === key) {
+        return { key, direction: prev.direction === "asc" ? "desc" : "asc" };
+      }
+      return { key, direction: "asc" };
+    });
+  };
+
+  // Sort filtered members based on the current sort configuration
+  const sortedMembers = useMemo(() => {
+    if (!sortConfig.key) return filteredMembers;
+
+    const { key, direction } = sortConfig;
+    const modifier = direction === "asc" ? 1 : -1;
+
+    const getValue = (member) => {
+      if (key === "nominalTabungan") {
+        return member.membershipStatus === "approved"
+          ? Number(member.nominalTabungan) || 0
+          : -1;
+      }
+      return member[key];
+    };
+
+    return [...filteredMembers].sort((a, b) => {
+      const valueA = getValue(a);
+      const valueB = getValue(b);
+
+      if (NUMERIC_SORT_KEYS.has(key)) {
+        return ((valueA || 0) - (valueB || 0)) * modifier;
+      }
+
+      const strA = (valueA ?? "").toString().toLowerCase();
+      const strB = (valueB ?? "").toString().toLowerCase();
+
+      if (strA < strB) return -1 * modifier;
+      if (strA > strB) return 1 * modifier;
+      return 0;
+    });
+  }, [filteredMembers, sortConfig]);
 
   // Toggle selection of a member
   const toggleMemberSelection = (memberId) => {
@@ -870,14 +925,17 @@ const useDaftarAnggota = (isProduction = true) => {
     editMemberData,
     newMemberData,
     filteredMembers,
+    sortedMembers,
+    sortConfig,
     statusOptions,
     satuanKerjaOptions,
     importProgress,
     isImporting,
     selectedMembers,
     selectAllChecked,
-    
+
     // Functions
+    handleSort,
     setSearchTerm,
     setStatusFilter,
     setShowAddModal,
