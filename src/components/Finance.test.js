@@ -100,6 +100,27 @@ describe("Finance cashflow statement", () => {
     expect(screen.getByDisplayValue("50.000")).toBeInTheDocument();
   });
 
+  test("gives admins the manager controls", async () => {
+    mockRole = "Admin";
+    await renderFinance();
+
+    expect(screen.getAllByRole("button", { name: /Tambah pengeluaran/ }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Mutasi saldo/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Anchor saldo/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Token Listrik"));
+    expect(screen.getByText("Ubah Pengeluaran")).toBeInTheDocument();
+  });
+
+  test("lets admins set the opening balance", async () => {
+    mockRole = "Admin";
+    await renderFinance();
+
+    fireEvent.click(screen.getByTitle("Ubah saldo awal"));
+
+    expect(screen.getByText("Ubah Saldo Awal")).toBeInTheDocument();
+  });
+
   test("keeps the ledger read-only for cashiers", async () => {
     mockRole = "Cashier";
     await renderFinance();

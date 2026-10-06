@@ -48,7 +48,7 @@ import {
 
 // Roles allowed to correct the ledger: opening balance, anchors, discrepancy
 // review and editing expenses or transfers.
-const MANAGER_ROLES = ["Director", "Wakil Rektor 2"];
+const MANAGER_ROLES = ["Director", "Wakil Rektor 2", "Admin"];
 
 const FIRST_MONTH = "2024-01";
 
