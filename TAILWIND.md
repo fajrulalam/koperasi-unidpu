@@ -21,6 +21,9 @@ The Tailwind configuration file includes:
 - Custom color theme definitions for the application
   - `unimart-pink`: #f77b7b
   - `unimart-purple`: #800080
+  - `primary`: #ED3500
+
+For how these colors and the coral brand color (#e66a6a) are actually used, see [UI_GUIDE.md](UI_GUIDE.md).
 
 ```js
 /** @type {import('tailwindcss').Config} */
