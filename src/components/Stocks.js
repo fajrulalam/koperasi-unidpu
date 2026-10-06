@@ -107,7 +107,6 @@ export default function Stocks() {
   const [summaryData, setSummaryData] = useState({
     monthlyPurchase: 0,
     monthlySales: 0,
-    missingStock: 0,
     currentStockWorth: 0,
   });
 
@@ -492,15 +491,17 @@ export default function Stocks() {
         currentStockWorth += item.stockValue || 0;
       });
 
-      // Purchases, sales and missing stock. Tetapkan Stok corrections are none
-      // of these, so they are left out.
-      const { monthlyPurchase, monthlySales, missingStock } =
-        summarizeMonthlyStock(transactions, firstDay, lastDay);
+      // Purchases and sales. Tetapkan Stok corrections are neither, so they
+      // are left out.
+      const { monthlyPurchase, monthlySales } = summarizeMonthlyStock(
+        transactions,
+        firstDay,
+        lastDay
+      );
 
       setSummaryData({
         monthlyPurchase,
         monthlySales,
-        missingStock,
         currentStockWorth,
       });
 
@@ -1525,16 +1526,11 @@ export default function Stocks() {
       </div>
 
       {/* Summary Cards Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <SummaryCard
           title="Belanja Bulan Ini"
           value={summaryData.monthlyPurchase}
           color="text-blue-600"
-        />
-        <SummaryCard
-          title="Stock Hilang"
-          value={summaryData.missingStock}
-          color="text-red-600"
         />
         <SummaryCard
           title="Total Nilai Stok"
