@@ -8,6 +8,7 @@ import { useFirestore } from "../context/FirestoreContext";
 import { generateIncrementalId } from "../services/transactionHistoryService";
 import { ACCOUNTS, ACCOUNT_LABELS, fmtAmount, normalizeAccount } from "../utils/cashflowUtils";
 import { AccountPills } from "./cashflow/CashflowModals";
+import Dropdown from "./common/Dropdown";
 
 // Helper function for currency formatting
 function formatRupiah(value) {
@@ -459,6 +460,10 @@ const BulkPurchaseModal = ({
         }
       }
     } else if (e.key === "Escape") {
+      // Close the list only, never the modal around it.
+      e.stopPropagation();
+      setShowDropdowns((prev) => ({ ...prev, [rowId]: false }));
+    } else if (e.key === "Tab") {
       setShowDropdowns((prev) => ({ ...prev, [rowId]: false }));
     }
   };
@@ -488,7 +493,7 @@ const BulkPurchaseModal = ({
       });
     } catch (error) {
       console.error("Error uploading nota:", error);
-      alert("Error uploading nota: " + error.message);
+      alert("Gagal mengunggah nota: " + error.message);
     } finally {
       setUploadingNota(false);
     }
@@ -689,7 +694,7 @@ const BulkPurchaseModal = ({
       }
     } catch (error) {
       console.error("Error processing bulk purchase:", error);
-      alert("Error processing bulk purchase: " + error.message);
+      alert("Gagal memproses pembelian grosir: " + error.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -929,6 +934,17 @@ const BulkPurchaseModal = ({
     }, 0);
   };
 
+  // The product list appears once there is something to show: matches, or a
+  // "not found" message for a typed search. Never an empty box.
+  const isProductListOpen = (rowId) => {
+    const results = filteredProducts[rowId];
+    return (
+      !!showDropdowns[rowId] &&
+      Array.isArray(results) &&
+      (results.length > 0 || (searchTerms[rowId] || "").trim() !== "")
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -1095,10 +1111,18 @@ const BulkPurchaseModal = ({
                       <div
                         className="bulk-dropdown-container"
                         ref={(el) => (dropdownRefs.current[row.id] = el)}
-                        style={{ position: "relative", zIndex: 2147483646 }}
                       >
                         <input
                           type="text"
+                          role="combobox"
+                          aria-label="Cari produk"
+                          aria-autocomplete="list"
+                          aria-expanded={isProductListOpen(row.id)}
+                          aria-controls={
+                            isProductListOpen(row.id)
+                              ? `bulk-product-list-${row.id}`
+                              : undefined
+                          }
                           className="bulk-input"
                           placeholder="Cari produk..."
                           value={searchTerms[row.id] || ""}
@@ -1108,84 +1132,60 @@ const BulkPurchaseModal = ({
                           onFocus={() => toggleDropdown(row.id)}
                           onKeyDown={(e) => handleKeyDown(row.id, e)}
                         />
-                        {showDropdowns[row.id] &&
+                        {isProductListOpen(row.id) &&
                           (() => {
                             const rect =
                               dropdownRefs.current[
                                 row.id
                               ]?.getBoundingClientRect();
-                            const dropdown = (
+                            const results = filteredProducts[row.id];
+                            return ReactDOM.createPortal(
                               <div
-                                className="bulk-dropdown"
+                                id={`bulk-product-list-${row.id}`}
+                                role="listbox"
+                                aria-label="Hasil pencarian produk"
+                                className="fixed z-[1100] max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
                                 style={{
-                                  position: "fixed",
-                                  zIndex: 2147483647,
-                                  backgroundColor: "white",
-                                  border: "2px solid #007bff",
-                                  borderRadius: "4px",
-                                  boxShadow: "0 8px 16px rgba(0, 0, 0, 0.2)",
-                                  maxHeight: "200px",
-                                  overflowY: "auto",
-                                  width: rect ? `${rect.width}px` : "200px",
-                                  top: rect ? `${rect.bottom}px` : "0px",
-                                  left: rect ? `${rect.left}px` : "0px",
-                                  display: "block",
-                                  visibility: "visible",
-                                  minWidth: "200px",
+                                  top: rect ? rect.bottom + 4 : 0,
+                                  left: rect ? rect.left : 0,
+                                  width: rect ? rect.width : 200,
+                                  minWidth: 200,
                                 }}
                               >
-                                {filteredProducts[row.id]
-                                  ?.slice(0, 5)
-                                  .map((product, index) => {
-                                    const isHighlighted =
-                                      index === (highlightedIndex[row.id] || 0);
-                                    return (
-                                      <div
-                                        key={index}
-                                        className="bulk-dropdown-item"
-                                        onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          handleProductSelect(row.id, product);
-                                        }}
-                                        onMouseEnter={() => {
-                                          setHighlightedIndex((prev) => ({
-                                            ...prev,
-                                            [row.id]: index,
-                                          }));
-                                        }}
-                                        style={{
-                                          padding: "8px 12px",
-                                          cursor: "pointer",
-                                          borderBottom: "1px solid #eee",
-                                          backgroundColor: isHighlighted
-                                            ? "#e3f2fd"
-                                            : "white",
-                                          color: "#333",
-                                          fontSize: "14px",
-                                        }}
-                                      >
-                                        {product.name}
-                                      </div>
-                                    );
-                                  })}
-                                {filteredProducts[row.id]?.length === 0 && (
-                                  <div
-                                    className="bulk-dropdown-item bulk-dropdown-empty"
-                                    style={{
-                                      padding: "8px 12px",
-                                      color: "#999",
-                                      fontSize: "14px",
-                                      fontStyle: "italic",
-                                      backgroundColor: "white",
-                                    }}
-                                  >
+                                {results.slice(0, 5).map((product, index) => {
+                                  const isHighlighted =
+                                    index === (highlightedIndex[row.id] || 0);
+                                  return (
+                                    <div
+                                      key={product.id || index}
+                                      role="option"
+                                      aria-selected={isHighlighted}
+                                      className={`cursor-pointer px-4 py-2.5 text-sm ${
+                                        isHighlighted
+                                          ? "bg-[#fff8f8] text-[#e66a6a]"
+                                          : "text-gray-700"
+                                      }`}
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        handleProductSelect(row.id, product);
+                                      }}
+                                      onMouseEnter={() => {
+                                        setHighlightedIndex((prev) => ({
+                                          ...prev,
+                                          [row.id]: index,
+                                        }));
+                                      }}
+                                    >
+                                      {product.name}
+                                    </div>
+                                  );
+                                })}
+                                {results.length === 0 && (
+                                  <div className="px-4 py-2.5 text-sm italic text-gray-400">
                                     Tidak ada produk ditemukan
                                   </div>
                                 )}
-                              </div>
-                            );
-                            return ReactDOM.createPortal(
-                              dropdown,
+                              </div>,
                               document.body
                             );
                           })()}
@@ -1213,42 +1213,33 @@ const BulkPurchaseModal = ({
                       )}
                     </td>
                     <td>
-                      <select
-                        className="bulk-input"
+                      <Dropdown
+                        ariaLabel="Satuan"
                         value={row.unit}
-                        onChange={(e) => handleUnitChange(row.id, e.target.value)}
-                        style={{
-                          backgroundColor: "#f9fafb",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "0.375rem",
-                          padding: "0.5rem 0.75rem",
-                          fontSize: "0.875rem",
-                          color: "#111827",
-                          width: "100%",
-                          outline: "none"
-                        }}
-                      >
-                        {row.product && Array.isArray(row.product.satuan) ? (
-                          row.product.satuan.map((satuan) => (
-                            <option key={satuan} value={satuan}>
-                              {satuan}
-                            </option>
-                          ))
-                        ) : (
-                          <option value={row.unit || ""}>{row.unit || "-"}</option>
-                        )}
-                      </select>
+                        options={(row.product && Array.isArray(row.product.satuan)
+                          ? row.product.satuan
+                          : []
+                        ).map((satuan) => ({ value: satuan, label: satuan }))}
+                        onChange={(unit) => handleUnitChange(row.id, unit)}
+                        placeholder="-"
+                        triggerClassName="bulk-input"
+                      />
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        className="bulk-input"
-                        placeholder="Harga per satuan"
-                        value={row.hargaSatuan}
-                        onChange={(e) =>
-                          handleHargaSatuanChange(row.id, e.target.value)
-                        }
-                      />
+                      <div className="bulk-money-field">
+                        <span className="bulk-money-prefix">Rp</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          aria-label="Harga satuan"
+                          className="bulk-input"
+                          placeholder="0"
+                          value={row.hargaSatuan}
+                          onChange={(e) =>
+                            handleHargaSatuanChange(row.id, e.target.value)
+                          }
+                        />
+                      </div>
                       {errors[`hargaSatuan_${row.id}`] && (
                         <div className="bulk-error-text">
                           {errors[`hargaSatuan_${row.id}`]}
@@ -1256,15 +1247,20 @@ const BulkPurchaseModal = ({
                       )}
                     </td>
                     <td>
-                      <input
-                        type="text"
-                        className="bulk-input"
-                        placeholder="Total harga"
-                        value={row.subtotal}
-                        onChange={(e) =>
-                          handleSubtotalChange(row.id, e.target.value)
-                        }
-                      />
+                      <div className="bulk-money-field">
+                        <span className="bulk-money-prefix">Rp</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          aria-label="Subtotal"
+                          className="bulk-input"
+                          placeholder="0"
+                          value={row.subtotal}
+                          onChange={(e) =>
+                            handleSubtotalChange(row.id, e.target.value)
+                          }
+                        />
+                      </div>
                       {errors[`subtotal_${row.id}`] && (
                         <div className="bulk-error-text">
                           {errors[`subtotal_${row.id}`]}
@@ -1312,7 +1308,7 @@ const BulkPurchaseModal = ({
 
         <div className="bulk-modal-footer">
           <button className="bulk-cancel-btn" onClick={handleClose}>
-            Cancel
+            Batal
           </button>
           <div
             className="submit-button-wrapper"
@@ -1327,7 +1323,7 @@ const BulkPurchaseModal = ({
                 cursor: (!isEditMode && !uploadedNota) || isSubmitting ? "not-allowed" : "pointer",
               }}
             >
-              {isSubmitting ? "Menyimpan..." : isEditMode ? "Simpan Perubahan" : "Submit"}
+              {isSubmitting ? "Menyimpan..." : isEditMode ? "Simpan Perubahan" : "Simpan"}
             </button>
             {!isEditMode && !uploadedNota && !isSubmitting && (
               <div

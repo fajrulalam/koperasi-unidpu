@@ -333,45 +333,23 @@
   width: 100%;
 }
 
-.bulk-dropdown {
+/* Money inputs: fixed "Rp" prefix inside the box */
+.bulk-money-field {
+  position: relative;
+}
+
+.bulk-money-prefix {
   position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: white;
-  border: 1px solid #d0d0d0;
-  border-top: none;
-  border-radius: 0 0 6px 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1001;
-  max-height: 200px;
-  overflow-y: auto;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.875rem;
+  color: #9ca3af;
+  pointer-events: none;
 }
 
-.bulk-dropdown-item {
-  padding: 12px;
-  cursor: pointer;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background-color 0.2s ease;
-  font-size: 0.9rem;
-}
-
-.bulk-dropdown-item:hover {
-  background-color: #f8f9fa;
-}
-
-.bulk-dropdown-item:last-child {
-  border-bottom: none;
-}
-
-.bulk-dropdown-empty {
-  color: #666;
-  font-style: italic;
-  cursor: default;
-}
-
-.bulk-dropdown-empty:hover {
-  background-color: transparent;
+.bulk-money-field .bulk-input {
+  padding-left: 36px;
 }
 
 /* Error Styles */
