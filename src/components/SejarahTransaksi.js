@@ -17,6 +17,8 @@ import {
 } from "../services/transactionHistoryService";
 import { getSaleCost } from "../utils/profitUtils";
 import { printReceipt } from "../services/PrinterService";
+import { canUserDeleteTransaction } from "../services/transactionRevertService";
+import DeleteTransactionModal from "./DeleteTransactionModal";
 import DayBreakdownDialog from "./DayBreakdownDialog";
 import ItemDetailDialog from "./ItemDetailDialog";
 
@@ -36,15 +38,18 @@ const createStockLookup = (stocks) =>
 const SejarahTransaksi = () => {
   const { queryCollection, query, where, orderBy } = useFirestore();
   const { isProduction, environment } = useEnvironment();
-  const { userRole } = useAuth();
+  const { currentUser, userRole } = useAuth();
 
   const showProfit = userRole === "Wakil Rektor 2";
   const isAdmin = userRole === "Admin" || userRole === "admin";
+  const canDelete = canUserDeleteTransaction(userRole);
 
   // Tab selection
   const [selectedTab, setSelectedTab] = useState("Transactions");
   const [expandedTransactions, setExpandedTransactions] = useState({});
   const [expandedDates, setExpandedDates] = useState({});
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
 
   const toggleTransaction = (txId) => {
     setExpandedTransactions((prev) => ({
@@ -400,6 +405,41 @@ const SejarahTransaksi = () => {
     };
 
     printReceipt(receiptData);
+  };
+
+  const handleDeleteSuccess = (result) => {
+    const deletedId = result.transactionId;
+    setSnackbar({
+      open: true,
+      message: `Transaksi ${deletedId} berhasil dihapus dan seluruh data telah dikembalikan seperti semula.`,
+    });
+
+    // Update local dailyData immediately
+    setDailyData((prevDays) =>
+      prevDays
+        .map((day) => {
+          const updatedTxs = (day.transactions || []).filter(
+            (t) => t.id !== deletedId
+          );
+          const newTotal = updatedTxs.reduce(
+            (sum, t) => sum + (Number(t.total) || 0),
+            0
+          );
+          return {
+            ...day,
+            transactions: updatedTxs,
+            total: newTotal,
+            count: updatedTxs.length,
+          };
+        })
+        .filter((day) => day.transactions.length > 0)
+    );
+
+    // Refresh transactions
+    fetchDailyTransactions();
+    if (selectedTab === "Items") {
+      fetchItemsTransactions();
+    }
   };
 
   // Export to XLSX
@@ -925,6 +965,10 @@ const SejarahTransaksi = () => {
                                       <span className="st-tx-badge st-tx-badge-voucher">
                                         📱 QRIS
                                       </span>
+                                    ) : tx.paymentMethod === "kredit" ? (
+                                      <span className="st-tx-badge st-tx-badge-voucher">
+                                        🎫 Kredit
+                                      </span>
                                     ) : (
                                       <span className="st-tx-badge st-tx-badge-member">
                                         💵 Cash
@@ -990,17 +1034,31 @@ const SejarahTransaksi = () => {
                                       </span>
                                     </div>
                                   )}
-                                  {isAdmin && (
-                                    <div className="st-tx-reprint-row">
-                                      <button
-                                        className="st-btn-reprint"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleReprintReceipt(tx);
-                                        }}
-                                      >
-                                        🖨️ Cetak Ulang Struk
-                                      </button>
+                                  {(isAdmin || canDelete) && (
+                                    <div className="st-tx-actions-row">
+                                      {isAdmin && (
+                                        <button
+                                          className="st-btn-reprint"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleReprintReceipt(tx);
+                                          }}
+                                        >
+                                          🖨️ Cetak Ulang Struk
+                                        </button>
+                                      )}
+                                      {canDelete && (
+                                        <button
+                                          className="st-btn-delete-tx"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setTransactionToDelete(tx);
+                                            setDeleteModalOpen(true);
+                                          }}
+                                        >
+                                          🗑️ Hapus Transaksi
+                                        </button>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -1039,6 +1097,20 @@ const SejarahTransaksi = () => {
         item={selectedItem}
         transactions={itemTransactions}
         showProfit={showProfit}
+      />
+
+      {/* Delete Transaction Modal */}
+      <DeleteTransactionModal
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setTransactionToDelete(null);
+        }}
+        transaction={transactionToDelete}
+        onSuccess={handleDeleteSuccess}
+        currentUser={currentUser}
+        userRole={userRole}
+        isProduction={isProduction}
       />
 
       {/* Snackbar */}

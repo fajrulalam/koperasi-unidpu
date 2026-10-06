@@ -1529,13 +1529,43 @@
   margin-right: 8px;
 }
 
-/* Reprint button (admin only) */
+/* Action buttons (reprint & delete) */
+.st-tx-actions-row,
 .st-tx-reprint-row {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
   margin-top: 12px;
   padding-top: 10px;
   border-top: 1px dashed #e5e7eb;
+  flex-wrap: wrap;
+}
+
+.st-btn-delete-tx {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+
+.st-btn-delete-tx:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.st-btn-delete-tx:active {
+  transform: translateY(0);
 }
 
 .st-btn-reprint {
