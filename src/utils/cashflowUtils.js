@@ -26,6 +26,10 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
 // Cash balance before the first legacy "Tutup Buku" closing.
 export const LEGACY_INITIAL_BALANCE = 5400500;
 
+// Earliest month the ledger covers. Opening balances are carried month to
+// month from here, unless a month has an opening override.
+export const LEDGER_START_MONTH = "2024-01";
+
 const MONTH_NAMES = [
   "Januari",
   "Februari",
@@ -81,6 +85,18 @@ export const getLocalDateKey = (date = new Date()) =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
 export const getMonthKey = (dateKey) => dateKey.slice(0, 7);
+
+export const getPreviousMonthKey = (monthKey) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  return month === 1 ? `${year - 1}-12` : `${year}-${pad(month - 1)}`;
+};
+
+// Local YYYY-MM-DD of a Firestore Timestamp, Date, ISO string or millis.
+export const toLocalDateKey = (value) => {
+  if (value == null) return null;
+  const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : getLocalDateKey(date);
+};
 
 export const getMonthRange = (monthKey) => {
   const [year, month] = monthKey.split("-").map(Number);
@@ -191,6 +207,26 @@ export const summarizeSales = (transactions = []) => {
   };
 };
 
+// The POS's recorded sales per day, from transactionDetail documents, the same
+// numbers Laporan Harian compares the cashier's count against. Sorted by date.
+export const summarizeSalesByDate = (transactions = []) => {
+  const byDate = new Map();
+  for (const transaction of transactions) {
+    const date = toLocalDateKey(transaction.createdAt);
+    if (!date) continue;
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date).push(transaction);
+  }
+  return [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, dayTransactions]) => ({ date, ...summarizeSales(dayTransactions) }));
+};
+
+// A report document can also exist only to hold an anchor. It counts as a
+// Laporan Harian only once a cashier (or the legacy import) has submitted it.
+export const isReportSubmitted = (report) =>
+  Boolean(report && (report.submittedBy || report.submittedAt));
+
 export const sumExpensesByAccount = (expenses = []) => {
   const sums = emptyAmounts();
   for (const expense of expenses) {
@@ -236,10 +272,21 @@ const isSet = (value) => value !== undefined && value !== null;
 // Builds the monthly statement. Per day: sales, discrepancy, each expense,
 // each transfer, and finally the anchor adjustment, so an anchor always pins
 // the balance the account holds at the end of that day.
+//
+// Sales come from the POS's recorded transactions (`sales`, see
+// summarizeSalesByDate), so every day with a sale has a Sales row whether or
+// not Laporan Harian was submitted. The Discrepancy row comes from the
+// submitted Laporan Harian: the cashier's count minus what the system expected
+// at the time of the count. A sale made after the count therefore adds to
+// Sales without showing up as missing money. Days imported from the legacy
+// Tutup Buku keep their imported sales, which their discrepancy was measured
+// against. A report's own systemSales is also the fallback when no
+// transactions were loaded for its day.
 export const buildCashflowRows = ({
   reports = [],
   expenses = [],
   transfers = [],
+  sales = [],
   opening,
 }) => {
   const balances = emptyAmounts();
@@ -259,11 +306,13 @@ export const buildCashflowRows = ({
   });
 
   const reportsByDate = new Map(reports.map((report) => [report.date, report]));
+  const salesByDate = new Map(sales.map((day) => [day.date, day]));
   const expensesByDate = groupByDate(expenses);
   const transfersByDate = groupByDate(transfers);
   const dates = [
     ...new Set([
       ...reportsByDate.keys(),
+      ...salesByDate.keys(),
       ...expensesByDate.keys(),
       ...transfersByDate.keys(),
     ]),
@@ -271,18 +320,27 @@ export const buildCashflowRows = ({
 
   for (const date of dates) {
     const report = reportsByDate.get(date);
+    const daySales = salesByDate.get(date);
+    const submitted = isReportSubmitted(report);
 
-    if (report) {
+    const useReportSales = report?.migratedFromLegacy || (!daySales && submitted);
+    if (daySales || useReportSales) {
       pushRow(
         {
           key: `${date}-sales`,
           rowType: "sales",
           rawDate: date,
           description: "Penjualan",
+          transactionCount: daySales?.count ?? null,
+          report: submitted ? report : null,
         },
-        pickAccountFields(report, "systemSales")
+        useReportSales
+          ? pickAccountFields(report, "systemSales")
+          : { cash: daySales.cash, qris: daySales.qris, kredit: daySales.kredit }
       );
+    }
 
+    if (submitted) {
       const discrepancy = pickAccountFields(report, "discrepancy");
       if (ACCOUNTS.some((account) => discrepancy[account] !== 0)) {
         pushRow(

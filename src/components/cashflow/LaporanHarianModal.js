@@ -24,6 +24,7 @@ import {
   fmtAmount,
   formatDayLabel,
   getLocalDateKey,
+  isReportSubmitted,
   parseDigits,
   reconcileDay,
   sumExpensesByAccount,
@@ -87,10 +88,13 @@ const LaporanHarianModal = ({ isOpen, onClose, onSaved }) => {
       .then(([transactions, report]) => {
         if (cancelled) return;
         setSales(summarizeSales(transactions));
-        setExistingReport(report);
+        // A day's document may exist only to hold a Finance anchor; that is
+        // not a Laporan Harian yet.
+        const submitted = isReportSubmitted(report) ? report : null;
+        setExistingReport(submitted);
         setInputs({
-          cash: report ? fmtAmount(report.actualCash) : "",
-          qris: report ? fmtAmount(report.actualQris) : "",
+          cash: submitted ? fmtAmount(submitted.actualCash) : "",
+          qris: submitted ? fmtAmount(submitted.actualQris) : "",
         });
       })
       .catch((err) => {

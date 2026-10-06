@@ -37,6 +37,25 @@ describe("LaporanHarianModal", () => {
     cashflowService.submitDailyReport.mockResolvedValue(undefined);
   });
 
+  test("a day document that only holds a Finance anchor is not treated as submitted", async () => {
+    cashflowService.fetchReport.mockResolvedValue({
+      date: "2026-10-06", anchorCash: 50000, anchoredBy: "admin@unipdu.ac.id",
+    });
+    render(<LaporanHarianModal isOpen onClose={jest.fn()} onSaved={jest.fn()} />);
+
+    await screen.findByText("3 transaksi");
+    expect(screen.queryByText(/sudah pernah disimpan/)).not.toBeInTheDocument();
+  });
+
+  test("a submitted report is still recognised", async () => {
+    cashflowService.fetchReport.mockResolvedValue({
+      date: "2026-10-06", submittedBy: "kasir@unipdu.ac.id", actualCash: 140000, actualQris: 60000,
+    });
+    render(<LaporanHarianModal isOpen onClose={jest.fn()} onSaved={jest.fn()} />);
+
+    expect(await screen.findByText(/sudah pernah disimpan oleh kasir@unipdu.ac.id/)).toBeInTheDocument();
+  });
+
   test("reconciles the count against sales minus drawer expenses", async () => {
     const onSaved = jest.fn();
     render(<LaporanHarianModal isOpen onClose={jest.fn()} onSaved={onSaved} />);

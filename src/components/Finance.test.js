@@ -35,6 +35,7 @@ const monthData = {
     {
       id: `${month}-01`,
       date: `${month}-01`,
+      submittedBy: "kasir@unipdu.ac.id",
       systemSalesCash: 300000,
       systemSalesQris: 120000,
       systemSalesKredit: 45000,
@@ -54,6 +55,9 @@ const monthData = {
     },
   ],
   transfers: [],
+  sales: [
+    { date: `${month}-01`, cash: 300000, qris: 120000, kredit: 45000, total: 465000, count: 12 },
+  ],
 };
 
 const renderFinance = async () => {
@@ -127,6 +131,62 @@ describe("Finance cashflow statement", () => {
     const container = document.querySelector(".finance-container");
     expect(container.className).not.toMatch(/\bmax-w-/);
     expect(container.className).not.toMatch(/\bmx-auto\b/);
+  });
+
+  describe("days without a Laporan Harian", () => {
+    const qrisOnly = {
+      opening: { cash: 0, qris: 0, kredit: 0, isOverride: false },
+      reports: [],
+      expenses: [],
+      transfers: [],
+      sales: [{ date: `${month}-06`, cash: 0, qris: 40000, kredit: 0, total: 40000, count: 1 }],
+    };
+
+    test("shows a Sales row from the POS as soon as a sale is made", async () => {
+      cashflowService.fetchMonthData.mockResolvedValue(qrisOnly);
+      render(<Finance />);
+
+      const sales = (await screen.findByText("Penjualan")).closest("tr");
+      expect(sales).toHaveTextContent("40.000");
+      expect(screen.queryByText("Selisih")).not.toBeInTheDocument();
+      expect(screen.getByText("Saldo Akhir").closest("tr")).toHaveTextContent("40.000");
+      expect(screen.queryByText(/Belum ada penjualan/)).not.toBeInTheDocument();
+    });
+
+    test("the Sales row says where its numbers come from", async () => {
+      cashflowService.fetchMonthData.mockResolvedValue(qrisOnly);
+      render(<Finance />);
+
+      fireEvent.mouseEnter((await screen.findByText("Penjualan")).parentElement);
+
+      expect(screen.getByText("1 transaksi tercatat di POS")).toBeInTheDocument();
+      expect(screen.getByText("Laporan Harian belum dikirim")).toBeInTheDocument();
+    });
+
+    test("such a day can still be anchored", async () => {
+      cashflowService.fetchMonthData.mockResolvedValue(qrisOnly);
+      render(<Finance />);
+      await screen.findByText("Penjualan");
+
+      expect(screen.getByText(/Anchor saldo/)).toBeInTheDocument();
+    });
+
+    test("an empty month says there are no sales or expenses yet", async () => {
+      cashflowService.fetchMonthData.mockResolvedValue({ ...qrisOnly, sales: [] });
+      render(<Finance />);
+
+      expect(await screen.findByText("Belum ada penjualan atau pengeluaran untuk bulan ini.")).toBeInTheDocument();
+      expect(screen.queryByText(/Anchor saldo/)).not.toBeInTheDocument();
+    });
+  });
+
+  test("a submitted Laporan Harian is named on the Sales row", async () => {
+    await renderFinance();
+
+    fireEvent.mouseEnter(screen.getByText("Penjualan").parentElement);
+
+    expect(screen.getByText("12 transaksi tercatat di POS")).toBeInTheDocument();
+    expect(screen.getByText("Laporan Harian dikirim oleh kasir@unipdu.ac.id")).toBeInTheDocument();
   });
 
   test("keeps the ledger read-only for cashiers", async () => {

@@ -21,9 +21,14 @@ The checkout dialog records how each sale splits across the accounts (`cashAmoun
 
 The **Finance** page shows the monthly ledger per account (opening balance, sales, discrepancy, expenses, transfers, anchor adjustments, closing balance) with PDF export. Directors, Wakil Rektor 2 and Admins can edit the opening balance, confirm or correct discrepancies, anchor balances, edit expenses and record transfers such as settling Kredit into Cash. Legacy *Tutup Buku* closings can be imported once from the Finance page.
 
+How the ledger is built:
+* **Sales** – every day with a sale has a *Penjualan* row, read straight from that day's `transactionDetail` documents (the same numbers Laporan Harian checks against). It appears as soon as a sale is made; Laporan Harian is not needed for it. Days imported from the legacy Tutup Buku keep their imported sales.
+* **Discrepancy** – a *Selisih* row appears only when the submitted Laporan Harian count differs from what the system expected at the time of the count, so a sale made after the count adds to Sales without showing up as missing money.
+* **Carry-over** – each month's closing balance is stored on `cashflowSettings/{YYYY-MM}` (`closingCash`/`closingQris`/`closingKredit`) and the next month opens with it unless an opening balance was set by hand. A month's closing becomes final (`closingFinal: true`) once it is stored after the month has ended, so sales made late in the month are always included. Days can be anchored even without a Laporan Harian.
+
 **Pembelian Grosir** (Unimart stock page) has a *Dibayar dari* picker: Cash, QRIS or Kredit. Each submitted purchase is recorded as one expense for the purchase total (`addedFrom: "bulkPurchase"`, linked by `bulkPurchaseId`) and appears in the Finance ledger under the chosen account. These expenses are back-office spending, so they are not part of the cashier's end-of-day drawer count in **Laporan Harian**. Warehouse (B2B) purchases do not create expenses.
 
-Collections: `dailyFinancialReports`, `expenses`, `cashflowTransfers`, `cashflowSettings` (each with a `_testing` twin).
+Collections: `dailyFinancialReports`, `expenses`, `cashflowTransfers`, `cashflowSettings` (each with a `_testing` twin). The ledger also reads `transactionDetail`. Ledger changes, including expenses entered by cashiers on the POS, re-store the month's closing on `cashflowSettings`, so Firestore rules must let those roles write it.
 
 ### 📦 Inventory & Stock Control
 * **Flexible Multi-Unit Relationships**: Supports base units (e.g., `pcs`, `rim`) and bulk conversion relationships (e.g., `dus`, `pack`, `rim`) with automatic pro-rated pricing logic.

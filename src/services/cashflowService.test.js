@@ -1,4 +1,4 @@
-import { addDoc, getDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import { addDoc, getDoc, getDocs, serverTimestamp, writeBatch } from "firebase/firestore";
 import { getEnvironmentCollection } from "../firebase";
 import { cashflowService } from "./cashflowService";
 
@@ -31,6 +31,8 @@ describe("cashflowService.addExpense", () => {
     getEnvironmentCollection.mockImplementation((name) => ({ path: name }));
     getDocs.mockResolvedValue({ docs: [], empty: true });
     getDoc.mockResolvedValue({ exists: () => false });
+    // Every ledger change re-stores the month's closing in one batch.
+    writeBatch.mockReturnValue({ update: jest.fn(), set: jest.fn(), commit: jest.fn().mockResolvedValue() });
   });
 
   const expense = {

@@ -34,6 +34,7 @@ import {
   getMonthKey,
   getMonthKeysBetween,
   getMonthRange,
+  LEDGER_START_MONTH,
   pickAccountFields,
 } from "../utils/cashflowUtils";
 import {
@@ -49,8 +50,6 @@ import {
 // Roles allowed to correct the ledger: opening balance, anchors, discrepancy
 // review and editing expenses or transfers.
 const MANAGER_ROLES = ["Director", "Wakil Rektor 2", "Admin"];
-
-const FIRST_MONTH = "2024-01";
 
 const ACCOUNT_STYLE = {
   cash: {
@@ -93,6 +92,7 @@ const EMPTY_DATA = {
   reports: [],
   expenses: [],
   transfers: [],
+  sales: [],
   opening: { ...emptyAmounts(), isOverride: false },
 };
 
@@ -246,10 +246,14 @@ const Finance = () => {
     [data.reports]
   );
   const visibleAccounts = activeAccount ? [activeAccount] : ACCOUNTS;
+  const ledgerDates = useMemo(
+    () => [...new Set(rows.map((row) => row.rawDate).filter(Boolean))],
+    [rows]
+  );
   const expenseCount = displayRows.filter((row) => row.rowType === "expense").length;
 
   const monthOptions = useMemo(
-    () => getMonthKeysBetween(FIRST_MONTH, currentMonth).reverse(),
+    () => getMonthKeysBetween(LEDGER_START_MONTH, currentMonth).reverse(),
     [currentMonth]
   );
   const monthRange = getMonthRange(selectedMonth);
@@ -374,6 +378,23 @@ const Finance = () => {
       );
     }
 
+    if (row.rowType === "sales") {
+      return (
+        <RowTooltip>
+          <p>
+            {row.transactionCount != null
+              ? `${row.transactionCount} transaksi tercatat di POS`
+              : "Penjualan dari Tutup Buku lama"}
+          </p>
+          <p className="text-gray-400 mt-0.5">
+            {row.report
+              ? `Laporan Harian dikirim oleh ${row.report.submittedBy || "-"}`
+              : "Laporan Harian belum dikirim"}
+          </p>
+        </RowTooltip>
+      );
+    }
+
     if (row.rowType === "expense" || row.rowType === "transfer") {
       const item = row.expense || row.transfer;
       const origin =
@@ -485,7 +506,7 @@ const Finance = () => {
       case "anchor":
         return (
           <AnchorBalanceModal
-            dates={data.reports.map((report) => report.date)}
+            dates={ledgerDates}
             getBalancesForDate={getBalancesForDate}
             loading={saving}
             onClose={close}
@@ -597,7 +618,7 @@ const Finance = () => {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
-          {canManage && data.reports.length > 0 && (
+          {canManage && ledgerDates.length > 0 && (
             <button
               type="button"
               className={headerSecondaryBtnClass}
@@ -758,7 +779,7 @@ const Finance = () => {
                   const isTotalRow = isOpening || isClosing;
                   const isClickable =
                     canManage && (row.rowType === "expense" || row.rowType === "transfer");
-                  const hasTooltip = ["discrepancy", "adjustment", "expense", "transfer"].includes(
+                  const hasTooltip = ["sales", "discrepancy", "adjustment", "expense", "transfer"].includes(
                     row.rowType
                   );
                   const showDate =
@@ -831,7 +852,7 @@ const Finance = () => {
                       colSpan={2 + visibleAccounts.length * 2}
                       className="text-center py-12 text-gray-400 text-sm"
                     >
-                      Belum ada laporan harian atau pengeluaran untuk bulan ini.
+                      Belum ada penjualan atau pengeluaran untuk bulan ini.
                     </td>
                   </tr>
                 )}

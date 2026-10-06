@@ -4,7 +4,9 @@
 //   dailyFinancialReports/{YYYY-MM-DD}  end-of-day report and closing balances
 //   expenses                            money paid out of Cash or QRIS
 //   cashflowTransfers                   money moved between accounts
-//   cashflowSettings/{YYYY-MM}          opening balance override per month
+//   cashflowSettings/{YYYY-MM}          opening balance override, and the month's
+//                                       closing balance the next month opens with
+//   transactionDetail                   the POS's sales (read only)
 import {
   addDoc,
   arrayUnion,
@@ -29,6 +31,7 @@ import {
 import {
   ACCOUNTS,
   DEFAULT_EXPENSE_CATEGORIES,
+  LEDGER_START_MONTH,
   LEGACY_INITIAL_BALANCE,
   accountField,
   buildCashflowRows,
@@ -38,10 +41,13 @@ import {
   getMonthKey,
   getMonthKeysBetween,
   getMonthRange,
+  getPreviousMonthKey,
+  isReportSubmitted,
   normalizeAccount,
   pickAccountFields,
   reconcileDay,
   summarizeSales,
+  summarizeSalesByDate,
   toAccountFields,
   toNumber,
 } from "../utils/cashflowUtils";
@@ -89,14 +95,50 @@ const readReport = async (dateKey, isProduction) => {
 // Ledger reads
 // ---------------------------------------------------------------------------
 
-// The month's override wins; otherwise carry over the latest closing balance
-// recorded before the month starts.
-const fetchOpeningBalance = async (monthKey, isProduction) => {
-  const settings = await getDoc(
-    getEnvironmentDoc(SETTINGS, monthKey, isProduction)
+const settingsRef = (monthKey, isProduction) =>
+  getEnvironmentDoc(SETTINGS, monthKey, isProduction);
+
+// cashflowSettings/{month} also stores the month's closing, so only the
+// opening* fields mean the opening balance was set by hand.
+const hasOpeningOverride = (data) =>
+  ACCOUNTS.some((account) => data?.[accountField("opening", account)] !== undefined);
+
+// The POS's recorded sales for each day of the month.
+const fetchSalesForMonth = async (monthKey, isProduction) => {
+  const [year, month] = monthKey.split("-").map(Number);
+  const snapshot = await getDocs(
+    query(
+      getEnvironmentCollection("transactionDetail", isProduction),
+      where("createdAt", ">=", new Date(year, month - 1, 1)),
+      where("createdAt", "<", new Date(year, month, 1))
+    )
   );
-  if (settings.exists()) {
+  return summarizeSalesByDate(toDocs(snapshot));
+};
+
+// A month's closing balance, which the next month opens with. It is stored on
+// cashflowSettings/{month} and is final once stored after the month ended.
+// Before that, more sales may have come in since it was stored, so it is
+// computed again (and stored).
+const fetchFinalClosing = async (monthKey, isProduction) => {
+  const settings = await getDoc(settingsRef(monthKey, isProduction));
+  const data = settings.exists() ? settings.data() : null;
+  if (data?.closingFinal === true) return pickAccountFields(data, "closing");
+  return syncMonthClosings(monthKey, isProduction);
+};
+
+// The month's override wins. Otherwise the month opens with the previous
+// month's closing. Before the ledger starts, it falls back to the latest
+// closing recorded on a report (the legacy Tutup Buku import), else zero.
+const fetchOpeningBalance = async (monthKey, isProduction) => {
+  const settings = await getDoc(settingsRef(monthKey, isProduction));
+  if (settings.exists() && hasOpeningOverride(settings.data())) {
     return { ...pickAccountFields(settings.data(), "opening"), isOverride: true };
+  }
+
+  if (monthKey > LEDGER_START_MONTH) {
+    const closing = await fetchFinalClosing(getPreviousMonthKey(monthKey), isProduction);
+    return { ...closing, isOverride: false };
   }
 
   const { start } = getMonthRange(monthKey);
@@ -119,30 +161,46 @@ const fetchOpeningBalance = async (monthKey, isProduction) => {
 
 const fetchMonthData = async (monthKey, isProduction) => {
   const { start, end } = getMonthRange(monthKey);
-  const [reports, expenses, transfers, opening] = await Promise.all([
+  const [reports, expenses, transfers, sales, opening] = await Promise.all([
     fetchByDateRange(REPORTS, start, end, isProduction),
     fetchByDateRange(EXPENSES, start, end, isProduction),
     fetchByDateRange(TRANSFERS, start, end, isProduction),
+    fetchSalesForMonth(monthKey, isProduction),
     fetchOpeningBalance(monthKey, isProduction),
   ]);
-  return { reports, expenses, transfers, opening };
+  return { reports, expenses, transfers, sales, opening };
 };
 
-// Rewrites each report's closing* fields so the next month's opening balance
-// carries over correctly after any ledger change.
+// Stores the month's balances after any ledger change: each report's
+// end-of-day closing* fields, and the month's closing on
+// cashflowSettings/{month}, which the next month opens with. Returns the
+// month's closing.
 const syncMonthClosings = async (monthKey, isProduction) => {
   const data = await fetchMonthData(monthKey, isProduction);
-  if (data.reports.length === 0) return;
+  const rows = buildCashflowRows(data);
+  const closingsByDate = getClosingsByDate(rows);
+  const closing = { ...rows[rows.length - 1].balances };
 
-  const closings = getClosingsByDate(buildCashflowRows(data));
   const batch = writeBatch(db);
   for (const report of data.reports) {
+    if (!closingsByDate[report.date]) continue;
     batch.update(
       reportRef(report.id, isProduction),
-      toAccountFields("closing", closings[report.date])
+      toAccountFields("closing", closingsByDate[report.date])
     );
   }
+  batch.set(
+    settingsRef(monthKey, isProduction),
+    {
+      ...toAccountFields("closing", closing),
+      // Final once the month is over: no more sales can land in it.
+      closingFinal: monthKey < getMonthKey(getLocalDateKey()),
+      closingSyncedAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
   await batch.commit();
+  return closing;
 };
 
 // A month's opening balance carries over from the previous month's closings,
@@ -158,7 +216,7 @@ const syncClosingsFrom = async (dateKeys, isProduction) => {
 
 const saveOpeningBalance = async (monthKey, balance, user, isProduction) => {
   await setDoc(
-    getEnvironmentDoc(SETTINGS, monthKey, isProduction),
+    settingsRef(monthKey, isProduction),
     {
       ...toAccountFields("opening", balance),
       updatedBy: user,
@@ -231,7 +289,12 @@ const submitDailyReport = async (
 
 const updateDailyReportSales = async (dateKey, isProduction) => {
   const report = await fetchReport(dateKey, isProduction);
-  if (!report) return null;
+  // Sales rows follow the transactions, so the balances always change. Only a
+  // submitted Laporan Harian also has a count to re-check.
+  if (!isReportSubmitted(report)) {
+    await syncClosingsFrom([dateKey], isProduction);
+    return null;
+  }
 
   const transactions = await fetchTransactionsForDate(dateKey, isProduction);
   const sales = summarizeSales(transactions);
@@ -403,13 +466,19 @@ const undoDiscrepancy = async (dateKey, isProduction) => {
 
 // anchors: { cash?, qris?, kredit? } real end-of-day balances to pin.
 const anchorBalance = async (dateKey, anchors, user, isProduction) => {
-  const updates = { anchoredBy: user, anchoredAt: serverTimestamp() };
+  const updates = {
+    // Creates the day's document when no Laporan Harian was submitted.
+    date: dateKey,
+    month: getMonthKey(dateKey),
+    anchoredBy: user,
+    anchoredAt: serverTimestamp(),
+  };
   for (const account of ACCOUNTS) {
     if (anchors[account] !== undefined) {
       updates[accountField("anchor", account)] = anchors[account];
     }
   }
-  await updateDoc(reportRef(dateKey, isProduction), updates);
+  await setDoc(reportRef(dateKey, isProduction), updates, { merge: true });
   await syncClosingsFrom([dateKey], isProduction);
 };
 
@@ -554,6 +623,7 @@ const migrateLegacyClosings = async (user, isProduction) => {
 
 export const cashflowService = {
   fetchMonthData,
+  fetchSalesForMonth,
   fetchOpeningBalance,
   saveOpeningBalance,
   syncMonthClosings,
