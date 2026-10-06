@@ -521,7 +521,15 @@
 .pm-voucher-value {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #16a34a;
+  color: #7e22ce;
+  text-align: right;
+}
+
+.pm-voucher-value-caption {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #a855f7;
 }
 
 .pm-remove-voucher {
@@ -564,8 +572,8 @@
   font-size: 0.9rem;
 }
 
-.pm-summary-discount {
-  color: #16a34a;
+.pm-summary-kredit {
+  color: #7e22ce;
   border-bottom: 1px dashed #e2e8f0;
 }
 
@@ -588,9 +596,19 @@
 
 .pm-payment-method {
   display: flex;
-  gap: 16px;
+  gap: 8px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+}
+
+.pm-kredit-note {
+  padding: 12px 14px;
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  border-radius: 10px;
+  color: #6b21a8;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .pm-split-container {
@@ -625,21 +643,28 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
   font-size: 0.9rem;
   font-weight: 500;
-  color: #64748b;
+  color: #334155;
   cursor: pointer;
+  transition: all 0.15s;
 }
 
 .pm-radio input[type="radio"] {
-  accent-color: #1e3a5f;
-  width: 16px;
-  height: 16px;
+  accent-color: #2e7d32;
+  width: 15px;
+  height: 15px;
   cursor: pointer;
 }
 
 .pm-radio-active {
-  color: #1e3a5f;
+  background: #c8e6c9;
+  border-color: #a5d6a7;
+  color: #2e7d32;
+  font-weight: 600;
 }
 
 .pm-input-payment {
@@ -679,6 +704,75 @@
   font-size: 1.5rem;
   font-weight: 700;
   color: #059669;
+}
+
+/* Account allocation (Cash / QRIS / Kredit) */
+.pm-accounts {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.pm-accounts-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.pm-account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.pm-account-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pm-account-cash .pm-account-dot {
+  background: #334155;
+}
+
+.pm-account-qris .pm-account-dot {
+  background: #1d4ed8;
+}
+
+.pm-account-kredit .pm-account-dot {
+  background: #7e22ce;
+}
+
+.pm-account-label {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.pm-account-label small {
+  margin-left: 6px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+.pm-account-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-account-empty {
+  opacity: 0.45;
 }
 
 /* Processing */

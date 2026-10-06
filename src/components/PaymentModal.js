@@ -1,8 +1,69 @@
 // src/components/PaymentModal.js
 import React, { useState, useRef, useEffect } from "react";
 import { formatCurrency, validateVoucher } from "../utils/transaksiUtils";
+import { formatDigitsInput, parseDigits } from "../utils/cashflowUtils";
 import { voucherService } from "../services/voucherService";
 import "../styles/PaymentModal.css";
+
+// How the part not covered by a voucher is paid. The voucher part itself is
+// recorded in the Kredit account.
+const PAYMENT_METHODS = [
+  { value: "cash", label: "Cash" },
+  { value: "qris", label: "QRIS" },
+  { value: "split", label: "Cash + QRIS" },
+];
+
+const ACCOUNT_ROWS = [
+  { key: "cash", label: "Cash", hint: "Uang tunai" },
+  { key: "qris", label: "QRIS", hint: "Online / e-money" },
+  { key: "kredit", label: "Kredit", hint: "Voucher, dibayar nanti" },
+];
+
+// Splits the payable amount into Cash and QRIS and validates the tender.
+const computePayment = ({ method, payable, amountPaid, qrisAmount, cashAmountPaid }) => {
+  if (method === "kredit") {
+    return { cash: 0, qris: 0, cashTender: 0, change: 0, error: "", isValid: true };
+  }
+  if (method === "qris") {
+    return { cash: 0, qris: payable, cashTender: 0, change: 0, error: "", isValid: true };
+  }
+  if (method === "cash") {
+    const cashTender = parseDigits(amountPaid);
+    const isValid = cashTender >= payable;
+    return {
+      cash: payable,
+      qris: 0,
+      cashTender,
+      change: isValid ? cashTender - payable : 0,
+      error:
+        amountPaid && !isValid ? "Uang yang diterima kurang dari harga pembelian" : "",
+      isValid,
+    };
+  }
+
+  const qris = parseDigits(qrisAmount);
+  const cashTender = parseDigits(cashAmountPaid);
+  const cash = Math.max(0, payable - qris);
+  let error = "";
+  if (qris > payable) {
+    error = "Nominal QRIS tidak boleh melebihi total bayar";
+  } else if (qrisAmount !== "" && qris <= 0) {
+    error = "Nominal QRIS harus lebih dari 0";
+  } else if (cashAmountPaid !== "" && qris <= 0) {
+    error = "Masukkan nominal QRIS terlebih dahulu";
+  } else if (cashAmountPaid !== "" && cashTender < cash) {
+    error = `Jumlah cash kurang ${formatCurrency(cash - cashTender)}`;
+  }
+  const isValid = qris > 0 && qris <= payable && cashTender >= cash;
+  return {
+    cash,
+    qris,
+    cashTender,
+    change: isValid ? cashTender - cash : 0,
+    error,
+    isValid,
+  };
+};
 
 const PaymentModal = ({
   isOpen,
@@ -15,9 +76,7 @@ const PaymentModal = ({
   isProduction = true,
 }) => {
   const [amountPaid, setAmountPaid] = useState("");
-  const [change, setChange] = useState(0);
-  const [error, setError] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState("cash");
   const [qrisAmount, setQrisAmount] = useState("");
   const [cashAmountPaid, setCashAmountPaid] = useState("");
   const [voucherId, setVoucherId] = useState("");
@@ -54,8 +113,6 @@ const PaymentModal = ({
     if (isOpen) {
       // Reset state when modal opens
       setAmountPaid("");
-      setChange(0);
-      setError("");
       setQrisAmount("");
       setCashAmountPaid("");
       setVoucherId("");
@@ -70,7 +127,7 @@ const PaymentModal = ({
       setMemberSearchResults([]);
       setIsSearchingMembers(false);
       setHighlightedIndex(-1);
-      setPaymentMethod(null);
+      setPaymentMethod("cash");
       submissionInFlightRef.current = false;
 
       // Focus on the payment input after a short delay
@@ -176,115 +233,28 @@ const PaymentModal = ({
     };
   }, []);
 
-  const calculateDiscountedTotal = () => {
-    let discountedTotal = total;
-    if (appliedVoucher) {
-      discountedTotal = Math.max(0, total - appliedVoucher.value);
-    }
-    return discountedTotal;
+  const kreditAmount = appliedVoucher ? Math.min(appliedVoucher.value, total) : 0;
+  const payable = Math.max(0, total - kreditAmount);
+  // A voucher covering the whole purchase leaves nothing to pay now.
+  const effectiveMethod = payable === 0 ? "kredit" : paymentMethod;
+  const payment = computePayment({
+    method: effectiveMethod,
+    payable,
+    amountPaid,
+    qrisAmount,
+    cashAmountPaid,
+  });
+  const accountAmounts = {
+    cash: payment.cash,
+    qris: payment.qris,
+    kredit: kreditAmount,
   };
 
   const handlePaymentMethodChange = (method) => {
     setPaymentMethod(method);
-    setError("");
-    if (method === "qris") {
-      const discountedTotal = calculateDiscountedTotal();
-      const totalNumeric =
-        typeof discountedTotal === "string"
-          ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
-          : discountedTotal;
-      setAmountPaid(totalNumeric.toLocaleString("id-ID"));
-      setChange(0);
+    if (method === "split") {
       setQrisAmount("");
       setCashAmountPaid("");
-    } else {
-      setAmountPaid("");
-      setChange(0);
-      setQrisAmount("");
-      setCashAmountPaid("");
-    }
-  };
-
-  const handleAmountPaidChange = (e) => {
-    const raw = e.target.value.replace(/\D/g, "");
-    const numeric = parseInt(raw, 10) || 0;
-    const formatted = numeric.toLocaleString("id-ID");
-    setAmountPaid(formatted);
-
-    const discountedTotal = calculateDiscountedTotal();
-    const totalNumeric =
-      typeof discountedTotal === "string"
-        ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
-        : discountedTotal;
-
-    if (numeric >= totalNumeric) {
-      setChange(numeric - totalNumeric);
-      setError("");
-    } else {
-      setChange(0);
-      setError("Uang yang diterima kurang dari harga pembelian");
-    }
-  };
-
-  const handleQrisAmountChange = (e) => {
-    const raw = e.target.value.replace(/\D/g, "");
-    const numeric = parseInt(raw, 10) || 0;
-    const formatted = raw ? numeric.toLocaleString("id-ID") : "";
-    setQrisAmount(formatted);
-
-    const discountedTotal = calculateDiscountedTotal();
-    const totalNumeric =
-      typeof discountedTotal === "string"
-        ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
-        : discountedTotal;
-
-    const numericCashPaid = parseInt(cashAmountPaid.replace(/\D/g, ""), 10) || 0;
-
-    if (numeric > totalNumeric) {
-      setError("Nominal QRIS tidak boleh melebihi total bayar");
-      setChange(0);
-    } else if (numeric <= 0 && raw !== "") {
-      setError("Nominal QRIS harus lebih dari 0");
-      setChange(0);
-    } else {
-      const cashNeeded = Math.max(0, totalNumeric - numeric);
-      if (numericCashPaid < cashNeeded && cashAmountPaid !== "") {
-        setError(`Jumlah cash kurang ${formatCurrency(cashNeeded - numericCashPaid)}`);
-        setChange(0);
-      } else if (numericCashPaid >= cashNeeded && cashAmountPaid !== "") {
-        setError("");
-        setChange(numericCashPaid - cashNeeded);
-      } else {
-        setError("");
-        setChange(0);
-      }
-    }
-  };
-
-  const handleCashAmountPaidChange = (e) => {
-    const raw = e.target.value.replace(/\D/g, "");
-    const numeric = parseInt(raw, 10) || 0;
-    const formatted = raw ? numeric.toLocaleString("id-ID") : "";
-    setCashAmountPaid(formatted);
-
-    const discountedTotal = calculateDiscountedTotal();
-    const totalNumeric =
-      typeof discountedTotal === "string"
-        ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
-        : discountedTotal;
-
-    const numericQris = parseInt(qrisAmount.replace(/\D/g, ""), 10) || 0;
-    const cashNeeded = Math.max(0, totalNumeric - numericQris);
-
-    if (numericQris <= 0) {
-      setError("Masukkan nominal QRIS terlebih dahulu");
-      setChange(0);
-    } else if (numeric < cashNeeded) {
-      setError(`Jumlah cash kurang ${formatCurrency(cashNeeded - numeric)}`);
-      setChange(0);
-    } else {
-      setError("");
-      setChange(numeric - cashNeeded);
     }
   };
 
@@ -419,26 +389,11 @@ const PaymentModal = ({
         voucherMemberData: memberInfo,
       });
 
-      const newTotal = Math.max(0, total - voucherValue);
-      if (paymentMethod === "qris") {
-        setAmountPaid(newTotal.toLocaleString("id-ID"));
-        setChange(0);
-        setError("");
-      } else if (paymentMethod === "split") {
+      if (paymentMethod === "split") {
         // Existing split amounts were entered against a different payable
         // total, so require an explicit fresh allocation after applying it.
         setQrisAmount("");
         setCashAmountPaid("");
-        setChange(0);
-        setError("");
-      } else if (paymentMethod === "cash") {
-        const currentPaid = parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
-        setChange(currentPaid >= newTotal ? currentPaid - newTotal : 0);
-        setError(
-          currentPaid > 0 && currentPaid < newTotal
-            ? "Uang yang diterima kurang dari harga pembelian"
-            : ""
-        );
       }
 
       setVoucherError("");
@@ -455,29 +410,9 @@ const PaymentModal = ({
     setVoucherId("");
     setVoucherError("");
 
-    const totalNumeric =
-      typeof total === "string"
-        ? parseInt(total.replace(/\D/g, ""), 10)
-        : total;
-
-    if (paymentMethod === "qris") {
-      setAmountPaid(totalNumeric.toLocaleString("id-ID"));
-      setChange(0);
-      setError("");
-    } else if (paymentMethod === "split") {
+    if (paymentMethod === "split") {
       setQrisAmount("");
       setCashAmountPaid("");
-      setChange(0);
-      setError("");
-    } else {
-      const currentPaidNumeric = parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
-      if (currentPaidNumeric >= totalNumeric) {
-        setChange(currentPaidNumeric - totalNumeric);
-        setError("");
-      } else if (currentPaidNumeric > 0) {
-        setChange(0);
-        setError("Uang yang diterima kurang dari harga pembelian");
-      }
     }
   };
 
@@ -496,49 +431,11 @@ const PaymentModal = ({
       return;
     }
 
-    const discountedTotal = calculateDiscountedTotal();
-    const totalNumeric =
-      typeof discountedTotal === "string"
-        ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
-        : discountedTotal;
+    if (!payment.isValid) return;
 
-    const numericCashTender =
-      parseInt(
-        (paymentMethod === "split" ? cashAmountPaid : amountPaid).replace(
-          /\D/g,
-          ""
-        ),
-        10
-      ) || 0;
-    const numericQris =
-      paymentMethod === "qris"
-        ? totalNumeric
-        : parseInt(qrisAmount.replace(/\D/g, ""), 10) || 0;
-    const cashRequired =
-      paymentMethod === "split" ? Math.max(0, totalNumeric - numericQris) : 0;
-
-    if (
-      !paymentMethod ||
-      (paymentMethod === "cash" && numericCashTender < totalNumeric) ||
-      (paymentMethod === "split" &&
-        (numericQris <= 0 ||
-          numericQris > totalNumeric ||
-          numericCashTender < cashRequired))
-    ) {
-      setError("Uang yang diterima kurang dari harga pembelian");
-      return;
-    }
-
+    // Cash tendered plus QRIS; the receipt and transaction keep this figure.
     const numericAmountPaid =
-      paymentMethod === "qris"
-        ? totalNumeric
-        : paymentMethod === "split"
-        ? numericQris + numericCashTender
-        : numericCashTender;
-
-    // Calculate userPoints - the amount that counts toward campaign points
-    // This is the discounted total (excludes voucher discount amount)
-    const userPoints = totalNumeric; // This is already the discounted total
+      effectiveMethod === "qris" ? payable : payment.qris + payment.cashTender;
 
     // Use manually entered member data, or fall back to voucher member data
     const effectiveMemberData =
@@ -548,23 +445,20 @@ const PaymentModal = ({
     try {
       await onPaymentComplete({
         amountPaid: numericAmountPaid.toLocaleString("id-ID"),
-        change,
+        change: payment.change,
         numericAmountPaid,
-        totalNumeric,
+        totalNumeric: payable,
         appliedVoucher,
         originalTotal: total,
         memberData: effectiveMemberData,
-        userPoints,
-        paymentMethod,
-        qrisAmount: numericQris,
-        cashAmount:
-          paymentMethod === "cash"
-            ? totalNumeric
-            : paymentMethod === "split"
-            ? cashRequired
-            : 0,
-        cashTender: numericCashTender,
-        isPaidViaQris: paymentMethod === "qris",
+        // Campaign points count only what the customer paid now.
+        userPoints: payable,
+        paymentMethod: effectiveMethod,
+        cashAmount: payment.cash,
+        qrisAmount: payment.qris,
+        kreditAmount,
+        cashTender: payment.cashTender,
+        isPaidViaQris: effectiveMethod === "qris",
         activeCampaigns,
       });
     } finally {
@@ -584,34 +478,8 @@ const PaymentModal = ({
     }
   };
 
-  const discountedTotal = calculateDiscountedTotal();
-  const totalNumeric =
-    typeof discountedTotal === "string"
-      ? parseInt(discountedTotal.replace(/\D/g, ""), 10)
-      : discountedTotal;
-
-  let isPaymentInvalid = false;
-  if (paymentMethod === "qris") {
-    isPaymentInvalid = false;
-  } else if (paymentMethod === "cash") {
-    const numericPaid = parseInt(amountPaid.replace(/\D/g, ""), 10) || 0;
-    isPaymentInvalid = numericPaid < totalNumeric;
-  } else if (paymentMethod === "split") {
-    const numericQris = parseInt(qrisAmount.replace(/\D/g, ""), 10) || 0;
-    const numericCashPaid = parseInt(cashAmountPaid.replace(/\D/g, ""), 10) || 0;
-    const cashNeeded = totalNumeric - numericQris;
-    isPaymentInvalid =
-      numericQris <= 0 ||
-      numericQris > totalNumeric ||
-      numericCashPaid < cashNeeded;
-  }
-
   const isCompleteDisabled =
-    isProcessing ||
-    error ||
-    !paymentMethod ||
-    isPaymentInvalid ||
-    (memberError && nomorAnggota);
+    isProcessing || !payment.isValid || (memberError && nomorAnggota);
 
   if (!isOpen) return null;
 
@@ -828,7 +696,8 @@ const PaymentModal = ({
                         )}
                       </div>
                       <div className="pm-voucher-value">
-                        -{formatCurrency(Math.min(appliedVoucher.value, total))}
+                        {formatCurrency(kreditAmount)}
+                        <span className="pm-voucher-value-caption">ke Kredit</span>
                       </div>
                       <button
                         type="button"
@@ -849,114 +718,129 @@ const PaymentModal = ({
             <div className="pm-col pm-col-right">
               {/* Payment Section */}
               <div className="pm-section pm-payment-section">
+                <div className="pm-summary-row">
+                  <span>Total Belanja</span>
+                  <span>{formatCurrency(total)}</span>
+                </div>
                 {appliedVoucher && (
-                  <div className="pm-summary-row pm-summary-discount">
-                    <span>Diskon Voucher</span>
-                    <span>
-                      -{formatCurrency(Math.min(appliedVoucher.value, total))}
-                    </span>
+                  <div className="pm-summary-row pm-summary-kredit">
+                    <span>Kredit (Voucher)</span>
+                    <span>-{formatCurrency(kreditAmount)}</span>
                   </div>
                 )}
 
                 <div className="pm-summary-row pm-summary-final">
                   <span>Total Bayar</span>
-                  <span className="pm-final-total">
-                    {formatCurrency(calculateDiscountedTotal())}
-                  </span>
+                  <span className="pm-final-total">{formatCurrency(payable)}</span>
                 </div>
 
-                <div className="pm-payment-method">
-                  <label className={`pm-radio${paymentMethod === "qris" ? " pm-radio-active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === "qris"}
-                      onChange={() => handlePaymentMethodChange("qris")}
-                      disabled={isProcessing}
-                    />
-                    QRIS
-                  </label>
-                  <label className={`pm-radio${paymentMethod === "cash" ? " pm-radio-active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === "cash"}
-                      onChange={() => handlePaymentMethodChange("cash")}
-                      disabled={isProcessing}
-                    />
-                    Cash
-                  </label>
-                  <label className={`pm-radio${paymentMethod === "split" ? " pm-radio-active" : ""}`}>
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === "split"}
-                      onChange={() => handlePaymentMethodChange("split")}
-                      disabled={isProcessing}
-                    />
-                    Split (Cash + QRIS)
-                  </label>
-                </div>
-
-                {paymentMethod === "split" ? (
-                  <div className="pm-split-container">
-                    <div className="pm-field">
-                      <label>1. Nominal QRIS</label>
-                      <input
-                        type="text"
-                        className="pm-input pm-input-payment"
-                        value={qrisAmount}
-                        onChange={handleQrisAmountChange}
-                        disabled={isProcessing}
-                        placeholder="Scan / Ketik Nominal QRIS"
-                      />
-                    </div>
-
-                    <div className="pm-split-info">
-                      <span>Sisa Harus Cash:</span>
-                      <strong>
-                        {formatCurrency(
-                          Math.max(
-                            0,
-                            totalNumeric - (parseInt(qrisAmount.replace(/\D/g, ""), 10) || 0)
-                          )
-                        )}
-                      </strong>
-                    </div>
-
-                    <div className="pm-field">
-                      <label>2. Cash Diterima</label>
-                      <input
-                        ref={amountPaidRef}
-                        type="text"
-                        className="pm-input pm-input-payment"
-                        value={cashAmountPaid}
-                        onChange={handleCashAmountPaidChange}
-                        disabled={isProcessing}
-                        placeholder="Masukkan Uang Cash"
-                      />
-                    </div>
+                {effectiveMethod === "kredit" ? (
+                  <div className="pm-kredit-note">
+                    Total belanja tertutup penuh oleh voucher. Tidak ada uang yang
+                    diterima sekarang, seluruhnya dicatat sebagai Kredit.
                   </div>
                 ) : (
-                  <div className="pm-field">
-                    <label>Jumlah Diterima</label>
-                    <input
-                      ref={amountPaidRef}
-                      type="text"
-                      className="pm-input pm-input-payment"
-                      value={amountPaid}
-                      onChange={handleAmountPaidChange}
-                      disabled={isProcessing || paymentMethod !== "cash"}
-                      placeholder="0"
-                    />
-                  </div>
+                  <>
+                    <div className="pm-payment-method" role="radiogroup" aria-label="Metode Pembayaran">
+                      {PAYMENT_METHODS.map(({ value, label }) => (
+                        <label
+                          key={value}
+                          className={`pm-radio${paymentMethod === value ? " pm-radio-active" : ""}`}
+                        >
+                          <input
+                            type="radio"
+                            name="paymentMethod"
+                            checked={paymentMethod === value}
+                            onChange={() => handlePaymentMethodChange(value)}
+                            disabled={isProcessing}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+
+                    {paymentMethod === "split" ? (
+                      <div className="pm-split-container">
+                        <div className="pm-field">
+                          <label>1. Nominal QRIS</label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            className="pm-input pm-input-payment"
+                            value={qrisAmount}
+                            onChange={(e) => setQrisAmount(formatDigitsInput(e.target.value))}
+                            disabled={isProcessing}
+                            placeholder="Scan / Ketik Nominal QRIS"
+                          />
+                        </div>
+
+                        <div className="pm-split-info">
+                          <span>Sisa Harus Cash:</span>
+                          <strong>{formatCurrency(payment.cash)}</strong>
+                        </div>
+
+                        <div className="pm-field">
+                          <label>2. Cash Diterima</label>
+                          <input
+                            ref={amountPaidRef}
+                            type="text"
+                            inputMode="numeric"
+                            className="pm-input pm-input-payment"
+                            value={cashAmountPaid}
+                            onChange={(e) => setCashAmountPaid(formatDigitsInput(e.target.value))}
+                            disabled={isProcessing}
+                            placeholder="Masukkan Uang Cash"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pm-field">
+                        <label>Jumlah Diterima</label>
+                        <input
+                          ref={amountPaidRef}
+                          type="text"
+                          inputMode="numeric"
+                          className="pm-input pm-input-payment"
+                          value={
+                            paymentMethod === "qris"
+                              ? payable.toLocaleString("id-ID")
+                              : amountPaid
+                          }
+                          onChange={(e) => setAmountPaid(formatDigitsInput(e.target.value))}
+                          disabled={isProcessing || paymentMethod !== "cash"}
+                          placeholder="0"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
 
-                {error && <div className="pm-payment-error">{error}</div>}
+                {payment.error && <div className="pm-payment-error">{payment.error}</div>}
 
                 <div className="pm-change-display">
                   <span className="pm-change-label">Kembalian Cash</span>
-                  <span className="pm-change-value">{formatCurrency(change)}</span>
+                  <span className="pm-change-value">{formatCurrency(payment.change)}</span>
+                </div>
+
+                <div className="pm-accounts" aria-label="Masuk ke Akun">
+                  <div className="pm-accounts-title">Masuk ke Akun</div>
+                  {ACCOUNT_ROWS.map(({ key, label, hint }) => (
+                    <div
+                      key={key}
+                      className={`pm-account-row pm-account-${key}${
+                        accountAmounts[key] > 0 ? "" : " pm-account-empty"
+                      }`}
+                    >
+                      <span className="pm-account-dot" />
+                      <span className="pm-account-label">
+                        {label}
+                        <small>{hint}</small>
+                      </span>
+                      <span className="pm-account-amount">
+                        {formatCurrency(accountAmounts[key])}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
 

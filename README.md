@@ -11,6 +11,18 @@ A modern Point of Sale (POS) and Inventory/Stock management application designed
 * **Smart Voucher Management**: Support for both single-use campaign vouchers and **multi-use balance vouchers** (tracking starting balances, applied discounts, and remaining balances).
 * **Thermal Receipt Printing**: Custom-styled receipt formatting (`11px` monospace layout) optimized for 80mm thermal printers with automatic browser print triggers and electron printing server support.
 
+### 💰 Arus Kas (Cashflow)
+Replicated from the 375 POS cashflow statement. Unimart money is tracked in three accounts:
+* **Cash** – physical money received at the counter.
+* **QRIS** – online / e-money payments.
+* **Kredit** – voucher redemptions; the sale is made now but the money arrives later.
+
+The checkout dialog records how each sale splits across the accounts (`cashAmount`, `qrisAmount`, `kreditAmount` on `transactionDetail`). At the end of the day the cashier opens **Laporan Harian** on the POS page and enters the Cash and QRIS received; the system compares them with that day's sales minus drawer expenses (**Catat Pengeluaran**) and stores the result in `dailyFinancialReports`.
+
+The **Finance** page shows the monthly ledger per account (opening balance, sales, discrepancy, expenses, transfers, anchor adjustments, closing balance) with PDF export. Directors and Wakil Rektor 2 can edit the opening balance, confirm or correct discrepancies, anchor balances, edit expenses and record transfers such as settling Kredit into Cash. Legacy *Tutup Buku* closings can be imported once from the Finance page.
+
+Collections: `dailyFinancialReports`, `expenses`, `cashflowTransfers`, `cashflowSettings` (each with a `_testing` twin).
+
 ### 📦 Inventory & Stock Control
 * **Flexible Multi-Unit Relationships**: Supports base units (e.g., `pcs`, `rim`) and bulk conversion relationships (e.g., `dus`, `pack`, `rim`) with automatic pro-rated pricing logic.
 * **Interactive stock adjustments**: Modern compact modals for increasing, resetting, or editing warehouse stock values.

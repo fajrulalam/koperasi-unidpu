@@ -7,8 +7,8 @@ import { useEnvironment } from "../context/EnvironmentContext";
 import { printReceipt as printerServicePrint } from "../services/PrinterService";
 import { voucherService } from "../services/voucherService";
 import PaymentModal from "./PaymentModal";
-import BukaBukuModal from "./BukaBukuModal";
-import TutupBukuModal from "./TutupBukuModal";
+import LaporanHarianModal from "./cashflow/LaporanHarianModal";
+import CatatPengeluaranModal from "./cashflow/CatatPengeluaranModal";
 import {
   convertToSmallestUnit,
   convertFromSmallestUnit,
@@ -178,40 +178,9 @@ const Transaksi = () => {
   // Active cashback campaigns
   const [activeCampaigns, setActiveCampaigns] = useState([]);
 
-  // Buka Buku gate
-  const [bukuOpened, setBukuOpened] = useState(null);
-  const [showBukaBuku, setShowBukaBuku] = useState(false);
-  const [staleRecord, setStaleRecord] = useState(null);
-  const [showStaleTutupBuku, setShowStaleTutupBuku] = useState(false);
-
-  useEffect(() => {
-    const checkBukuStatus = async () => {
-      try {
-        const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-        const doc = await readDoc("dailyClosings", today);
-        if (doc) {
-          setBukuOpened(true);
-          return;
-        }
-        setBukuOpened(false);
-
-        const allClosings = await queryCollection("dailyClosings");
-        const stale = allClosings.find(
-          (c) => c.status === "open" && c.dateString < today
-        );
-        if (stale) {
-          setStaleRecord(stale);
-        }
-        setShowBukaBuku(true);
-      } catch {
-        setBukuOpened(false);
-        setShowBukaBuku(true);
-      }
-    };
-    checkBukuStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProduction]);
+  // Cashflow: quick expenses and the end-of-day report
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showDailyReport, setShowDailyReport] = useState(false);
 
   const handleEnterKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -634,8 +603,21 @@ const Transaksi = () => {
       originalTotal,
       memberData,
       userPoints,
-      isPaidViaQris,
+      paymentMethod,
+      cashAmount,
+      qrisAmount,
+      kreditAmount,
     } = paymentData;
+
+    // How the sale lands in the cashflow accounts: the voucher portion is
+    // Kredit, the rest was paid in Cash and/or QRIS.
+    const paymentFields = {
+      paymentMethod,
+      isPaidViaQris: paymentMethod === "qris",
+      cashAmount,
+      qrisAmount,
+      kreditAmount,
+    };
 
     // Define which mass units need conversion to kg.
     const massUnits = ["gram", "ons", "kg", "kwintal", "ton"];
@@ -724,10 +706,7 @@ const Transaksi = () => {
         memberName: memberData?.nama || null,
         // Points tracking - amount paid excluding voucher discount
         userPoints: userPoints || totalNumeric,
-        paymentMethod: paymentData.paymentMethod || (isPaidViaQris ? "qris" : "cash"),
-        isPaidViaQris: paymentData.paymentMethod ? paymentData.paymentMethod === "qris" : (isPaidViaQris || false),
-        qrisAmount: paymentData.qrisAmount !== undefined ? paymentData.qrisAmount : (isPaidViaQris ? totalNumeric : 0),
-        cashAmount: paymentData.cashAmount !== undefined ? paymentData.cashAmount : (!isPaidViaQris ? totalNumeric : 0),
+        ...paymentFields,
         amountPaid: amountPaid || 0,
         change: change || 0,
       };
@@ -822,10 +801,7 @@ const Transaksi = () => {
           nomorAnggota: memberData?.nomorAnggota || null,
           memberName: memberData?.nama || null,
           isMember: !!memberData,
-          paymentMethod: paymentData.paymentMethod || (isPaidViaQris ? "qris" : "cash"),
-          isPaidViaQris: paymentData.paymentMethod ? paymentData.paymentMethod === "qris" : (isPaidViaQris || false),
-          qrisAmount: paymentData.qrisAmount !== undefined ? paymentData.qrisAmount : (isPaidViaQris ? totalNumeric : 0),
-          cashAmount: paymentData.cashAmount !== undefined ? paymentData.cashAmount : (!isPaidViaQris ? totalNumeric : 0),
+          ...paymentFields,
         });
 
         // Update stock, ensuring it doesn't go negative
@@ -903,9 +879,7 @@ const Transaksi = () => {
         memberData,
         memberName: effectiveMemberName,
         nomorAnggota: effectiveNomorAnggota,
-        paymentMethod: paymentData.paymentMethod || (isPaidViaQris ? "qris" : "cash"),
-        qrisAmount: paymentData.qrisAmount !== undefined ? paymentData.qrisAmount : (isPaidViaQris ? totalNumeric : 0),
-        cashAmount: paymentData.cashAmount !== undefined ? paymentData.cashAmount : (!isPaidViaQris ? totalNumeric : 0),
+        ...paymentFields,
       };
 
       await printReceiptWithVoucher(receiptData, (snackbarInfo) => {
@@ -1001,31 +975,44 @@ const Transaksi = () => {
 
   return (
     <div className="transaksi-container">
-      <h1>Transaksi - Point of Sales Unimart</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <h1 className="m-0">Transaksi - Point of Sales Unimart</h1>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowExpenseModal(true)}
+            className="px-4 py-2 rounded-lg border border-orange-200 bg-orange-50 text-sm font-semibold text-orange-700 hover:bg-orange-100 transition-colors"
+          >
+            Catat Pengeluaran
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowDailyReport(true)}
+            className="px-4 py-2 rounded-lg bg-amber-600 text-sm font-semibold text-white hover:bg-amber-700 transition-colors"
+          >
+            Laporan Harian
+          </button>
+        </div>
+      </div>
 
-      <BukaBukuModal
-        isOpen={showBukaBuku}
-        onClose={() => setShowBukaBuku(false)}
-        onOpened={() => {
-          setBukuOpened(true);
-          setShowBukaBuku(false);
-        }}
-        staleRecord={staleRecord}
-        onRequestCloseStale={() => {
-          setShowBukaBuku(false);
-          setShowStaleTutupBuku(true);
-        }}
+      <CatatPengeluaranModal
+        isOpen={showExpenseModal}
+        onClose={() => setShowExpenseModal(false)}
       />
 
-      <TutupBukuModal
-        isOpen={showStaleTutupBuku}
-        onClose={() => setShowStaleTutupBuku(false)}
-        onSaved={() => {
-          setShowStaleTutupBuku(false);
-          setStaleRecord(null);
-          setShowBukaBuku(true);
-        }}
-        forRecord={staleRecord}
+      <LaporanHarianModal
+        isOpen={showDailyReport}
+        onClose={() => setShowDailyReport(false)}
+        onSaved={() =>
+          setSnackbars((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              message: "Laporan keuangan harian berhasil disimpan",
+              severity: "success",
+            },
+          ])
+        }
       />
 
       <div className="product-input" ref={containerRef}>
@@ -1305,18 +1292,7 @@ const Transaksi = () => {
       {/* Sticky Footer */}
       <div className="footer">
         <h2>Total: {formatCurrency(total)}</h2>
-        {bukuOpened ? (
-          <button onClick={openModal}>Bayar</button>
-        ) : (
-          <button
-            onClick={() => setShowBukaBuku(true)}
-            style={{
-              background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-            }}
-          >
-            Buka Buku
-          </button>
-        )}
+        <button onClick={openModal}>Bayar</button>
       </div>
 
       {/* Payment Modal with Voucher Support */}

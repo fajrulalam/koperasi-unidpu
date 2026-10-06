@@ -265,6 +265,13 @@ export const formatReceiptForBrowserPrint = (receiptData) => {
                 <span>QRIS</span>
               </div>
             `
+            : (receiptData.paymentMethod === "kredit" || summary.paymentMethod === "kredit")
+            ? `
+              <div class="total-row" style="border-bottom: 1px dashed #000; padding-bottom: 4px; margin-bottom: 4px;">
+                <span>METODE:</span>
+                <span>KREDIT (VOUCHER)</span>
+              </div>
+            `
             : `
               <div class="total-row">
                 <span>TUNAI:</span>
