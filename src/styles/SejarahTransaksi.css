@@ -5,8 +5,7 @@
 /* Container for the page */
 .sejarah-transaksi-container {
   padding: 24px; /* Slightly increased padding */
-  max-width: 850px; /* Slightly wider for modern layouts */
-  margin: 20px auto; /* Add some top/bottom margin */
+  margin: 20px 0; /* Add some top/bottom margin */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Modern font stack */
   background-color: #ffffff; /* Explicit white background */
   border-radius: 8px; /* Subtle rounding */

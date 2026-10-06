@@ -121,6 +121,14 @@ describe("Finance cashflow statement", () => {
     expect(screen.getByText("Ubah Saldo Awal")).toBeInTheDocument();
   });
 
+  test("uses the full width of the page instead of a centered column", async () => {
+    await renderFinance();
+
+    const container = document.querySelector(".finance-container");
+    expect(container.className).not.toMatch(/\bmax-w-/);
+    expect(container.className).not.toMatch(/\bmx-auto\b/);
+  });
+
   test("keeps the ledger read-only for cashiers", async () => {
     mockRole = "Cashier";
     await renderFinance();

@@ -580,7 +580,7 @@ const Finance = () => {
     "flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#e66a6a] to-[#d35454] hover:from-[#d35454] hover:to-[#c53030] text-white text-xs sm:text-sm font-semibold shadow-xs hover:shadow-md transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-40";
 
   return (
-    <div className="finance-container max-w-7xl mx-auto bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-8 font-sans">
+    <div className="finance-container bg-white rounded-2xl border border-gray-200/80 shadow-sm p-6 sm:p-8 font-sans">
       {/* Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 mb-6 pb-5 border-b border-gray-100">
         <div className="flex items-center gap-3.5">
