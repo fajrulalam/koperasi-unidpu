@@ -713,18 +713,6 @@ function WarehouseStockModal({
                 <div className="error-message">{formErrors.tempSatuan}</div>
               )}
             </div>
-            <div className="form-group">
-              <label>Harga Pembelian Total Baru (Rp)</label>
-              <div className="currency-input">
-                <span className="currency-prefix">Rp</span>
-                <input
-                  type="text"
-                  value={localState.tempCost}
-                  onChange={handleCostChange}
-                  placeholder="e.g. 100.000"
-                />
-              </div>
-            </div>
           </div>
           <div className="stockmodal-buttons">
             <button onClick={onClose}>Batal</button>

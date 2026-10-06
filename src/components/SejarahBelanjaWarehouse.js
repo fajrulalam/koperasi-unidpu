@@ -6,6 +6,7 @@ import { FaTimes } from "react-icons/fa";
 import "../styles/SejarahBelanja.css";
 import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
+import { isStockCorrection, withoutCorrectionCost } from "../utils/stockTransactionUtils";
 
 const UNIT_CONVERSION = {
   ton: 1000,
@@ -13,6 +14,12 @@ const UNIT_CONVERSION = {
   ons: 0.1,
   gram: 0.001,
 };
+
+// A stock correction (Tetapkan Stok) fixes a miscounted quantity: it is neither
+// a purchase nor a loss, so it shows no money and is labelled "koreksi".
+const NO_AMOUNT = "-";
+const getKindLabel = (tx) =>
+  isStockCorrection(tx) ? "koreksi" : tx.transactionType;
 
 function convertToKg(qty, unit) {
   const conversionRate = UNIT_CONVERSION[unit] || 1;
@@ -163,7 +170,7 @@ export default function SejarahBelanja() {
       console.log(`Querying from collection: ${actualPath}`);
 
       // Use the queryCollection function with a query function parameter
-      const transactionData = await queryCollection(
+      const fetchedTransactions = await queryCollection(
         "stockTransactions_b2b",
         (collectionRef) =>
           query(
@@ -174,6 +181,8 @@ export default function SejarahBelanja() {
             orderBy("timestampInMillisEpoch", "desc")
           )
       );
+      // Corrections (Tetapkan Stok) never count as money, even old ones saved with a cost.
+      const transactionData = fetchedTransactions.map(withoutCorrectionCost);
 
       // Fetch notaBelanja records for the same period to reconstruct supplier info
       let notas = [];
@@ -348,7 +357,7 @@ export default function SejarahBelanja() {
       Nama: tx.itemName || "",
       Kategori: tx.kategori || "",
       SubKategori: tx.subKategori || "",
-      Jenis: tx.transactionType,
+      Jenis: getKindLabel(tx),
       Qty: getDisplayQty(tx),
       Cost: tx.cost || 0,
       Via: tx.transactionVia || "",
@@ -482,9 +491,9 @@ export default function SejarahBelanja() {
                   <td>{tx.itemName}</td>
                   <td>{tx.kategori}</td>
                   <td>{tx.subKategori}</td>
-                  <td>{tx.transactionType}</td>
+                  <td>{getKindLabel(tx)}</td>
                   <td>{getDisplayQty(tx)}</td>
-                  <td>{formatCurrency(tx.cost)}</td>
+                  <td>{isStockCorrection(tx) ? NO_AMOUNT : formatCurrency(tx.cost)}</td>
                   <td>{tx.transactionVia}</td>
                   <td>
                     {tx.timestampInMillisEpoch
@@ -687,6 +696,7 @@ export default function SejarahBelanja() {
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {Object.entries(
                   selectedDay.transactions.reduce((acc, tx) => {
+                    if (isStockCorrection(tx)) return acc;
                     const supplier = getSupplierName(tx);
                     acc[supplier] = (acc[supplier] || 0) + (tx.cost || 0);
                     return acc;
@@ -788,7 +798,7 @@ export default function SejarahBelanja() {
                           {getDisplayQty(tx)}
                         </td>
                         <td style={{ padding: "12px 8px", textAlign: "right" }}>
-                          {formatCurrency(tx.cost)}
+                          {isStockCorrection(tx) ? NO_AMOUNT : formatCurrency(tx.cost)}
                         </td>
                         <td style={{ padding: "12px 8px" }}>
                           {tx.transactionVia || "N/A"}

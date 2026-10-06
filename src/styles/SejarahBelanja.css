@@ -489,6 +489,11 @@
   color: #ef4444;
 }
 
+.sb-tx-icon.correction {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
 .sb-tx-text-block {
   display: flex;
   flex-direction: column;
@@ -523,6 +528,11 @@
 .sb-tx-badge.adjustment {
   background-color: #fee2e2;
   color: #b91c1c;
+}
+
+.sb-tx-badge.correction {
+  background-color: #f3f4f6;
+  color: #4b5563;
 }
 
 .sb-tx-sep {

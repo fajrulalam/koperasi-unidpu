@@ -28,6 +28,7 @@ Collections: `dailyFinancialReports`, `expenses`, `cashflowTransfers`, `cashflow
 ### 📦 Inventory & Stock Control
 * **Flexible Multi-Unit Relationships**: Supports base units (e.g., `pcs`, `rim`) and bulk conversion relationships (e.g., `dus`, `pack`, `rim`) with automatic pro-rated pricing logic.
 * **Interactive stock adjustments**: Modern compact modals for increasing, resetting, or editing warehouse stock values.
+* **Tetapkan Stok is a quantity correction, not a money transaction**: it fixes a miscounted quantity, so it asks for no price, records `cost: 0` (`transactionVia: "stockSetTo"`), and is never counted as a purchase or missing stock in the monthly summary or Sejarah Belanja, where it appears as *Koreksi Stok* with no amounts. The product's unit cost is left unchanged, so its stored stock value simply follows the new quantity. The rules live in `src/utils/stockTransactionUtils.js`.
 * **Row-Level Highlights (Tandai)**: Highlight problematic or low-stock items with a soft yellow warning background directly from the stock action menu.
 * **Pro-rated bulk pricing calculator**: Instantly calculates and displays unit prices when creating or modifying bulk conversions (e.g. showing `PACK (Rp 100/pcs)` dynamically).
 

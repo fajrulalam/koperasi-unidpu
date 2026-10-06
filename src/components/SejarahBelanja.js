@@ -11,6 +11,7 @@ import {
   FaTruck,
   FaFileExcel,
   FaExclamationTriangle,
+  FaPen,
   FaBox
 } from "react-icons/fa";
 import "../styles/SejarahBelanja.css";
@@ -23,6 +24,21 @@ import {
   getThisMonthDateRange,
   searchStockItems,
 } from "../services/transactionHistoryService";
+import { isStockCorrection, withoutCorrectionCost } from "../utils/stockTransactionUtils";
+
+// How a history entry is shown. A stock correction (Tetapkan Stok) fixes a
+// miscounted quantity: it is neither a purchase nor a loss, so it carries no
+// money and gets its own look.
+const ENTRY_LABELS = {
+  procure: "Pengadaan",
+  adjustment: "Pengurangan",
+  correction: "Koreksi Stok",
+};
+const getNotaKind = (nota) =>
+  nota.isCorrection ? "correction" : nota.type === "pengurangan" ? "adjustment" : "procure";
+const getTxKind = (tx) =>
+  isStockCorrection(tx) ? "correction" : tx.transactionType === "pengurangan" ? "adjustment" : "procure";
+const NO_AMOUNT = "-";
 
 export default function SejarahBelanja() {
   const { queryCollection, query, where, orderBy } = useFirestore();
@@ -90,7 +106,7 @@ export default function SejarahBelanja() {
         : "stockTransactions_testing";
       console.log(`Querying from collection: ${actualPath}`);
 
-      const transactionData = await queryCollection(
+      const fetchedTransactions = await queryCollection(
         "stockTransactions",
         (collectionRef) =>
           query(
@@ -101,6 +117,8 @@ export default function SejarahBelanja() {
             orderBy("timestampInMillisEpoch", "desc")
           )
       );
+      // Corrections (Tetapkan Stok) never count as money, even old ones saved with a cost.
+      const transactionData = fetchedTransactions.map(withoutCorrectionCost);
 
       console.log(
         `Fetched ${transactionData.length} records from ${environment} environment (${actualPath})`
@@ -240,7 +258,7 @@ export default function SejarahBelanja() {
       } else {
         reconstructedList.push({
           id: txId,
-          supplierName: tx.supplierName || (tx.transactionType === "pengurangan" ? "Penyesuaian Stok (Pengurangan)" : "Penyesuaian Stok (Tambah Manual)"),
+          supplierName: tx.supplierName || (isStockCorrection(tx) ? "Koreksi Stok (Tetapkan)" : tx.transactionType === "pengurangan" ? "Penyesuaian Stok (Pengurangan)" : "Penyesuaian Stok (Tambah Manual)"),
           items: [
             {
               itemId: tx.itemId,
@@ -260,6 +278,7 @@ export default function SejarahBelanja() {
             ? tx.timestampInMillisEpoch.toDate().toISOString()
             : new Date(tx.timestampInMillisEpoch).toISOString(),
           isReconstructed: true,
+          isCorrection: isStockCorrection(tx),
           type: tx.transactionType || "pengadaan"
         });
       }
@@ -358,7 +377,7 @@ export default function SejarahBelanja() {
           const date = nota.createdAt.toDate ? nota.createdAt.toDate() : new Date(nota.createdAt);
           return {
             Tanggal: nota.createdAt ? formatDateDDMMYYYY(date) : "",
-            Tipe: nota.type === "pengurangan" ? "Pengurangan" : "Pengadaan",
+            Tipe: ENTRY_LABELS[getNotaKind(nota)],
             Supplier: nota.supplierName || "",
             "Dibuat Oleh": nota.uploadedBy?.email || "unknown",
             "Nama Produk": item.itemName || "",
@@ -374,7 +393,7 @@ export default function SejarahBelanja() {
         Nama: tx.itemName || "",
         Kategori: tx.kategori || "",
         SubKategori: tx.subKategori || "",
-        Jenis: tx.transactionType === "pengurangan" ? "Pengurangan" : "Pengadaan",
+        Jenis: ENTRY_LABELS[getTxKind(tx)],
         Qty: getDisplayQty(tx),
         Cost: tx.cost || 0,
         Via: tx.transactionVia || "",
@@ -529,8 +548,9 @@ export default function SejarahBelanja() {
             Object.entries(groupedTransactions).map(([dateKey, dayNotas]) => {
               const isDateExpanded = expandedDates[dateKey] !== false; // Default expanded
               const dayTotal = dayNotas.reduce((sum, n) => sum + getNotaTotal(n), 0);
-              const procureCount = dayNotas.filter(n => n.type !== "pengurangan").length;
-              const reductionCount = dayNotas.filter(n => n.type === "pengurangan").length;
+              const correctionCount = dayNotas.filter(n => getNotaKind(n) === "correction").length;
+              const procureCount = dayNotas.filter(n => getNotaKind(n) === "procure").length;
+              const reductionCount = dayNotas.filter(n => getNotaKind(n) === "adjustment").length;
 
               return (
                 <div key={dateKey} className="sb-date-group">
@@ -543,7 +563,7 @@ export default function SejarahBelanja() {
                       <FaCalendarAlt className="sb-calendar-icon" />
                       <div>
                         <h3>{dateKey}</h3>
-                        <p>{procureCount} pengadaan, {reductionCount} pengurangan</p>
+                        <p>{procureCount} pengadaan, {reductionCount} pengurangan{correctionCount > 0 ? `, ${correctionCount} koreksi` : ""}</p>
                       </div>
                     </div>
                     <div className="sb-date-header-right">
@@ -561,21 +581,22 @@ export default function SejarahBelanja() {
                       {dayNotas.map((nota) => {
                         const notaId = nota.id || nota.bulkPurchaseId;
                         const isNotaExpanded = !!expandedNotas[notaId];
-                        const isAdjustment = nota.type === "pengurangan";
+                        const kind = getNotaKind(nota);
+                        const isCorrection = kind === "correction";
 
                         return (
                           <div key={notaId} className="sb-tx-tile">
                             <div className="sb-tx-tile-header" onClick={() => toggleNotaExpand(notaId)}>
                               <div className="sb-tx-tile-info">
                                 {/* Type icon wrapper */}
-                                <div className={`sb-tx-icon ${isAdjustment ? "adjustment" : "procure"}`}>
-                                  {isAdjustment ? <FaExclamationTriangle size={15} /> : <FaTruck size={15} />}
+                                <div className={`sb-tx-icon ${kind}`}>
+                                  {isCorrection ? <FaPen size={14} /> : kind === "adjustment" ? <FaExclamationTriangle size={15} /> : <FaTruck size={15} />}
                                 </div>
                                 <div className="sb-tx-text-block">
                                   <div className="sb-tx-main-line">
                                     <span className="sb-tx-id">{notaId}</span>
-                                    <span className={`sb-tx-badge ${isAdjustment ? "adjustment" : "procure"}`}>
-                                      {isAdjustment ? "Pengurangan" : "Pengadaan"}
+                                    <span className={`sb-tx-badge ${kind}`}>
+                                      {ENTRY_LABELS[kind]}
                                     </span>
                                     <span className="sb-tx-sep">|</span>
                                     <span className="sb-tx-supplier">
@@ -596,7 +617,7 @@ export default function SejarahBelanja() {
                               <div className="sb-tx-right-block">
                                 <div className="sb-tx-price-summary">
                                   <span className="sb-tx-total-lbl">Total Nota</span>
-                                  <span className="sb-tx-total-val">{formatCurrency(getNotaTotal(nota))}</span>
+                                  <span className="sb-tx-total-val">{isCorrection ? NO_AMOUNT : formatCurrency(getNotaTotal(nota))}</span>
                                 </div>
                                 {isNotaExpanded ? <FaChevronUp /> : <FaChevronDown />}
                               </div>
@@ -625,8 +646,8 @@ export default function SejarahBelanja() {
                                           <td>{getItemCategory(item)}</td>
                                           <td>{item.unit}</td>
                                           <td>{item.quantity}</td>
-                                          <td>{formatCurrency(item.price)}</td>
-                                          <td className="font-semibold text-gray-800">{formatCurrency(item.subtotal)}</td>
+                                          <td>{isCorrection ? NO_AMOUNT : formatCurrency(item.price)}</td>
+                                          <td className="font-semibold text-gray-800">{isCorrection ? NO_AMOUNT : formatCurrency(item.subtotal)}</td>
                                         </tr>
                                       ))}
                                     </tbody>
@@ -681,12 +702,12 @@ export default function SejarahBelanja() {
                   <td>{tx.kategori}</td>
                   <td>{tx.subKategori}</td>
                   <td>
-                    <span className={`sb-tx-badge ${tx.transactionType === "pengurangan" ? "adjustment" : "procure"}`}>
-                      {tx.transactionType === "pengurangan" ? "Pengurangan" : "Pengadaan"}
+                    <span className={`sb-tx-badge ${getTxKind(tx)}`}>
+                      {ENTRY_LABELS[getTxKind(tx)]}
                     </span>
                   </td>
                   <td>{getDisplayQty(tx)}</td>
-                  <td className="font-semibold text-gray-800">{formatCurrency(tx.cost)}</td>
+                  <td className="font-semibold text-gray-800">{isStockCorrection(tx) ? NO_AMOUNT : formatCurrency(tx.cost)}</td>
                   <td>{tx.transactionVia}</td>
                   <td>
                     {tx.timestampInMillisEpoch

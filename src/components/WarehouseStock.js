@@ -8,6 +8,11 @@ import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { generateIncrementalId } from "../services/transactionHistoryService";
 import WarehouseStockModal from "./WarehouseStockModal";
+import {
+  STOCK_CORRECTION_VIA,
+  planStockCorrection,
+  summarizeMonthlyStock,
+} from "../utils/stockTransactionUtils";
 import StockDiscrepancyModal from "./StockDiscrepancies/StockDiscrepancyModal";
 import BulkPurchaseModal from "./BulkPurchaseModal";
 
@@ -302,33 +307,16 @@ export default function WarehouseStock() {
       const transactions = await queryCollection("stockTransactions_b2b");
       const stocks = await queryCollection("stocks_b2b");
 
-      let monthlyPurchase = 0;
-      let monthlySales = 0;
-      let missingStock = 0;
       let currentStockWorth = 0;
 
       stocks.forEach((item) => {
         currentStockWorth += item.stockValue || 0;
       });
 
-      transactions.forEach((item) => {
-        const txDate = item.timestampInMillisEpoch?.toDate();
-        if (txDate && txDate >= firstDay && txDate <= lastDay) {
-          switch (item.transactionType) {
-            case "pengadaan":
-              monthlyPurchase += item.cost || 0;
-              break;
-            case "penjualan":
-              monthlySales += item.price || 0;
-              break;
-            case "pengurangan":
-              missingStock += item.cost || 0;
-              break;
-            default:
-              break;
-          }
-        }
-      });
+      // Purchases, sales and missing stock. Tetapkan Stok corrections are none
+      // of these, so they are left out.
+      const { monthlyPurchase, monthlySales, missingStock } =
+        summarizeMonthlyStock(transactions, firstDay, lastDay);
 
       setSummaryData({
         monthlyPurchase,
@@ -665,9 +653,6 @@ export default function WarehouseStock() {
       }
 
       try {
-        const oldStock = prod.stock || 0;
-        const oldVal = prod.stockValue || 0;
-
         const originalQuantity = parseFloat(tempAmount);
         const originalUnit = tempSatuan;
 
@@ -676,26 +661,24 @@ export default function WarehouseStock() {
           originalUnit,
           prod
         );
-        const newVal = parseRupiah(tempCost) || 0;
 
-        const deltaStock = newStock - oldStock;
-        const deltaValue = newVal - oldVal;
+        // Tetapkan fixes a miscounted quantity. It is not a purchase or a
+        // loss, so no money is recorded; the stored value just follows the
+        // quantity at the product's unchanged unit cost.
+        const { isUnchanged, newValue, transactionType, quantity } =
+          planStockCorrection(prod, newStock);
 
-        if (deltaStock === 0 && deltaValue === 0) {
-          alert("No change in stock or value; nothing to update.");
+        if (isUnchanged) {
+          alert("No change in stock; nothing to update.");
           return;
         }
-
-        const transactionType = deltaStock >= 0 ? "pengadaan" : "pengurangan";
-        const absQty = Math.abs(deltaStock);
-        const absCost = Math.abs(deltaValue);
 
         const txDoc = {
           ...createBaseTransactionDoc(prod),
           transactionType,
-          transactionVia: "stockSetTo",
-          quantity: absQty,
-          cost: absCost,
+          transactionVia: STOCK_CORRECTION_VIA,
+          quantity,
+          cost: 0,
           originalQuantity,
           originalUnit,
           unit: prod.base_unit || prod.smallestUnit,
@@ -710,12 +693,10 @@ export default function WarehouseStock() {
         );
         await createDoc("stockTransactions_b2b", txDoc, txId);
 
-        const newCostPrice = newStock > 0 ? Math.round(newVal / newStock) : prod.cost_price;
-
+        // cost_price is the unit cost and a quantity fix doesn't change it.
         await updateDoc("stocks_b2b", selectedProductId, {
           stock: newStock,
-          stockValue: newVal,
-          cost_price: newCostPrice,
+          stockValue: newValue,
         });
 
         setProducts((prev) => ({
@@ -723,8 +704,7 @@ export default function WarehouseStock() {
           [selectedProductId]: {
             ...prev[selectedProductId],
             stock: newStock,
-            stockValue: newVal,
-            cost_price: newCostPrice,
+            stockValue: newValue,
           },
         }));
 

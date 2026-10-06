@@ -17,7 +17,11 @@ import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { generateIncrementalId } from "../services/transactionHistoryService";
-import { getUnitCost } from "../utils/profitUtils";
+import {
+  STOCK_CORRECTION_VIA,
+  planStockCorrection,
+  summarizeMonthlyStock,
+} from "../utils/stockTransactionUtils";
 import { cashflowService } from "../services/cashflowService";
 import { getLocalDateKey } from "../utils/cashflowUtils";
 import StockModal from "./StockModal";
@@ -481,9 +485,6 @@ export default function Stocks() {
       // Fetch stocks
       const stocks = await queryCollection("stocks");
 
-      let monthlyPurchase = 0;
-      let monthlySales = 0;
-      let missingStock = 0;
       let currentStockWorth = 0;
 
       // Calculate stock worth
@@ -491,26 +492,10 @@ export default function Stocks() {
         currentStockWorth += item.stockValue || 0;
       });
 
-      // Process transactions
-      transactions.forEach((item) => {
-        const txDate = item.timestampInMillisEpoch?.toDate();
-
-        if (txDate && txDate >= firstDay && txDate <= lastDay) {
-          switch (item.transactionType) {
-            case "pengadaan":
-              monthlyPurchase += item.cost || 0;
-              break;
-            case "penjualan":
-              monthlySales += item.price || 0;
-              break;
-            case "pengurangan":
-              missingStock += item.cost || 0;
-              break;
-            default:
-              break;
-          }
-        }
-      });
+      // Purchases, sales and missing stock. Tetapkan Stok corrections are none
+      // of these, so they are left out.
+      const { monthlyPurchase, monthlySales, missingStock } =
+        summarizeMonthlyStock(transactions, firstDay, lastDay);
 
       setSummaryData({
         monthlyPurchase,
@@ -1158,9 +1143,6 @@ export default function Stocks() {
       }
 
       try {
-        const oldStock = prod.stock || 0;
-        const oldVal = prod.stockValue || 0;
-
         // Parse original values before conversion
         const originalQuantity = parseRupiah(tempAmount);
         const originalUnit = tempSatuan;
@@ -1171,29 +1153,25 @@ export default function Stocks() {
           originalUnit,
           prod
         );
-        // Tetapkan only edits the quantity: value the new stock at the
-        // product's current unit cost instead of asking for a price.
-        const newVal = Math.round(newStock * getUnitCost(prod));
 
-        const deltaStock = newStock - oldStock;
-        const deltaValue = newVal - oldVal;
+        // Tetapkan fixes a miscounted quantity. It is not a purchase or a
+        // loss, so no money is recorded; the stored value just follows the
+        // quantity at the product's unchanged unit cost.
+        const { isUnchanged, newValue, transactionType, quantity } =
+          planStockCorrection(prod, newStock);
 
-        if (deltaStock === 0) {
+        if (isUnchanged) {
           alert("No change in stock; nothing to update.");
           return;
         }
-
-        const transactionType = deltaStock >= 0 ? "pengadaan" : "pengurangan";
-        const absQty = Math.abs(deltaStock);
-        const absCost = Math.abs(deltaValue);
 
         // Updated transaction document with standardized fields
         const txDoc = {
           ...createBaseTransactionDoc(prod),
           transactionType,
-          transactionVia: "stockSetTo",
-          quantity: absQty,
-          cost: absCost,
+          transactionVia: STOCK_CORRECTION_VIA,
+          quantity,
+          cost: 0,
           originalQuantity,
           originalUnit,
           unit: prod.smallestUnit,
@@ -1210,7 +1188,7 @@ export default function Stocks() {
 
         await updateDoc("stocks", selectedProductId, {
           stock: newStock,
-          stockValue: newVal,
+          stockValue: newValue,
         });
 
         setProducts((prev) => ({
@@ -1218,7 +1196,7 @@ export default function Stocks() {
           [selectedProductId]: {
             ...prev[selectedProductId],
             stock: newStock,
-            stockValue: newVal,
+            stockValue: newValue,
           },
         }));
 
