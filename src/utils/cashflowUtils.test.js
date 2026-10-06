@@ -148,6 +148,38 @@ describe("cashflow ledger rows", () => {
   });
 });
 
+describe("Pembelian Grosir expenses paid from any account", () => {
+  const opening = { cash: 1000000, qris: 200000, kredit: 90000 };
+  const purchase = (id, sourceAccount, amount) => ({
+    id,
+    date: "2026-10-03",
+    category: "Pembelian Grosir - Toko Maju",
+    amount,
+    sourceAccount,
+    addedFrom: "bulkPurchase",
+  });
+  const rows = buildCashflowRows({
+    expenses: [purchase("b1", "cash", 100000), purchase("b2", "qris", 30000), purchase("b3", "kredit", 40000)],
+    opening,
+  });
+
+  test("takes each purchase out of the account it was paid from", () => {
+    const closing = rows[rows.length - 1].balances;
+    expect(closing).toEqual({ cash: 900000, qris: 170000, kredit: 50000 });
+  });
+
+  test("shows a Kredit purchase under the Kredit filter only", () => {
+    const kreditRows = filterRowsByAccount(rows, "kredit").filter((row) => row.rowType === "expense");
+    expect(kreditRows.map((row) => row.expense.id)).toEqual(["b3"]);
+    expect(kreditRows[0].amounts).toEqual({ cash: 0, qris: 0, kredit: -40000 });
+  });
+
+  test("labels the row with the purchase description", () => {
+    const expenseRow = rows.find((row) => row.rowType === "expense");
+    expect(expenseRow.description).toBe("Pembelian Grosir - Toko Maju");
+  });
+});
+
 describe("formatting helpers", () => {
   test("masks all digits after the first", () => {
     expect(censorAmount(1250000)).toBe("Rp 1.***.***");

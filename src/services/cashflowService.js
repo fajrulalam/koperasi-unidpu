@@ -259,7 +259,7 @@ const updateDailyReportSales = async (dateKey, isProduction) => {
 // ---------------------------------------------------------------------------
 
 const addExpense = async (
-  { amount, category, sourceAccount, dateKey, addedFrom, createdBy },
+  { amount, category, sourceAccount, dateKey, addedFrom, createdBy, bulkPurchaseId },
   isProduction
 ) => {
   await addDoc(getEnvironmentCollection(EXPENSES, isProduction), {
@@ -270,6 +270,8 @@ const addExpense = async (
     month: getMonthKey(dateKey),
     addedFrom,
     createdBy,
+    // Links a Pembelian Grosir expense back to its purchase.
+    ...(bulkPurchaseId ? { bulkPurchaseId } : {}),
     createdAt: serverTimestamp(),
   });
   await syncClosingsFrom([dateKey], isProduction);

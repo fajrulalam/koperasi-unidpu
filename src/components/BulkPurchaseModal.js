@@ -6,7 +6,8 @@ import "../styles/BulkPurchaseModal.css";
 import { convertToSmallestUnit } from "../utils/transaksiUtils";
 import { useFirestore } from "../context/FirestoreContext";
 import { generateIncrementalId } from "../services/transactionHistoryService";
-
+import { ACCOUNTS, ACCOUNT_LABELS, fmtAmount, normalizeAccount } from "../utils/cashflowUtils";
+import { AccountPills } from "./cashflow/CashflowModals";
 
 // Helper function for currency formatting
 function formatRupiah(value) {
@@ -85,6 +86,11 @@ const BulkPurchaseModal = ({
   const rowsKey = isWarehouse ? "b2b_purchase_draft_rows" : "retail_purchase_draft_rows";
   const supplierKey = isWarehouse ? "b2b_purchase_draft_supplier" : "retail_purchase_draft_supplier";
   const uploadedNotaKey = isWarehouse ? "b2b_purchase_draft_uploaded_nota" : "retail_purchase_draft_uploaded_nota";
+  const accountKey = isWarehouse ? "b2b_purchase_draft_account" : "retail_purchase_draft_account";
+
+  // Unimart purchases are paid from a cashflow account and land in Finance as
+  // an expense. Warehouse (B2B) purchases and edits don't touch that ledger.
+  const tracksExpense = !isWarehouse && !isEditMode;
 
   const { queryCollection, query, where } = useFirestore();
 
@@ -159,6 +165,13 @@ const BulkPurchaseModal = ({
     }
   });
 
+  const [paymentAccount, setPaymentAccount] = useState(() => {
+    try {
+      return normalizeAccount(localStorage.getItem(accountKey));
+    } catch (e) {
+      return "cash";
+    }
+  });
 
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -524,6 +537,7 @@ const BulkPurchaseModal = ({
     }
 
     setIsSubmitting(true);
+    let expenseWarning = "";
     try {
       const validRows = rows.filter(
         (row) => row.product && row.quantity && row.subtotal
@@ -621,12 +635,35 @@ const BulkPurchaseModal = ({
         const docId = `${yyyy}-${mm}-${dd}_${uploadedNota ? uploadedNota.timestamp : Date.now()}`;
 
         await onSave("createNotaBelanja", notaDoc, docId, collectionName);
+
+        if (tracksExpense) {
+          const supplier = supplierName.trim();
+          const total = items.reduce((sum, item) => sum + item.subtotal, 0);
+          try {
+            await onSave("createExpense", {
+              amount: total,
+              category: supplier ? `Pembelian Grosir - ${supplier}` : "Pembelian Grosir",
+              sourceAccount: paymentAccount,
+              bulkPurchaseId,
+            });
+          } catch (expenseError) {
+            // The purchase is already saved. Failing the whole submit would
+            // keep the items in the table and a retry would add the stock
+            // twice, so only warn that the expense needs a manual entry.
+            console.error("Error recording purchase expense:", expenseError);
+            expenseWarning =
+              `Pembelian tersimpan, tetapi pengeluaran Rp ${fmtAmount(total)} ` +
+              `(${ACCOUNT_LABELS[paymentAccount]}) gagal dicatat di Finance. ` +
+              `Mohon catat manual di halaman Finance.`;
+          }
+        }
       }
 
       if (!isEditMode) {
         localStorage.removeItem(rowsKey);
         localStorage.removeItem(supplierKey);
         localStorage.removeItem(uploadedNotaKey);
+        localStorage.removeItem(accountKey);
 
         setRows([
           { id: 1, product: null, quantity: "", unit: "", hargaSatuan: "", subtotal: "" },
@@ -641,7 +678,12 @@ const BulkPurchaseModal = ({
         setUploadedNota(null);
         setUploadingNota(false);
         setSupplierName("");
+        setPaymentAccount("cash");
         onClose();
+        if (expenseWarning) {
+          // Let the modal close before the blocking alert appears.
+          setTimeout(() => alert(expenseWarning), 50);
+        }
       } else {
         handleClose();
       }
@@ -768,6 +810,7 @@ const BulkPurchaseModal = ({
         }
 
         setSupplierName(localStorage.getItem(supplierKey) || "");
+        setPaymentAccount(normalizeAccount(localStorage.getItem(accountKey)));
 
         const savedNota = localStorage.getItem(uploadedNotaKey);
         setUploadedNota(savedNota ? JSON.parse(savedNota) : null);
@@ -790,6 +833,12 @@ const BulkPurchaseModal = ({
       localStorage.setItem(supplierKey, supplierName);
     }
   }, [supplierName, supplierKey, isEditMode, isOpen]);
+
+  useEffect(() => {
+    if (tracksExpense && isOpen) {
+      localStorage.setItem(accountKey, paymentAccount);
+    }
+  }, [paymentAccount, accountKey, tracksExpense, isOpen]);
 
 
 
@@ -905,100 +954,116 @@ const BulkPurchaseModal = ({
           style={{ overflow: "auto", flex: 1, padding: "20px" }}
         >
           {/* Nota Upload Section */}
-          <div className="nota-upload-section">
-            <div className="nota-upload-header">
-              <h3>
-                Upload Nota dari Supplier <span className="required">*</span>
-              </h3>
-              <p>
-                Upload nota pembelian dari supplier. Nama supplier dapat diisi
-                setelah upload.
-              </p>
-            </div>
+          <div
+            className={`nota-upload-section${tracksExpense ? " nota-upload-section-split" : ""}`}
+          >
+            <div className="nota-upload-main">
+              <div className="nota-upload-header">
+                <h3>
+                  Upload Nota dari Supplier <span className="required">*</span>
+                </h3>
+                <p>
+                  Upload nota pembelian dari supplier. Nama supplier dapat diisi
+                  setelah upload.
+                </p>
+              </div>
 
-            {/* Supplier Name Input */}
-            <div className="supplier-input-container">
-              <label className="supplier-label">
-                Nama Supplier{" "}
-                {uploadedNota && <span className="required">*</span>}
-              </label>
-              <input
-                type="text"
-                className="supplier-input"
-                placeholder="Masukkan nama supplier..."
-                value={supplierName}
-                onChange={(e) => setSupplierName(e.target.value)}
-              />
-              {uploadedNota && !supplierName.trim() && (
-                <div className="supplier-warning">
-                  Nama supplier diperlukan untuk menyimpan nota yang sudah
-                  diupload
-                </div>
-              )}
-            </div>
-
-            <div className="nota-upload-container">
-              {uploadedNota ? (
-                <div className="nota-uploaded">
-                  <FaFileAlt className="nota-file-icon" />
-                  <div className="nota-file-info">
-                    <span className="nota-file-name">
-                      {uploadedNota.fileName}
-                    </span>
-                    <span className="nota-upload-status">
-                      ✅ File berhasil diupload
-                    </span>
-                    {supplierName.trim() && (
-                      <span className="nota-supplier-name">
-                        Supplier: {supplierName.trim()}
-                      </span>
-                    )}
-                  </div>
-                  <div className="nota-actions">
-                    <button
-                      className="nota-view-btn"
-                      onClick={() =>
-                        window.open(uploadedNota.downloadURL, "_blank")
-                      }
-                    >
-                      Lihat File
-                    </button>
-                    <button
-                      className="nota-remove-btn"
-                      onClick={() => setUploadedNota(null)}
-                      title="Hapus file"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <label className="nota-upload-btn">
-                  {uploadingNota ? (
-                    <>
-                      <div className="loading-spinner"></div>
-                      Mengunggah...
-                    </>
-                  ) : (
-                    <>
-                      <FaUpload />
-                      Upload Nota Supplier
-                    </>
-                  )}
-                  <input
-                    type="file"
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      if (e.target.files[0]) {
-                        handleNotaUpload(e.target.files[0]);
-                      }
-                    }}
-                    disabled={uploadingNota}
-                  />
+              {/* Supplier Name Input */}
+              <div className="supplier-input-container">
+                <label className="supplier-label">
+                  Nama Supplier{" "}
+                  {uploadedNota && <span className="required">*</span>}
                 </label>
-              )}
+                <input
+                  type="text"
+                  className="supplier-input"
+                  placeholder="Masukkan nama supplier..."
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                />
+                {uploadedNota && !supplierName.trim() && (
+                  <div className="supplier-warning">
+                    Nama supplier diperlukan untuk menyimpan nota yang sudah
+                    diupload
+                  </div>
+                )}
+              </div>
+
+              <div className="nota-upload-container">
+                {uploadedNota ? (
+                  <div className="nota-uploaded">
+                    <FaFileAlt className="nota-file-icon" />
+                    <div className="nota-file-info">
+                      <span className="nota-file-name">
+                        {uploadedNota.fileName}
+                      </span>
+                      <span className="nota-upload-status">
+                        ✅ File berhasil diupload
+                      </span>
+                      {supplierName.trim() && (
+                        <span className="nota-supplier-name">
+                          Supplier: {supplierName.trim()}
+                        </span>
+                      )}
+                    </div>
+                    <div className="nota-actions">
+                      <button
+                        className="nota-view-btn"
+                        onClick={() =>
+                          window.open(uploadedNota.downloadURL, "_blank")
+                        }
+                      >
+                        Lihat File
+                      </button>
+                      <button
+                        className="nota-remove-btn"
+                        onClick={() => setUploadedNota(null)}
+                        title="Hapus file"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="nota-upload-btn">
+                    {uploadingNota ? (
+                      <>
+                        <div className="loading-spinner"></div>
+                        Mengunggah...
+                      </>
+                    ) : (
+                      <>
+                        <FaUpload />
+                        Upload Nota Supplier
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        if (e.target.files[0]) {
+                          handleNotaUpload(e.target.files[0]);
+                        }
+                      }}
+                      disabled={uploadingNota}
+                    />
+                  </label>
+                )}
+              </div>
             </div>
+            {tracksExpense && (
+              <div className="bulk-payment-account">
+                <h3 className="bulk-payment-title">Dibayar dari</h3>
+                <AccountPills
+                  accounts={ACCOUNTS}
+                  value={paymentAccount}
+                  onChange={setPaymentAccount}
+                  disabled={isSubmitting}
+                  vertical
+                />
+              </div>
+            )}
           </div>
 
           <div className="bulk-table-container" style={{ overflow: "visible" }}>

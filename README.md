@@ -21,6 +21,8 @@ The checkout dialog records how each sale splits across the accounts (`cashAmoun
 
 The **Finance** page shows the monthly ledger per account (opening balance, sales, discrepancy, expenses, transfers, anchor adjustments, closing balance) with PDF export. Directors, Wakil Rektor 2 and Admins can edit the opening balance, confirm or correct discrepancies, anchor balances, edit expenses and record transfers such as settling Kredit into Cash. Legacy *Tutup Buku* closings can be imported once from the Finance page.
 
+**Pembelian Grosir** (Unimart stock page) has a *Dibayar dari* picker: Cash, QRIS or Kredit. Each submitted purchase is recorded as one expense for the purchase total (`addedFrom: "bulkPurchase"`, linked by `bulkPurchaseId`) and appears in the Finance ledger under the chosen account. These expenses are back-office spending, so they are not part of the cashier's end-of-day drawer count in **Laporan Harian**. Warehouse (B2B) purchases do not create expenses.
+
 Collections: `dailyFinancialReports`, `expenses`, `cashflowTransfers`, `cashflowSettings` (each with a `_testing` twin).
 
 ### 📦 Inventory & Stock Control

@@ -71,6 +71,42 @@
   border: 1px solid #e9ecef;
 }
 
+/* Unimart purchases: nota on the left half, payment account on the right */
+.nota-upload-section-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.nota-upload-main {
+  min-width: 0;
+}
+
+.bulk-payment-account {
+  min-width: 0;
+  padding-left: 24px;
+  border-left: 1px solid #dee2e6;
+}
+
+.bulk-payment-title {
+  margin: 0 0 12px 0;
+  font-size: 1.1rem;
+  color: #2c3e50;
+}
+
+@media (max-width: 768px) {
+  .nota-upload-section-split {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-payment-account {
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: none;
+    border-top: 1px solid #dee2e6;
+  }
+}
+
 .nota-upload-header h3 {
   margin: 0 0 4px 0;
   font-size: 1.1rem;
@@ -507,6 +543,7 @@
   border-radius: 8px;
   border: 1px solid #e9ecef;
 }
+
 
 .admin-fee-container {
   margin-bottom: 20px;

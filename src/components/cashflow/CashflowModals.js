@@ -77,8 +77,8 @@ export const MoneyInput = ({ value, onChange, ...props }) => (
   />
 );
 
-export const AccountPills = ({ accounts, value, onChange, disabled }) => (
-  <div className="flex gap-2">
+export const AccountPills = ({ accounts, value, onChange, disabled, vertical }) => (
+  <div className={`flex gap-2${vertical ? " flex-col" : ""}`}>
     {accounts.map((account) => (
       <button
         key={account}
@@ -223,9 +223,14 @@ export const ExpenseModal = ({
     dateKey !== expense.date ||
     sourceAccount !== expense.sourceAccount;
 
+  // Pembelian Grosir can be paid from Kredit too, so keep it selectable.
+  const isBulkPurchase = expense?.addedFrom === "bulkPurchase";
+
   const subtitle = isEdit
     ? expense.addedFrom === "pos"
       ? `Dicatat dari POS oleh ${expense.createdBy || "-"}`
+      : isBulkPurchase
+      ? `Dari Pembelian Grosir oleh ${expense.createdBy || "-"}`
       : `Dicatat dari Finance oleh ${expense.createdBy || "-"}`
     : undefined;
 
@@ -293,7 +298,7 @@ export const ExpenseModal = ({
         <div>
           <label className={LABEL_CLASS}>Sumber Dana</label>
           <AccountPills
-            accounts={MONEY_ACCOUNTS}
+            accounts={isBulkPurchase ? ACCOUNTS : MONEY_ACCOUNTS}
             value={sourceAccount}
             onChange={setSourceAccount}
           />

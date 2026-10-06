@@ -18,6 +18,8 @@ import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { generateIncrementalId } from "../services/transactionHistoryService";
 import { getUnitCost } from "../utils/profitUtils";
+import { cashflowService } from "../services/cashflowService";
+import { getLocalDateKey } from "../utils/cashflowUtils";
 import StockModal from "./StockModal";
 import BulkPurchaseModal from "./BulkPurchaseModal";
 
@@ -1975,6 +1977,20 @@ export default function Stocks() {
             }));
           } else if (action === "createNotaBelanja") {
             await createDoc(collectionName || "notaBelanja", data, id);
+          } else if (action === "createExpense") {
+            // Every Pembelian Grosir shows up in the Finance ledger as an expense.
+            await cashflowService.addExpense(
+              {
+                amount: data.amount,
+                category: data.category,
+                sourceAccount: data.sourceAccount,
+                dateKey: getLocalDateKey(),
+                addedFrom: "bulkPurchase",
+                createdBy: currentUser?.email || "unknown",
+                bulkPurchaseId: data.bulkPurchaseId,
+              },
+              isProduction
+            );
           }
         }}
         products={products}

@@ -383,6 +383,8 @@ const Finance = () => {
           ? "Dicatat dari POS"
           : item.addedFrom === "legacy"
           ? "Dari Tutup Buku lama"
+          : item.addedFrom === "bulkPurchase"
+          ? `Dari Pembelian Grosir${item.bulkPurchaseId ? ` (${item.bulkPurchaseId})` : ""}`
           : "Dicatat dari Finance";
       return (
         <RowTooltip>
