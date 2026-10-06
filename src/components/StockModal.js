@@ -1198,20 +1198,6 @@ function StockModal({
                 <span className="text-xs text-red-600 mt-1 block">{formErrors.tempAmount}</span>
               )}
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Harga Pembelian (Rp)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2 text-gray-400 text-sm">Rp</span>
-                <input
-                  type="text"
-                  value={localState.tempCost}
-                  onChange={handleCostChange}
-                  className="w-full pl-9 p-2 border border-gray-300 rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none text-sm font-medium text-gray-900"
-                  placeholder="e.g. 100.000"
-                />
-              </div>
-            </div>
           </div>
 
           <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 border-t border-gray-200">

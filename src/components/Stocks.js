@@ -17,6 +17,7 @@ import { useAuth } from "../context/AuthContext";
 import { useFirestore } from "../context/FirestoreContext";
 import { useEnvironment } from "../context/EnvironmentContext";
 import { generateIncrementalId } from "../services/transactionHistoryService";
+import { getUnitCost } from "../utils/profitUtils";
 import StockModal from "./StockModal";
 import BulkPurchaseModal from "./BulkPurchaseModal";
 
@@ -1168,13 +1169,15 @@ export default function Stocks() {
           originalUnit,
           prod
         );
-        const newVal = parseRupiah(tempCost) || 0;
+        // Tetapkan only edits the quantity: value the new stock at the
+        // product's current unit cost instead of asking for a price.
+        const newVal = Math.round(newStock * getUnitCost(prod));
 
         const deltaStock = newStock - oldStock;
         const deltaValue = newVal - oldVal;
 
-        if (deltaStock === 0 && deltaValue === 0) {
-          alert("No change in stock or value; nothing to update.");
+        if (deltaStock === 0) {
+          alert("No change in stock; nothing to update.");
           return;
         }
 
@@ -1203,11 +1206,9 @@ export default function Stocks() {
         );
         await createDoc("stockTransactions", txDoc, txId);
 
-        const lastPurchasePrice = newStock > 0 ? Math.round(newVal / newStock) : 0;
         await updateDoc("stocks", selectedProductId, {
           stock: newStock,
           stockValue: newVal,
-          lastPurchasePrice: lastPurchasePrice,
         });
 
         setProducts((prev) => ({
@@ -1216,7 +1217,6 @@ export default function Stocks() {
             ...prev[selectedProductId],
             stock: newStock,
             stockValue: newVal,
-            lastPurchasePrice: lastPurchasePrice,
           },
         }));
 
